@@ -43,8 +43,12 @@ function patchMap(owned: Set<object>, parent: Bag, key: string, patch: MapPatch<
     parent[key] = map;
     owned.add(map);
   }
-  if (patch.set) for (const k of Object.keys(patch.set)) map[k] = patch.set[k];
-  if (patch.del) for (const k of patch.del) delete map[k];
+  if (patch.set) {
+    for (const k of Object.keys(patch.set)) {
+      Object.defineProperty(map, k, { value: patch.set[k], writable: true, enumerable: true, configurable: true });
+    }
+  }
+  if (patch.del) for (const k of patch.del) if (Object.hasOwn(map, k)) Reflect.deleteProperty(map, k);
 }
 
 export function applyDelta(doc: Document, d: DeltaMsg, owned: Set<object> = new Set()): DeltaResult {
