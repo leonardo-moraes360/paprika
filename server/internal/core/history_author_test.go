@@ -62,8 +62,8 @@ func TestSelectiveUndoConflictLeavesEverythingUntouched(t *testing.T) {
 	mustApply(t, h, "agent:x", "theirs", mkUpdate("a1", "fill", "#333333"))
 	before := canon(t, h.Doc())
 	out, err := h.UndoOwn("user")
-	var ce *ConflictError
-	if !errors.As(err, &ce) || out.Done {
+	ce, isConflict := errors.AsType[*ConflictError](err)
+	if !isConflict || out.Done {
 		t.Fatalf("want conflict, got %+v %v", out, err)
 	}
 	if ce.With.Actor != "agent:x" || canon(t, h.Doc()) != before || len(h.Entries()) != 2 || len(h.RedoEntries()) != 0 {
@@ -75,8 +75,8 @@ func TestSelectiveUndoAncestorStructure(t *testing.T) {
 	h := authorHistory(t)
 	mustApply(t, h, "user", "style child", mkUpdate("a1", "fill", "#111111"))
 	mustApply(t, h, "agent:x", "delete parent", jsonv.NewObject("op", "delete", "id", "fa"))
-	var ce *ConflictError
-	if _, err := h.UndoOwn("user"); !errors.As(err, &ce) {
+	_, err := h.UndoOwn("user")
+	if _, isConflict := errors.AsType[*ConflictError](err); !isConflict {
 		t.Fatalf("want conflict, got %v", err)
 	}
 }
@@ -110,8 +110,8 @@ func TestSelectiveUndoDeleteAndMoveAndReparent(t *testing.T) {
 	}
 	mustApply(t, h, "user", "move", mkUpdate("a1", "x", 77.0))
 	mustApply(t, h, "agent:x", "same", mkUpdate("a1", "y", 5.0))
-	var ce *ConflictError
-	if _, err := h.UndoOwn("user"); !errors.As(err, &ce) {
+	_, err := h.UndoOwn("user")
+	if _, isConflict := errors.AsType[*ConflictError](err); !isConflict {
 		t.Fatalf("want conflict on the same node, got %v", err)
 	}
 }
@@ -154,9 +154,8 @@ func TestRedoBlockedByNewerStep(t *testing.T) {
 		t.Fatal(err)
 	}
 	mustApply(t, h, "agent:x", "touches", mkUpdate("a1", "fill", "#999999"))
-	var ce *ConflictError
 	out, err := h.RedoOwn("user")
-	if !errors.As(err, &ce) || out.Done || fillOf(h, "a1") != "#999999" || len(h.RedoEntries()) != 1 {
+	if _, isConflict := errors.AsType[*ConflictError](err); !isConflict || out.Done || fillOf(h, "a1") != "#999999" || len(h.RedoEntries()) != 1 {
 		t.Fatalf("want conflict: %+v %v", out, err)
 	}
 }

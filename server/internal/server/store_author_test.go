@@ -80,8 +80,7 @@ func TestStepOwnNothingToUndoAndConflictWriteNothing(t *testing.T) {
 	fill(t, s, "agent:claude", "r1", "#999999")
 	v = s.Version()
 	res, _, err = s.StepOwn("", "user", false)
-	var ce *core.ConflictError
-	if !errors.As(err, &ce) || res.Result != "conflict" || res.WithActor != "agent:claude" || s.Version() != v || fillOf(s, "r1") != "#999999" {
+	if _, isConflict := errors.AsType[*core.ConflictError](err); !isConflict || res.Result != "conflict" || res.WithActor != "agent:claude" || s.Version() != v || fillOf(s, "r1") != "#999999" {
 		t.Fatalf("%+v %v", res, err)
 	}
 	if res, _, err := s.StepAt("", "user", 424242, false); !errors.Is(err, ErrNoStep) {
@@ -164,8 +163,7 @@ func TestPersistedHistoryWithSelectiveSteps(t *testing.T) {
 			es := s.history.Entries()
 			if len(es) > 0 {
 				if _, _, err := s.StepAt("", "user", es[rng.Intn(len(es))].Ord, false); err != nil {
-					var ce *core.ConflictError
-					if !errors.As(err, &ce) {
+					if _, ok := errors.AsType[*core.ConflictError](err); !ok {
 						t.Fatal(err)
 					}
 				}
@@ -174,8 +172,7 @@ func TestPersistedHistoryWithSelectiveSteps(t *testing.T) {
 			es := s.history.RedoEntries()
 			if len(es) > 0 {
 				if _, _, err := s.StepAt("", "user", es[rng.Intn(len(es))].Ord, true); err != nil {
-					var ce *core.ConflictError
-					if !errors.As(err, &ce) {
+					if _, ok := errors.AsType[*core.ConflictError](err); !ok {
 						t.Fatal(err)
 					}
 				}
