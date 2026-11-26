@@ -20,8 +20,8 @@ Os números ficam num só arquivo, `packages/e2e/test/perf/budgets.ts`.
 
 | Orçamento | Limite | Hoje | Ticket |
 |---|---|---|---|
-| Bytes no WS por escrita de 1 prop | 2 KB | 7,23 MB | PAP-A-057 |
-| Snapshots do documento ao abrir | 1 | 2 | PAP-A-057 |
+| Bytes no WS por escrita de 1 prop | 2 KB | 608 B (exigido; eram 7,23 MB) | PAP-A-057 |
+| Snapshots do documento ao abrir | 1 | 1 (exigido; eram 2) | PAP-A-057 |
 | Tempo do servidor por escrita de 1 prop | 50 ms | 1,08 s | PAP-A-060 |
 | Tempo de script na aba numa escrita recebida | 50 ms | 2,6 s (pior caso sintético) | PAP-A-061 |
 | Quadro p95 em scroll, zoom e pan | 20 ms | cumprido (17 ms; antes 33–83 ms) | PAP-A-062 |

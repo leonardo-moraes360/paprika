@@ -60,6 +60,17 @@ func bigDoc(t *testing.T, s *Store, nodes, size int) {
 	}
 }
 
+func touchMany(t *testing.T, s *Store, n int, i int, actor string) {
+	t.Helper()
+	ops := make([]any, n)
+	for k := range n {
+		ops[k], _ = jsonv.Parse([]byte(fmt.Sprintf(`{"op":"update","id":"t%d","props":{"opacity":%v}}`, k, 0.1+float64(i%8)/10)))
+	}
+	if _, err := s.Apply(ops, actor, "w"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestSlowConsumerGetsLatestDocument(t *testing.T) {
 	s, srv := startWS(t)
 	bigDoc(t, s, 2500, 150)
@@ -72,10 +83,7 @@ func TestSlowConsumerGetsLatestDocument(t *testing.T) {
 	}
 	const writes = 120
 	for i := range writes {
-		op, _ := jsonv.Parse([]byte(fmt.Sprintf(`{"op":"update","id":"t0","props":{"opacity":%v}}`, 0.1+float64(i%8)/10)))
-		if _, err := s.Apply([]any{op}, "agent:slow", "w"); err != nil {
-			t.Fatal(err)
-		}
+		touchMany(t, s, 500, i, "agent:slow")
 	}
 	want := s.Version()
 	var last float64
@@ -85,7 +93,7 @@ func TestSlowConsumerGetsLatestDocument(t *testing.T) {
 		if err != nil {
 			t.Fatalf("consumer stuck on version %v of %d after %d frames: %v", last, want, frames, err)
 		}
-		if m.Str("type") == "doc" {
+		if m.Str("type") == "doc" || m.Str("type") == "delta" {
 			frames++
 			last = m.Num("version")
 		}
@@ -105,10 +113,7 @@ func TestNonDocMessagesKeepOrderUnderBackpressure(t *testing.T) {
 	const n = 100
 	for i := range n {
 		s.Presence.Report("a", "agent:order", fmt.Sprintf("tool%d", i), nil)
-		op, _ := jsonv.Parse([]byte(fmt.Sprintf(`{"op":"update","id":"t0","props":{"opacity":%v}}`, 0.1+float64(i%8)/10)))
-		if _, err := s.Apply([]any{op}, "agent:order", "w"); err != nil {
-			t.Fatal(err)
-		}
+		touchMany(t, s, 500, i, "agent:order")
 	}
 	next := 0
 	var last float64
@@ -127,7 +132,7 @@ func TestNonDocMessagesKeepOrderUnderBackpressure(t *testing.T) {
 				t.Fatalf("presence out of order: got %s want tool%d", got, next)
 			}
 			next++
-		case "doc":
+		case "doc", "delta":
 			last = m.Num("version")
 		}
 	}
@@ -147,10 +152,7 @@ func TestBacklogOverflowClosesConnection(t *testing.T) {
 	}
 	for i := range 150 {
 		s.Presence.Report("a", "agent:flood", fmt.Sprintf("tool%d", i), nil)
-		op, _ := jsonv.Parse([]byte(fmt.Sprintf(`{"op":"update","id":"t0","props":{"opacity":%v}}`, 0.1+float64(i%8)/10)))
-		if _, err := s.Apply([]any{op}, "agent:flood", "w"); err != nil {
-			t.Fatal(err)
-		}
+		touchMany(t, s, 500, i, "agent:flood")
 	}
 	rctx, rcancel := context.WithTimeout(ctx, 20*time.Second)
 	defer rcancel()

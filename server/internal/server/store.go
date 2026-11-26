@@ -28,6 +28,8 @@ type ChangeEvent struct {
 	Label   string
 	Kind    string
 	DocID   string
+	Base    int64
+	Delta   *docDelta
 }
 
 type AsideEvent struct {
@@ -428,8 +430,11 @@ type querier interface {
 	Exec(query string, args ...any) (sql.Result, error)
 }
 
-func writeDocument(tx querier, doc, prev *core.Document, version int64, now int64) error {
+func writeDocument(tx querier, doc, prev *core.Document, version int64, now int64, dd *docDelta) error {
 	id := doc.Str("id")
+	if dd != nil {
+		dd.begin(doc, prev)
+	}
 	roots := jsonv.Stringify(doc.Arr("rootIds"), "")
 	if _, err := tx.Exec(`INSERT INTO documents(id, format, name, root_ids, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET format = excluded.format, name = excluded.name, root_ids = excluded.root_ids,
@@ -441,28 +446,28 @@ func writeDocument(tx querier, doc, prev *core.Document, version int64, now int6
 		_, err := tx.Exec(`INSERT INTO tokens(doc_id, name, ord, value) VALUES (?, ?, ?, ?)
 			ON CONFLICT(doc_id, name) DO UPDATE SET ord = excluded.ord, value = excluded.value`, id, k, ord, jsonv.Stringify(v, ""))
 		return err
-	}, `DELETE FROM tokens WHERE doc_id = ? AND name = ?`); err != nil {
+	}, `DELETE FROM tokens WHERE doc_id = ? AND name = ?`, dd.map_("tokens")); err != nil {
 		return err
 	}
 	if err := syncRows(tx, `modes`, id, core.Modes(doc), prevObj(prev, core.Modes), func(k string, v any, ord int) error {
 		_, err := tx.Exec(`INSERT INTO modes(doc_id, name, ord, tokens) VALUES (?, ?, ?, ?)
 			ON CONFLICT(doc_id, name) DO UPDATE SET ord = excluded.ord, tokens = excluded.tokens`, id, k, ord, jsonv.Stringify(v, ""))
 		return err
-	}, `DELETE FROM modes WHERE doc_id = ? AND name = ?`); err != nil {
+	}, `DELETE FROM modes WHERE doc_id = ? AND name = ?`, dd.map_("modes")); err != nil {
 		return err
 	}
 	if err := syncRows(tx, `token_meta`, id, core.TokenMeta(doc), prevObj(prev, core.TokenMeta), func(k string, v any, ord int) error {
 		_, err := tx.Exec(`INSERT INTO token_meta(doc_id, name, ord, meta) VALUES (?, ?, ?, ?)
 			ON CONFLICT(doc_id, name) DO UPDATE SET ord = excluded.ord, meta = excluded.meta`, id, k, ord, jsonv.Stringify(v, ""))
 		return err
-	}, `DELETE FROM token_meta WHERE doc_id = ? AND name = ?`); err != nil {
+	}, `DELETE FROM token_meta WHERE doc_id = ? AND name = ?`, dd.map_("tokenMeta")); err != nil {
 		return err
 	}
 	if err := syncRows(tx, `assets`, id, core.Assets(doc), prevObj(prev, core.Assets), func(k string, v any, ord int) error {
 		_, err := tx.Exec(`INSERT INTO assets(doc_id, name, ord, src) VALUES (?, ?, ?, ?)
 			ON CONFLICT(doc_id, name) DO UPDATE SET ord = excluded.ord, src = excluded.src`, id, k, ord, v)
 		return err
-	}, `DELETE FROM assets WHERE doc_id = ? AND name = ?`); err != nil {
+	}, `DELETE FROM assets WHERE doc_id = ? AND name = ?`, dd.map_("assets")); err != nil {
 		return err
 	}
 	return syncRows(tx, `nodes`, id, core.Nodes(doc), prevObj(prev, core.Nodes), func(k string, v any, ord int) error {
@@ -472,7 +477,7 @@ func writeDocument(tx querier, doc, prev *core.Document, version int64, now int6
 			ON CONFLICT(doc_id, id) DO UPDATE SET ord = excluded.ord, parent_id = excluded.parent_id, type = excluded.type,
 			name = excluded.name, data = excluded.data`, id, k, ord, pid, n.Str("type"), n.Str("name"), jsonv.Stringify(n, ""))
 		return err
-	}, `DELETE FROM nodes WHERE doc_id = ? AND id = ?`)
+	}, `DELETE FROM nodes WHERE doc_id = ? AND id = ?`, dd.map_("nodes"))
 }
 
 func prevObj(prev *core.Document, f func(*core.Document) *jsonv.Object) *jsonv.Object {
@@ -482,18 +487,38 @@ func prevObj(prev *core.Document, f func(*core.Document) *jsonv.Object) *jsonv.O
 	return f(prev)
 }
 
-func syncRows(tx querier, _ string, docID string, cur, prev *jsonv.Object, upsert func(string, any, int) error, del string) error {
-	prevOrd := map[string]int{}
-	for i, k := range prev.Keys() {
+func syncRows(tx querier, _ string, docID string, cur, prev *jsonv.Object, upsert func(string, any, int) error, del string, md *mapDelta) error {
+	prevKeys := prev.Keys()
+	prevOrd := make(map[string]int, len(prevKeys))
+	for i, k := range prevKeys {
 		prevOrd[k] = i
 	}
+	j := 0
+	seenNew := false
 	for i, k := range cur.Keys() {
 		v, _ := cur.Get(k)
-		if po, ok := prevOrd[k]; ok && po == i {
-			pv, _ := prev.Get(k)
-			if pv == v || jsonv.Stringify(pv, "") == jsonv.Stringify(v, "") {
-				continue
+		po, inPrev := prevOrd[k]
+		same := false
+		if inPrev {
+			for j < len(prevKeys) && !cur.Has(prevKeys[j]) {
+				j++
 			}
+			if seenNew || j >= len(prevKeys) || prevKeys[j] != k {
+				if md != nil {
+					md.Reordered = true
+				}
+			}
+			j++
+			pv, _ := prev.Get(k)
+			same = pv == v || jsonv.Equal(pv, v)
+		} else {
+			seenNew = true
+		}
+		if inPrev && po == i && same {
+			continue
+		}
+		if md != nil && !same {
+			md.Set = append(md.Set, k)
 		}
 		if err := upsert(k, v, i); err != nil {
 			return err
@@ -502,8 +527,11 @@ func syncRows(tx querier, _ string, docID string, cur, prev *jsonv.Object, upser
 	if prev == nil {
 		return nil
 	}
-	for _, k := range prev.Keys() {
+	for _, k := range prevKeys {
 		if !cur.Has(k) {
+			if md != nil {
+				md.Del = append(md.Del, k)
+			}
 			if _, err := tx.Exec(del, docID, k); err != nil {
 				return err
 			}
@@ -597,7 +625,7 @@ func ImportDocument(db *sql.DB, raw []byte, replace bool) (*core.Document, error
 	case !errors.Is(err, sql.ErrNoRows):
 		return nil, err
 	}
-	if err := writeDocument(tx, doc, nil, version, time.Now().UnixMilli()); err != nil {
+	if err := writeDocument(tx, doc, nil, version, time.Now().UnixMilli(), nil); err != nil {
 		return nil, err
 	}
 	return doc, tx.Commit()
@@ -868,7 +896,7 @@ func OpenStore(path string, opts OpenOptions) (*Store, error) {
 			}
 		}
 		doc := core.CreateDocument(name, "")
-		if err := writeDocument(db, doc, nil, 0, time.Now().UnixMilli()); err != nil {
+		if err := writeDocument(db, doc, nil, 0, time.Now().UnixMilli(), nil); err != nil {
 			db.Close()
 			return nil, err
 		}
@@ -1044,28 +1072,32 @@ type WorkspaceHead struct {
 	CanRedo bool
 }
 
-func (s *Store) persistLocked(docID string, doc, prev *core.Document, version int64, undo, redo []core.HistoryEntry, step *HistoryStep) error {
+func (s *Store) persistLocked(docID string, doc, prev *core.Document, version int64, undo, redo []core.HistoryEntry, step *HistoryStep) (*docDelta, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer tx.Rollback()
-	if err := writeDocument(tx, doc, prev, version, time.Now().UnixMilli()); err != nil {
-		return err
+	dd := &docDelta{}
+	if err := writeDocument(tx, doc, prev, version, time.Now().UnixMilli(), dd); err != nil {
+		return nil, err
 	}
 	if err := writeHistory(tx, docID, undo, redo); err != nil {
-		return err
+		return nil, err
 	}
 	if step != nil {
 		if err := writeHistoryStep(tx, docID, *step); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return err
+		return nil, err
 	}
 	s.dataVersion = s.readDataVersion()
-	return nil
+	if !dd.usable() {
+		return nil, nil
+	}
+	return dd, nil
 }
 
 func writeHistoryStep(tx *sql.Tx, docID string, st HistoryStep) error {
@@ -1102,11 +1134,12 @@ func removedIDs(prev *core.Document, r *core.ApplyResult) {
 func (s *Store) commitLocked(prev *core.Document, actor, label, kind string, step *HistoryStep) ([]func(ChangeEvent), ChangeEvent, error) {
 	version := s.version + 1
 	doc := s.history.Doc()
-	if err := s.persistLocked(s.docID, doc, prev, version, s.history.Entries(), s.history.RedoEntries(), step); err != nil {
+	dd, err := s.persistLocked(s.docID, doc, prev, version, s.history.Entries(), s.history.RedoEntries(), step)
+	if err != nil {
 		return nil, ChangeEvent{}, err
 	}
 	s.version = version
-	return s.listenersLocked(), ChangeEvent{doc, version, actor, label, kind, s.docID}, nil
+	return s.listenersLocked(), ChangeEvent{doc, version, actor, label, kind, s.docID, version - 1, dd}, nil
 }
 
 func (s *Store) ensureAsideLocked(id string) (*wsLive, error) {
@@ -1203,7 +1236,8 @@ func (s *Store) ApplyIn(id string, ops []any, actor, label, batch string) (*core
 		return nil, WorkspaceHead{}, err
 	}
 	version := live.version + 1
-	if err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries(), nil); err != nil {
+	dd, err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries(), nil)
+	if err != nil {
 		restored := core.Restore(prevDoc, prevUndo, prevRedo)
 		if aside {
 			live.history = restored
@@ -1225,10 +1259,10 @@ func (s *Store) ApplyIn(id string, ops []any, actor, label, batch string) (*core
 	var ev ChangeEvent
 	if !aside {
 		ls = s.listenersLocked()
-		ev = ChangeEvent{head.Doc, version, actor, label, "apply", target}
+		ev = ChangeEvent{head.Doc, version, actor, label, "apply", target, version - 1, dd}
 	} else {
 		als = s.asideListenersLocked()
-		ev = ChangeEvent{head.Doc, version, actor, label, "apply", target}
+		ev = ChangeEvent{head.Doc, version, actor, label, "apply", target, version - 1, dd}
 	}
 	s.mu.Unlock()
 	if !aside {
@@ -1272,7 +1306,8 @@ func (s *Store) StepIn(id, actor string, redo bool) (bool, WorkspaceHead, error)
 	if what == "" {
 		what = e.Actor
 	}
-	if err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries(), &HistoryStep{kind, actor, time.Now().UnixMilli(), e.Label}); err != nil {
+	dd, err := s.persistLocked(target, live.history.Doc(), prevDoc, version, live.history.Entries(), live.history.RedoEntries(), &HistoryStep{kind, actor, time.Now().UnixMilli(), e.Label})
+	if err != nil {
 		restored := core.Restore(prevDoc, prevUndo, prevRedo)
 		if aside {
 			live.history = restored
@@ -1290,7 +1325,7 @@ func (s *Store) StepIn(id, actor string, redo bool) (bool, WorkspaceHead, error)
 	head := headOf(target, live)
 	var ls []func(ChangeEvent)
 	var als []func(AsideEvent)
-	ev := ChangeEvent{head.Doc, version, actor, prefix + ": " + what, kind, target}
+	ev := ChangeEvent{head.Doc, version, actor, prefix + ": " + what, kind, target, version - 1, dd}
 	if !aside {
 		ls = s.listenersLocked()
 	} else {
@@ -1478,7 +1513,7 @@ func (s *Store) ApplyRemote(docID, name, actor, label string, opsFor func(cur *c
 		return res, err
 	}
 	defer tx.Rollback()
-	if err := writeDocument(tx, next, prev, version+1, time.Now().UnixMilli()); err != nil {
+	if err := writeDocument(tx, next, prev, version+1, time.Now().UnixMilli(), nil); err != nil {
 		return res, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -1556,7 +1591,7 @@ func (s *Store) ReloadIfChanged() (bool, error) {
 	for _, fn := range s.listeners {
 		ls = append(ls, fn)
 	}
-	ev := ChangeEvent{s.history.Doc(), s.version, "db", "banco alterado por outro processo", "reload", s.docID}
+	ev := ChangeEvent{s.history.Doc(), s.version, "db", "banco alterado por outro processo", "reload", s.docID, 0, nil}
 	s.mu.Unlock()
 	emit(ls, ev)
 	return true, nil
@@ -1766,7 +1801,7 @@ func (s *Store) OpenWorkspace(id, actor string) (WorkspaceInfo, error) {
 	delete(s.aside, s.docID)
 	ls := s.listenersLocked()
 	doc := s.history.Doc()
-	ev := ChangeEvent{doc, s.version, actor, "abrir workspace: " + doc.Str("name"), "open", s.docID}
+	ev := ChangeEvent{doc, s.version, actor, "abrir workspace: " + doc.Str("name"), "open", s.docID, 0, nil}
 	s.mu.Unlock()
 	emit(ls, ev)
 	s.logWorkspaceOp(actor, "open", id, info.Name, nil)
@@ -1781,7 +1816,7 @@ func (s *Store) CreateWorkspace(name, actor string) (WorkspaceInfo, error) {
 	}
 	doc := core.CreateDocument(name, "")
 	now := time.Now().UnixMilli()
-	if err := writeDocument(s.db, doc, nil, 0, now); err != nil {
+	if err := writeDocument(s.db, doc, nil, 0, now, nil); err != nil {
 		return WorkspaceInfo{}, err
 	}
 	s.logWorkspaceOp(actor, "create", doc.Str("id"), name, nil)
@@ -1807,7 +1842,7 @@ func (s *Store) ImportWorkspace(input any, name, actor string) (WorkspaceInfo, e
 		return WorkspaceInfo{}, err
 	}
 	now := time.Now().UnixMilli()
-	if err := writeDocument(s.db, doc, nil, 0, now); err != nil {
+	if err := writeDocument(s.db, doc, nil, 0, now, nil); err != nil {
 		return WorkspaceInfo{}, err
 	}
 	info, err := s.workspaceInfo(id)
@@ -1854,7 +1889,7 @@ func (s *Store) RenameWorkspace(id, name, actor string) (WorkspaceInfo, error) {
 		return WorkspaceInfo{}, err
 	}
 	now := time.Now().UnixMilli()
-	if err := writeDocument(tx, r.Doc, doc, version+1, now); err != nil {
+	if err := writeDocument(tx, r.Doc, doc, version+1, now, nil); err != nil {
 		return WorkspaceInfo{}, err
 	}
 	if err := tx.Commit(); err != nil {

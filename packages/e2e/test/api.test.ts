@@ -9,7 +9,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import WebSocket from "ws";
-import type { PathNode } from "@paprika/core";
+import type { Document as Doc, PathNode } from "@paprika/core";
 import { repoRoot, startServer, waitFor, type ExternalServer } from "./harness.js";
 
 type ToolResult = { isError?: boolean; content: { type: string; text?: string; data?: string; mimeType?: string }[] };
@@ -2700,15 +2700,28 @@ describe("API: HTTP + WebSocket", () => {
 
   it("agente via MCP HTTP e canvas via WS veem as mesmas mudanças", async () => {
     const ws = new WebSocket(`${srv.url.replace("http", "ws")}/ws`, { headers: { origin: srv.url } });
-    const messages: { type: string; doc?: { nodes: Record<string, unknown> }; actor?: string; kind?: string; reqId?: string; message?: string }[] = [];
+    const messages: {
+      type: string;
+      doc?: { nodes: Record<string, unknown> };
+      nodes?: { set?: Record<string, { name?: string }>; del?: string[] };
+      version?: number;
+      base?: number;
+      actor?: string;
+      kind?: string;
+      reqId?: string;
+      message?: string;
+    }[] = [];
     ws.on("message", (m) => messages.push(JSON.parse(String(m))));
     await new Promise((ok) => ws.once("open", ok));
     await waitFor(() => messages.length > 0);
     expect(messages[0]).toMatchObject({ type: "doc", actor: "server", kind: "reload", canUndo: false, canRedo: false });
 
     await client.callTool({ name: "create_nodes", arguments: { nodes: [{ type: "rect", id: "fromAgent" }] } });
-    await waitFor(() => messages.some((m) => m.type === "doc" && !!m.doc?.nodes.fromAgent));
-    expect(messages.at(-1)?.actor).toMatch(/^agent:/);
+    await waitFor(() => messages.some((m) => m.type === "delta" && !!m.nodes?.set?.fromAgent));
+    const created = messages.find((m) => m.type === "delta")!;
+    expect(created.actor).toMatch(/^agent:/);
+    expect(created.base).toBe(created.version! - 1);
+    expect(messages.filter((m) => m.type === "doc")).toHaveLength(1);
 
     ws.send(JSON.stringify({ type: "ops", reqId: "1", ops: [{ op: "update", id: "fromAgent", props: { name: "Movido pelo humano" } }] }));
     await waitFor(() => messages.some((m) => m.type === "ack" && m.reqId === "1"));
@@ -2721,7 +2734,66 @@ describe("API: HTTP + WebSocket", () => {
 
     ws.send(JSON.stringify({ type: "undo", reqId: "3" }));
     await waitFor(() => messages.some((m) => m.type === "ack" && m.reqId === "3"));
-    expect(messages.filter((m) => m.type === "doc").at(-1)?.kind).toBe("undo");
+    const sent = messages.filter((m) => m.type === "delta");
+    expect(sent.at(-1)?.kind).toBe("undo");
+    expect(sent.at(-2)?.nodes?.set?.fromAgent?.name).toBe("Movido pelo humano");
+    expect(sent.at(-1)?.nodes?.set?.fromAgent?.name).toBe("");
+    expect(sent.every((m, i) => i === 0 || m.base === sent[i - 1]!.version)).toBe(true);
+    expect(messages.filter((m) => m.type === "doc")).toHaveLength(1);
+    ws.close();
+  });
+
+  it("WebSocket: um delta traz so o que mudou e reaplicado sobre o snapshot reproduz o documento do servidor", async () => {
+    type Patch = { set?: Record<string, unknown>; del?: string[] };
+    type Msg = { type: string; doc?: Doc; version: number; base?: number; name?: string; rootIds?: string[]; nodes?: Patch; tokens?: Patch };
+    const ws = new WebSocket(`${srv.url.replace("http", "ws")}/ws`, { headers: { origin: srv.url } });
+    const msgs: Msg[] = [];
+    let model: Doc | undefined;
+    let version = 0;
+    const raws: string[] = [];
+    ws.on("message", (m) => {
+      const raw = String(m);
+      const msg = JSON.parse(raw) as Msg;
+      if (msg.type === "doc") {
+        model = msg.doc;
+        version = msg.version;
+      } else if (msg.type === "delta") {
+        raws.push(raw);
+        expect(msg.base).toBe(version);
+        if (msg.name !== undefined) model!.name = msg.name;
+        if (msg.rootIds) model!.rootIds = msg.rootIds;
+        for (const key of ["nodes", "tokens"] as const) {
+          const p = msg[key];
+          if (!p) continue;
+          const bag = (model as unknown as Record<string, Record<string, unknown>>)[key]!;
+          const merged = new Map(Object.entries(bag));
+          for (const [k, v] of Object.entries(p.set ?? {})) merged.set(k, v);
+          for (const k of p.del ?? []) merged.delete(k);
+          (model as unknown as Record<string, unknown>)[key] = Object.fromEntries(merged);
+        }
+        version = msg.version;
+      } else return;
+      msgs.push(msg);
+    });
+    await new Promise((ok) => ws.once("open", ok));
+    await waitFor(() => model !== undefined);
+    await call(client, "create_nodes", { nodes: [{ type: "frame", id: "dl1", name: "pai" }, { type: "rect", id: "dl2" }, { type: "rect", id: "dl3" }] });
+    await waitFor(() => msgs.length >= 2);
+    const before = raws.length;
+    await call(client, "update_nodes", { updates: [{ id: "dl3", props: { opacity: 0.25 } }] });
+    await waitFor(() => raws.length === before + 1);
+    expect(raws.at(-1)!.length).toBeLessThan(2048);
+    const last = msgs.at(-1)!;
+    expect(Object.keys(last.nodes!.set!)).toEqual(["dl3"]);
+    await call(client, "delete_nodes", { ids: ["dl2"] });
+    await call(client, "undo");
+    await call(client, "undo");
+    await call(client, "redo");
+    await call(client, "set_tokens", { tokens: { "dl-color": "#112233" } });
+    const target = await srv.version();
+    await waitFor(() => version === target);
+    expect(model).toEqual(await srv.doc());
+    expect(Object.keys(model!.nodes)).toEqual(Object.keys((await srv.doc()).nodes));
     ws.close();
   });
 
@@ -2758,7 +2830,7 @@ describe("API: HTTP + WebSocket", () => {
     let frames = 0;
     ws.on("message", (m) => {
       const raw = String(m);
-      if (!raw.startsWith('{"type":"doc"')) return;
+      if (!raw.startsWith('{"type":"doc"') && !raw.startsWith('{"type":"delta"')) return;
       frames++;
       lastVersion = JSON.parse(raw).version;
     });
@@ -2766,7 +2838,9 @@ describe("API: HTTP + WebSocket", () => {
     await waitFor(() => frames > 0);
     ws.pause();
     const writes = 120;
-    for (let i = 0; i < writes; i++) await post([{ op: "update", id: "s0", props: { opacity: 0.1 + (i % 8) / 10 } }]);
+    for (let i = 0; i < writes; i++) {
+      await post(Array.from({ length: 400 }, (_, k) => ({ op: "update", id: `s${k}`, props: { opacity: 0.1 + (i % 8) / 10 } })));
+    }
     const expected = ((await (await fetch(`${srv.url}/api/health`)).json()) as { version?: number }).version;
     ws.resume();
     await waitFor(() => lastVersion === (expected ?? lastVersion) && lastVersion > 0, 20_000);
@@ -3059,7 +3133,9 @@ describe("API: HTTP + WebSocket", () => {
     const docs: { id?: string; kind?: string }[] = [];
     ws.on("message", (m) => {
       const msg = JSON.parse(String(m)) as { type: string; kind?: string; doc?: { id: string } };
-      if (msg.type === "doc") docs.push({ id: msg.doc?.id, kind: msg.kind });
+      const d = msg as { type: string; kind?: string; doc?: { id: string }; id?: string };
+      if (d.type === "doc") docs.push({ id: d.doc?.id, kind: d.kind });
+      else if (d.type === "delta") docs.push({ id: d.id, kind: d.kind });
     });
     await new Promise((ok) => ws.once("open", ok));
     await waitFor(() => docs.length > 0);

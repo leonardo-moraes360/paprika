@@ -288,14 +288,16 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			"kind", kind, "canUndo", canUndo, "canRedo", canRedo), "")
 	}
 	unsubscribe := store.OnChange(func(e ChangeEvent) {
-		hub.broadcastDoc(func(v string) bool { return v == "" || v == e.DocID }, func() (string, string, int64) {
-			return docMessage(e.Doc, e.Version, e.Actor, e.Label, e.Kind, store.CanUndo(), store.CanRedo()), e.DocID, e.Version
-		})
+		hub.broadcastEvent(func(v string) bool { return v == "" || v == e.DocID }, e,
+			func() (bool, bool) { return store.CanUndo(), store.CanRedo() },
+			func() string {
+				return docMessage(e.Doc, e.Version, e.Actor, e.Label, e.Kind, store.CanUndo(), store.CanRedo())
+			})
 	})
 	unsubscribeAside := store.OnAside(func(e AsideEvent) {
-		hub.broadcastDoc(func(v string) bool { return v == e.DocID }, func() (string, string, int64) {
-			return docMessage(e.Doc, e.Version, e.Actor, e.Label, e.Kind, e.CanUndo, e.CanRedo), e.DocID, e.Version
-		})
+		hub.broadcastEvent(func(v string) bool { return v == e.DocID }, e.ChangeEvent,
+			func() (bool, bool) { return e.CanUndo, e.CanRedo },
+			func() string { return docMessage(e.Doc, e.Version, e.Actor, e.Label, e.Kind, e.CanUndo, e.CanRedo) })
 	})
 
 	stopOps := broadcastWorkspaceOps(store, hub)
@@ -880,10 +882,16 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 			out.push(m)
 		}
 	}
-	initial := time.AfterFunc(wsInitialWait, func() {
+	var viewing atomic.Bool
+	sendInitial := func() {
 		if out.docEmpty() {
 			doc, version, cu, cr := store.Snapshot()
 			out.pushDoc(docMessage(doc, version, "server", "", "reload", cu, cr), doc.Str("id"), version)
+		}
+	}
+	initial := time.AfterFunc(wsInitialWait, func() {
+		if !viewing.Load() {
+			sendInitial()
 		}
 		out.release()
 	})
@@ -902,6 +910,7 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 		}
 	}()
 	reply := func(o *jsonv.Object) { out.push(jsonv.Stringify(o, "")) }
+	firstView := true
 	for {
 		_, data, err := conn.Read(ctx)
 		if err != nil {
@@ -944,6 +953,7 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 			reply(hello)
 			continue
 		case "view":
+			viewing.Store(true)
 			id := msg.Str("workspaceId")
 			var head WorkspaceHead
 			if id != "" {
@@ -951,6 +961,8 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 					if errors.Is(err, ErrNoWorkspace) {
 						err = store.WorkspaceChoiceError(id)
 					}
+					viewing.Store(false)
+					sendInitial()
 					fail(err.Error())
 					continue
 				}
@@ -969,12 +981,17 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 			if id == "" {
 				d, head.Version, cu, cr = store.Snapshot()
 			} else if head, err = store.ReadWorkspace(id); err != nil {
+				viewing.Store(false)
+				sendInitial()
 				fail(err.Error())
 				continue
 			} else {
 				d, cu, cr = head.Doc, head.CanUndo, head.CanRedo
 			}
-			out.pushDoc(docMessage(d, head.Version, "server", "", "reload", cu, cr), d.Str("id"), head.Version)
+			if !(firstView && out.hasDoc(d.Str("id"), head.Version)) {
+				out.pushDoc(docMessage(d, head.Version, "server", "", "reload", cu, cr), d.Str("id"), head.Version)
+			}
+			firstView = false
 			out.release()
 			if hasReq {
 				reply(jsonv.NewObject("type", "ack", "reqId", reqID, "version", float64(head.Version)))

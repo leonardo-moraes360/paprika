@@ -75,7 +75,7 @@ import { ConnectorLabelEditor } from "./ConnectorLabelEditor";
 import { AgentCursors, type Box } from "./AgentCursors";
 import { BuildCode } from "./BuildCode";
 import { PinLayer } from "./Pins";
-import { ViewStore, ViewStoreContext, useViewValue, viewTransform, type View } from "./viewStore";
+import { ViewStore, ViewStoreContext, useViewValue, type View } from "./viewStore";
 import { RenderIndexer } from "./renderIndex";
 import { useT } from "./i18n";
 import { cn } from "./lib/cn";

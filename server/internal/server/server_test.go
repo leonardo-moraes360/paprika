@@ -726,7 +726,7 @@ func TestWebSocketSync(t *testing.T) {
 		t.Fatalf("first message: %s", jsonv.Stringify(m, ""))
 	}
 	c.Write(ctx, websocket.MessageText, []byte(`{"type":"ops","reqId":"r1","label":"mover","ops":[{"op":"create","node":{"type":"rect","id":"w"}}]}`))
-	if m := read(); m.Str("type") != "doc" || m.Str("actor") != "user" || m.Str("label") != "mover" {
+	if m := read(); m.Str("type") != "delta" || m.Num("base") != 0 || m.Num("version") != 1 || m.Str("actor") != "user" || m.Str("label") != "mover" {
 		t.Fatalf("broadcast: %s", jsonv.Stringify(m, ""))
 	}
 	if m := read(); m.Str("type") != "ack" || m.Str("reqId") != "r1" {

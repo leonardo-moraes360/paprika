@@ -20,8 +20,8 @@ export const BUDGETS: Record<string, Budget> = {
     unit: "bytes",
     kind: "exact",
     limit: 2 * 1024,
-    today: "7.23 MB",
-    enforce: false,
+    today: "608 B (one-prop write)",
+    enforce: true,
     ticket: "PAP-A-057",
   },
   wsSnapshotsOnOpen: {
@@ -31,8 +31,8 @@ export const BUDGETS: Record<string, Budget> = {
     unit: "count",
     kind: "exact",
     limit: 1,
-    today: "2",
-    enforce: false,
+    today: "1",
+    enforce: true,
     ticket: "PAP-A-057",
   },
   serverWriteMs: {
