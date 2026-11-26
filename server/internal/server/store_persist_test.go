@@ -1,6 +1,7 @@
 package server
 
 import (
+	"strings"
 	"fmt"
 	"math/rand"
 	"path/filepath"
@@ -93,7 +94,7 @@ func sameHistory(t *testing.T, s *Store, step int) {
 		}
 		for i := range c.mem {
 			d, m := c.disk[i], c.mem[i]
-			if d.Actor != m.Actor || d.Label != m.Label || d.At != m.At || jsonv.Stringify(d.Ops, "") != jsonv.Stringify(m.Ops, "") || jsonv.Stringify(d.Inverse, "") != jsonv.Stringify(m.Inverse, "") {
+			if d.Actor != m.Actor || d.Label != m.Label || d.At != m.At || d.Ord != m.Ord || d.Mark != m.Mark || d.By != m.By || d.Wide != m.Wide || strings.Join(d.Keys, ",") != strings.Join(m.Keys, ",") || jsonv.Stringify(d.Ops, "") != jsonv.Stringify(m.Ops, "") || jsonv.Stringify(d.Inverse, "") != jsonv.Stringify(m.Inverse, "") {
 				t.Fatalf("step %d: %s entry %d differs on disk", step, c.name, i)
 			}
 		}

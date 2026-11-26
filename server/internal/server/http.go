@@ -180,8 +180,10 @@ var clientMessage = z.DiscriminatedUnion("type",
 		z.Field{Name: "label", Schema: z.Optional(z.String().Max(200))},
 		z.Field{Name: "reqId", Schema: z.Optional(z.String())},
 	)),
-	z.Option("undo", z.Object(z.Field{Name: "type", Schema: z.Literal("undo")}, z.Field{Name: "reqId", Schema: z.Optional(z.String())})),
-	z.Option("redo", z.Object(z.Field{Name: "type", Schema: z.Literal("redo")}, z.Field{Name: "reqId", Schema: z.Optional(z.String())})),
+	z.Option("undo", z.Object(z.Field{Name: "type", Schema: z.Literal("undo")}, z.Field{Name: "reqId", Schema: z.Optional(z.String())},
+		z.Field{Name: "mode", Schema: z.Optional(z.Enum("own", "step"))}, z.Field{Name: "step", Schema: z.Optional(z.Int())})),
+	z.Option("redo", z.Object(z.Field{Name: "type", Schema: z.Literal("redo")}, z.Field{Name: "reqId", Schema: z.Optional(z.String())},
+		z.Field{Name: "mode", Schema: z.Optional(z.Enum("own", "step"))}, z.Field{Name: "step", Schema: z.Optional(z.Int())})),
 	z.Option("view", z.Object(
 		z.Field{Name: "type", Schema: z.Literal("view")},
 		z.Field{Name: "workspaceId", Schema: z.Optional(z.String().Max(64))},
@@ -600,6 +602,23 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			send(c.Writer, 200, jsonv.NewObject("folder", jsonv.FromGo(folder)), "")
 		}
 	})
+	engine.Any("/api/workspaces/:id/history", func(c *gin.Context) {
+		if c.Request.Method != http.MethodGet {
+			send(c.Writer, 405, errBody("method not allowed"), "")
+			return
+		}
+		id := c.Param("id")
+		panel, err := store.HistoryPanel(id)
+		if errors.Is(err, ErrNoWorkspace) {
+			send(c.Writer, 404, errBody(`workspace "`+id+`" does not exist`), "")
+			return
+		}
+		if err != nil {
+			send(c.Writer, 500, errBody(err.Error()), "")
+			return
+		}
+		send(c.Writer, 200, jsonv.FromGo(panel), "")
+	})
 	engine.Any("/api/workspaces/:id/archive", func(c *gin.Context) { postWorkspace(c, store, store.ArchiveWorkspace) })
 	engine.Any("/api/workspaces/:id/unarchive", func(c *gin.Context) { postWorkspace(c, store, store.UnarchiveWorkspace) })
 	engine.Any("/api/workspaces/:id/open", func(c *gin.Context) {
@@ -1002,7 +1021,27 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 			view := hub.view[conn]
 			hub.mu.Unlock()
 			var version int64
+			var stepRes *StepResult
 			switch {
+			case msg.Has("mode") && msg.Str("type") != "ops":
+				var head WorkspaceHead
+				var res StepResult
+				redo := msg.Str("type") == "redo"
+				if msg.Str("mode") == "own" {
+					res, head, err = store.StepOwn(view, "user", redo)
+				} else if !msg.Has("step") {
+					fail("step is required for mode step")
+					continue
+				} else {
+					res, head, err = store.StepAt(view, "user", int64(msg.Num("step")), redo)
+				}
+				if _, isConflict := errors.AsType[*core.ConflictError](err); isConflict {
+					err = nil
+				}
+				if errors.Is(err, ErrNoStep) {
+					res, err = StepResult{Result: "missing"}, nil
+				}
+				stepRes, version = &res, head.Version
 			case view == "" && msg.Str("type") == "ops":
 				_, err = store.Apply(msg.Arr("ops"), "user", msg.Str("label"))
 				version = store.Version()
@@ -1026,7 +1065,11 @@ func serveWS(ctx context.Context, conn *websocket.Conn, store *Store, hub *wsHub
 				continue
 			}
 			if hasReq {
-				reply(jsonv.NewObject("type", "ack", "reqId", reqID, "version", float64(version)))
+				ack := jsonv.NewObject("type", "ack", "reqId", reqID, "version", float64(version))
+				if stepRes != nil {
+					ack.Set("step", jsonv.FromGo(stepRes))
+				}
+				reply(ack)
 			}
 		}
 	}

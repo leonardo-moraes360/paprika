@@ -1,6 +1,7 @@
 package server
 
 import (
+	"cmp"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
@@ -129,6 +130,7 @@ CREATE TABLE IF NOT EXISTS history (
   ops     TEXT NOT NULL,              -- JSON array of the original ops
   inverse TEXT NOT NULL,              -- JSON array of the ops that revert them
   at      INTEGER NOT NULL,           -- Unix ms
+  meta    TEXT NOT NULL DEFAULT '',   -- JSON: ord, mark, by, keys, wide (see historyMeta)
   PRIMARY KEY (doc_id, stack, seq)
 );
 CREATE TABLE IF NOT EXISTS covers (
@@ -188,6 +190,14 @@ func migrateDB(db *sql.DB) error {
 		return err
 	}
 	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('history') WHERE name = 'meta'`).Scan(&n); err != nil {
+		return err
+	}
+	if n == 0 {
+		if _, err := db.Exec(`ALTER TABLE history ADD COLUMN meta TEXT NOT NULL DEFAULT ''`); err != nil {
+			return err
+		}
+	}
 	if err := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('documents') WHERE name = 'archived'`).Scan(&n); err != nil {
 		return err
 	}
@@ -683,15 +693,15 @@ func syncRows(tx querier, _ string, docID string, cur, prev *jsonv.Object, dbOrd
 }
 
 func loadHistory(q querier, docID string) (undo, redo []core.HistoryEntry, err error) {
-	rows, err := q.Query(`SELECT stack, actor, label, ops, inverse, at FROM history WHERE doc_id = ? ORDER BY stack, seq`, docID)
+	rows, err := q.Query(`SELECT stack, actor, label, ops, inverse, at, meta FROM history WHERE doc_id = ? ORDER BY stack, seq`, docID)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var stack, actor, label, ops, inv string
+		var stack, actor, label, ops, inv, meta string
 		var at int64
-		if err := rows.Scan(&stack, &actor, &label, &ops, &inv, &at); err != nil {
+		if err := rows.Scan(&stack, &actor, &label, &ops, &inv, &at, &meta); err != nil {
 			return nil, nil, err
 		}
 		o, err := jsonv.Parse([]byte(ops))
@@ -703,6 +713,7 @@ func loadHistory(q querier, docID string) (undo, redo []core.HistoryEntry, err e
 			return nil, nil, err
 		}
 		e := core.HistoryEntry{Actor: actor, Label: label, Ops: o.([]any), Inverse: i.([]any), At: at}
+		parseHistoryMeta(meta, &e)
 		if stack == "undo" {
 			undo = append(undo, e)
 		} else {
@@ -729,8 +740,8 @@ func writeHistory(tx querier, docID string, undo, redo []core.HistoryEntry) erro
 
 func insertHistory(tx querier, docID, stack string, entries []core.HistoryEntry, first int) error {
 	for i, e := range entries {
-		if _, err := tx.Exec(`INSERT OR REPLACE INTO history(doc_id, stack, seq, actor, label, ops, inverse, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			docID, stack, first+i, e.Actor, e.Label, jsonv.Stringify(e.Ops, ""), jsonv.Stringify(e.Inverse, ""), e.At); err != nil {
+		if _, err := tx.Exec(`INSERT OR REPLACE INTO history(doc_id, stack, seq, actor, label, ops, inverse, at, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			docID, stack, first+i, e.Actor, e.Label, jsonv.Stringify(e.Ops, ""), jsonv.Stringify(e.Inverse, ""), e.At, historyMetaJSON(e)); err != nil {
 			return err
 		}
 	}
@@ -743,8 +754,36 @@ type historyMirror struct {
 	nextOrd            int
 }
 
+type historyMeta struct {
+	Ord  int64    `json:"o,omitempty"`
+	Mark int64    `json:"m,omitempty"`
+	By   string   `json:"b,omitempty"`
+	Keys []string `json:"k,omitempty"`
+	Wide bool     `json:"w,omitempty"`
+}
+
+func historyMetaJSON(e core.HistoryEntry) string {
+	b, err := json.Marshal(historyMeta{e.Ord, e.Mark, e.By, e.Keys, e.Wide})
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+func parseHistoryMeta(raw string, e *core.HistoryEntry) {
+	if raw == "" {
+		return
+	}
+	var m historyMeta
+	if err := json.Unmarshal([]byte(raw), &m); err != nil {
+		return
+	}
+	e.Ord, e.Mark, e.By, e.Keys, e.Wide = m.Ord, m.Mark, m.By, m.Keys, m.Wide
+}
+
 func sameEntry(a, b core.HistoryEntry) bool {
 	return a.At == b.At && a.Actor == b.Actor && a.Label == b.Label && a.Batch == b.Batch &&
+		a.Ord == b.Ord && a.Mark == b.Mark && a.By == b.By && a.Wide == b.Wide && len(a.Keys) == len(b.Keys) &&
 		len(a.Ops) == len(b.Ops) && len(a.Inverse) == len(b.Inverse) &&
 		(len(a.Ops) == 0 || &a.Ops[0] == &b.Ops[0]) && (len(a.Inverse) == 0 || &a.Inverse[0] == &b.Inverse[0])
 }
@@ -1537,12 +1576,60 @@ func (s *Store) ApplyIn(id string, ops []any, actor, label, batch string) (*core
 	return r, head, nil
 }
 
+type StepResult struct {
+	Result    string `json:"result"`
+	Ord       int64  `json:"ord"`
+	Label     string `json:"label"`
+	Actor     string `json:"actor"`
+	Newer     int    `json:"newer"`
+	WithActor string `json:"withActor"`
+	WithLabel string `json:"withLabel"`
+}
+
 func (s *Store) StepIn(id, actor string, redo bool) (bool, WorkspaceHead, error) {
+	res, head, err := s.stepWith(id, actor, redo, func(h *core.History) (core.Outcome, error) {
+		var e core.HistoryEntry
+		var ok bool
+		var err error
+		if redo {
+			e, ok, err = h.RedoBy(actor)
+		} else {
+			e, ok, err = h.UndoBy(actor)
+		}
+		return core.Outcome{Entry: e, Done: ok}, err
+	})
+	if err != nil {
+		return false, head, err
+	}
+	return res.Result == "undone" || res.Result == "redone", head, nil
+}
+
+func (s *Store) StepOwn(id, actor string, redo bool) (StepResult, WorkspaceHead, error) {
+	return s.stepWith(id, actor, redo, func(h *core.History) (core.Outcome, error) {
+		if redo {
+			return h.RedoOwn(actor)
+		}
+		return h.UndoOwn(actor)
+	})
+}
+
+func (s *Store) StepAt(id, actor string, ord int64, redo bool) (StepResult, WorkspaceHead, error) {
+	return s.stepWith(id, actor, redo, func(h *core.History) (core.Outcome, error) {
+		if redo {
+			return h.RedoStep(ord, actor)
+		}
+		return h.UndoStep(ord, actor)
+	})
+}
+
+var ErrNoStep = core.ErrNoStep
+
+func (s *Store) stepWith(id, actor string, redo bool, run func(h *core.History) (core.Outcome, error)) (StepResult, WorkspaceHead, error) {
 	s.mu.Lock()
 	live, aside, err := s.liveLocked(id)
 	if err != nil {
 		s.mu.Unlock()
-		return false, WorkspaceHead{}, err
+		return StepResult{}, WorkspaceHead{}, err
 	}
 	target := s.docID
 	if aside {
@@ -1551,20 +1638,28 @@ func (s *Store) StepIn(id, actor string, redo bool) (bool, WorkspaceHead, error)
 	prevDoc := live.history.Doc()
 	prevUndo := append([]core.HistoryEntry(nil), live.history.Entries()...)
 	prevRedo := append([]core.HistoryEntry(nil), live.history.RedoEntries()...)
-	var e core.HistoryEntry
-	var ok bool
-	kind, prefix := "undo", "desfazer"
+	kind, prefix, done := "undo", "desfazer", "undone"
 	if redo {
-		kind, prefix = "redo", "refazer"
-		e, ok, err = live.history.Redo()
-	} else {
-		e, ok, err = live.history.Undo()
+		kind, prefix, done = "redo", "refazer", "redone"
 	}
-	if err != nil || !ok {
+	out, err := run(live.history)
+	var ce *core.ConflictError
+	if errors.As(err, &ce) {
 		head := headOf(target, live)
 		s.mu.Unlock()
-		return false, head, err
+		return StepResult{Result: "conflict", Ord: ce.Step.Ord, Label: ce.Step.Label, Actor: ce.Step.Actor, WithActor: ce.With.Actor, WithLabel: ce.With.Label}, head, err
 	}
+	if err != nil {
+		head := headOf(target, live)
+		s.mu.Unlock()
+		return StepResult{}, head, err
+	}
+	if !out.Done {
+		head := headOf(target, live)
+		s.mu.Unlock()
+		return StepResult{Result: "nothing", Actor: out.Last.Actor, Label: out.Last.Label, Ord: out.Last.Ord}, head, nil
+	}
+	e := out.Entry
 	version := live.version + 1
 	what := e.Label
 	if what == "" {
@@ -1579,7 +1674,7 @@ func (s *Store) StepIn(id, actor string, redo bool) (bool, WorkspaceHead, error)
 			s.history = restored
 		}
 		s.mu.Unlock()
-		return false, WorkspaceHead{}, fmt.Errorf("falha ao gravar no banco: %w", err)
+		return StepResult{}, WorkspaceHead{}, fmt.Errorf("falha ao gravar no banco: %w", err)
 	}
 	live.version = version
 	if !aside {
@@ -1601,7 +1696,67 @@ func (s *Store) StepIn(id, actor string, redo bool) (bool, WorkspaceHead, error)
 	} else {
 		emitAside(als, AsideEvent{ev, head.CanUndo, head.CanRedo})
 	}
-	return true, head, nil
+	return StepResult{Result: done, Ord: e.Ord, Label: e.Label, Actor: e.Actor, Newer: out.Newer}, head, nil
+}
+
+type PanelStep struct {
+	ID       int64    `json:"id"`
+	Actor    string   `json:"actor"`
+	Label    string   `json:"label"`
+	At       int64    `json:"at"`
+	Ops      int      `json:"ops"`
+	Undone   bool     `json:"undone"`
+	UndoneBy string   `json:"undoneBy,omitempty"`
+	NodeIDs  []string `json:"nodeIds"`
+}
+
+type HistoryPanelView struct {
+	Version int64       `json:"version"`
+	Steps   []PanelStep `json:"steps"`
+	CanUndo bool        `json:"canUndo"`
+	CanRedo bool        `json:"canRedo"`
+}
+
+const panelNodeCap = 200
+
+func (s *Store) HistoryPanel(id string) (HistoryPanelView, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	live, _, err := s.liveLocked(id)
+	if err != nil {
+		return HistoryPanelView{}, err
+	}
+	doc := live.history.Doc()
+	nodes := core.Nodes(doc)
+	step := func(e core.HistoryEntry, undone bool) PanelStep {
+		ids := []string{}
+		for _, k := range e.Keys {
+			if nid, ok := strings.CutPrefix(k, "n:"); ok && nodes.Has(nid) {
+				ids = append(ids, nid)
+				if len(ids) == panelNodeCap {
+					break
+				}
+			}
+		}
+		st := PanelStep{ID: e.Ord, Actor: e.Actor, Label: e.Label, At: e.At, Ops: len(e.Ops), Undone: undone, NodeIDs: ids}
+		if undone {
+			st.UndoneBy = e.By
+		}
+		return st
+	}
+	undo, redo := live.history.Entries(), live.history.RedoEntries()
+	steps := make([]PanelStep, 0, len(undo)+len(redo))
+	for _, e := range undo {
+		steps = append(steps, step(e, false))
+	}
+	for _, e := range redo {
+		steps = append(steps, step(e, true))
+	}
+	slices.SortFunc(steps, func(a, b PanelStep) int { return cmp.Compare(a.ID, b.ID) })
+	if len(steps) > maxHistorySteps {
+		steps = steps[len(steps)-maxHistorySteps:]
+	}
+	return HistoryPanelView{Version: live.version, Steps: steps, CanUndo: live.history.CanUndo(), CanRedo: live.history.CanRedo()}, nil
 }
 
 func summaries(entries []core.HistoryEntry, limit int) []HistorySummary {
