@@ -1,4 +1,5 @@
 import { agentsEn } from "./frontends/agents";
+import { pinsEn } from "./frontends/pins";
 export const en = {
   home: {
     title: "Paprika",
@@ -29,6 +30,7 @@ export const en = {
   },
   frontends: {
     agents: agentsEn,
+    pins: pinsEn,
     editorLayout: {
       left: {
         region: "Layers panel",

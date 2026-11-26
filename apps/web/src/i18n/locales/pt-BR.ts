@@ -1,4 +1,5 @@
 import { agentsPtBR } from "./frontends/agents";
+import { pinsPtBR } from "./frontends/pins";
 import type { Translation } from "../resources";
 
 export const ptBR: Translation = {
@@ -31,6 +32,7 @@ export const ptBR: Translation = {
   },
   frontends: {
     agents: agentsPtBR,
+    pins: pinsPtBR,
     editorLayout: {
       left: {
         region: "Painel de camadas",
