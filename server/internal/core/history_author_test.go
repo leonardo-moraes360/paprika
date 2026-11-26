@@ -267,3 +267,29 @@ func TestRestoreAssignsOrdersAndFootprints(t *testing.T) {
 		t.Fatalf("%+v %v", out, err)
 	}
 }
+
+func TestLinearRedoChainOnOneNode(t *testing.T) {
+	for _, actors := range [][]string{{"user", "user", "user"}, {"user", "agent:x", "user"}} {
+		h := authorHistory(t)
+		start := canon(t, h.Doc())
+		for i, a := range actors {
+			mustApply(t, h, a, fmt.Sprint(i), mkUpdate("a1", "fill", fmt.Sprintf("#00000%d", i+1)))
+		}
+		for range actors {
+			if _, ok, err := h.UndoBy("user"); err != nil || !ok {
+				t.Fatalf("undo: %v", err)
+			}
+		}
+		if canon(t, h.Doc()) != start {
+			t.Fatal("not back at the start")
+		}
+		for range actors {
+			if _, ok, err := h.RedoBy("user"); err != nil || !ok {
+				t.Fatalf("redo: %v", err)
+			}
+		}
+		if fillOf(h, "a1") != "#000003" {
+			t.Fatalf("fill %s", fillOf(h, "a1"))
+		}
+	}
+}
