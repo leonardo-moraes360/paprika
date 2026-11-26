@@ -186,6 +186,24 @@ export type Messages = {
   renameLayerHint: string;
   layerMenu: string;
   convertToPath: string;
+  contentSection: string;
+  contentHorizontal: string;
+  contentVertical: string;
+  contentLeft: string;
+  contentCenterH: string;
+  contentRight: string;
+  contentTop: string;
+  contentMiddle: string;
+  contentBottom: string;
+  contentCenterButton: string;
+  contentCenterLabel: string;
+  contentAlignLabel: string;
+  contentCenterMenu: string;
+  contentEmptyHint: string;
+  contentOne: (kind: string, name: string, state: string) => string;
+  contentMany: (n: number, kinds: string, state: string) => string;
+  contentKind: (kind: "text" | "icon" | "image" | "other", n: number) => string;
+  contentState: (state: "manual" | "aligned" | "centered", x: number | null, y: number | null) => string;
   zoomIn: string;
   zoomOut: string;
   zoomFit: string;
@@ -640,6 +658,26 @@ const en: Messages = {
   renameLayerHint: "Double-click or F2 to rename",
   layerMenu: "Layers under the cursor",
   convertToPath: "Convert to path",
+  contentSection: "Content",
+  contentHorizontal: "Horizontal",
+  contentVertical: "Vertical",
+  contentLeft: "Left",
+  contentCenterH: "Center",
+  contentRight: "Right",
+  contentTop: "Top",
+  contentMiddle: "Middle",
+  contentBottom: "Bottom",
+  contentCenterButton: "Center",
+  contentCenterLabel: "center content",
+  contentAlignLabel: "align content",
+  contentCenterMenu: "Center content",
+  contentEmptyHint: "Add a text or icon to align",
+  contentOne: (kind, name, state) => `1 child: ${kind}${name ? ` “${name}”` : ""}, ${state}`,
+  contentMany: (n, kinds, state) => `${n} children: ${kinds}, ${state}`,
+  contentKind: (kind, n) =>
+    ({ text: n === 1 ? "text" : "texts", icon: n === 1 ? "icon" : "icons", image: n === 1 ? "image" : "images", other: n === 1 ? "element" : "elements" })[kind] ?? "",
+  contentState: (state, x, y) =>
+    state === "centered" ? "centered" : state === "aligned" ? "aligned" : x === null || y === null ? "manual position" : `manual position (${x}, ${y})`,
   zoomIn: "Zoom in",
   zoomOut: "Zoom out",
   zoomFit: "Fit",
@@ -1089,6 +1127,26 @@ const pt: Messages = {
   renameLayerHint: "Duplo clique ou F2 para renomear",
   layerMenu: "Camadas sob o cursor",
   convertToPath: "Converter em caminho",
+  contentSection: "Conteúdo",
+  contentHorizontal: "Horizontal",
+  contentVertical: "Vertical",
+  contentLeft: "Esquerda",
+  contentCenterH: "Centro",
+  contentRight: "Direita",
+  contentTop: "Topo",
+  contentMiddle: "Meio",
+  contentBottom: "Base",
+  contentCenterButton: "Centralizar",
+  contentCenterLabel: "centralizar conteúdo",
+  contentAlignLabel: "alinhar conteúdo",
+  contentCenterMenu: "Centralizar conteúdo",
+  contentEmptyHint: "Adicione um texto ou ícone para alinhar",
+  contentOne: (kind, name, state) => `1 filho: ${kind}${name ? ` “${name}”` : ""}, ${state}`,
+  contentMany: (n, kinds, state) => `${n} filhos: ${kinds}, ${state}`,
+  contentKind: (kind, n) =>
+    ({ text: n === 1 ? "texto" : "textos", icon: n === 1 ? "ícone" : "ícones", image: n === 1 ? "imagem" : "imagens", other: n === 1 ? "elemento" : "elementos" })[kind] ?? "",
+  contentState: (state, x, y) =>
+    state === "centered" ? "centralizado" : state === "aligned" ? "alinhado" : x === null || y === null ? "posição manual" : `posição manual (${x}, ${y})`,
   zoomIn: "Aumentar zoom",
   zoomOut: "Diminuir zoom",
   zoomFit: "Enquadrar",

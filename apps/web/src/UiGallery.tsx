@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Check, ChevronDown, Copy, Trash2 } from "lucide-react";
+import { AlignCenterVertical, AlignEndVertical, AlignStartVertical, Check, ChevronDown, Copy, Trash2 } from "lucide-react";
 import { cn } from "./lib/cn";
 import { Button } from "./components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./components/ui/card";
@@ -38,6 +38,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "./components/ui/alert-dialog";
+import { IconToggleGroup, type IconToggleItem } from "./components/ui/icon-toggle-group";
+import { KeyHint } from "./components/ui/kbd";
 import { StatusLiveRegion } from "./components/ui/status";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -49,9 +51,18 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+type Side = "left" | "center" | "right";
+
+const SIDES: IconToggleItem<Side>[] = [
+  { value: "left", label: "Esquerda", icon: AlignStartVertical },
+  { value: "center", label: "Centro", icon: AlignCenterVertical },
+  { value: "right", label: "Direita", icon: AlignEndVertical },
+];
+
 function GalleryBody({ light }: { light: boolean }) {
   const [layers, setLayers] = useState(true);
   const [opacity, setOpacity] = useState<number[]>([0.6]);
+  const [side, setSide] = useState<Side | null>("center");
   const scope = light ? "ui-light" : undefined;
 
   return (
@@ -148,6 +159,23 @@ function GalleryBody({ light }: { light: boolean }) {
         <span className="text-xs text-ui-muted-foreground">{opacity[0]?.toFixed(1)}</span>
         <Separator className="w-8" />
         <Separator orientation="vertical" className="h-6" />
+      </Section>
+
+      <Section title="Alternador de ícones e atalho">
+        <IconToggleGroup
+          label="Alinhamento horizontal"
+          value={side}
+          onValueChange={(v: Side) => setSide(v)}
+          items={SIDES}
+        />
+        <IconToggleGroup
+          label="Alinhamento desabilitado"
+          value={null}
+          disabled
+          onValueChange={(v: Side) => setSide(v)}
+          items={SIDES}
+        />
+        <KeyHint keys={["Alt", "C"]} />
       </Section>
 
       <Section title="Abas e seção recolhível">

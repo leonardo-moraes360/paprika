@@ -3,23 +3,36 @@ import {
   AlignHorizontalJustifyCenter,
   AlignHorizontalJustifyEnd,
   AlignHorizontalJustifyStart,
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
   AlignHorizontalSpaceBetween,
+  AlignStartHorizontal,
+  AlignStartVertical,
   AlignVerticalJustifyCenter,
   AlignVerticalJustifyEnd,
   AlignVerticalJustifyStart,
   AlignVerticalSpaceBetween,
   Bot,
   Frame,
+  Info,
   Link2,
   Unlink,
   type LucideIcon,
 } from "lucide-react";
 import {
+  alignContentOps,
   alignOps,
+  centerContentOps,
+  contentAxes,
+  contentSummary,
+  contentTarget,
   copyOwner,
   distributeOps,
   groupOps,
   ignoresLayout,
+  isContentCentered,
   isInstance,
   isRootFrame,
   newId,
@@ -32,6 +45,8 @@ import {
   type ConnectorNode,
   type Document,
   type FrameNode,
+  type HorizontalAlign,
+  type VerticalAlign,
   type GroupNode,
   type Node,
   type Op,
@@ -48,6 +63,8 @@ import { GradientField } from "./inspector/gradient";
 import { InspectorSection } from "./inspector/InspectorSection";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
+import { IconToggleGroup, type IconToggleItem } from "./components/ui/icon-toggle-group";
+import { KeyHint } from "./components/ui/kbd";
 import { Hint } from "./components/ui/tooltip";
 import { useT } from "./i18n";
 import { cn } from "./lib/cn";
@@ -171,6 +188,97 @@ const ALIGN_EDGES: { edge: AlignEdge; labelKey: "alignLeft" | "alignCenter" | "a
   { edge: "middle", labelKey: "alignMiddle", icon: AlignVerticalJustifyCenter },
   { edge: "bottom", labelKey: "alignBottom", icon: AlignVerticalJustifyEnd },
 ];
+
+function ContentSection({ doc, node, apply }: { doc: Document; node: Node; apply: Props["apply"] }) {
+  const m = useT();
+  const target = contentTarget(doc, node);
+  if (!target) return null;
+  const frame = target.kind === "frame" ? target.frame : null;
+  const axes = frame ? contentAxes(frame) : { horizontal: null, vertical: null };
+  const centered = frame ? isContentCentered(frame) : false;
+  const horizontal: IconToggleItem<HorizontalAlign>[] = [
+    { value: "left", label: m.contentLeft, icon: AlignStartVertical },
+    { value: "center", label: m.contentCenterH, icon: AlignCenterVertical },
+    { value: "right", label: m.contentRight, icon: AlignEndVertical },
+  ];
+  const vertical: IconToggleItem<VerticalAlign>[] = [
+    { value: "top", label: m.contentTop, icon: AlignStartHorizontal },
+    { value: "middle", label: m.contentMiddle, icon: AlignCenterHorizontal },
+    { value: "bottom", label: m.contentBottom, icon: AlignEndHorizontal },
+  ];
+  let summary = "";
+  if (frame) {
+    const s = contentSummary(doc, frame);
+    const state = centered ? "centered" : axes.horizontal || axes.vertical ? "aligned" : "manual";
+    summary = s.only
+      ? m.contentOne(m.contentKind(s.only.kind, 1), s.only.label, m.contentState(state, s.only.x, s.only.y))
+      : m.contentMany(
+          s.count,
+          (["text", "icon", "image", "other"] as const)
+            .filter((k) => s.kinds[k] > 0)
+            .map((k) => `${s.kinds[k]} ${m.contentKind(k, s.kinds[k])}`)
+            .join(", "),
+          m.contentState(state, null, null),
+        );
+  }
+  return (
+    <InspectorSection id="content" title={m.contentSection} defaultOpen>
+      <div className="grid gap-2" data-testid="content-section">
+        {frame && (
+          <p className={cn(ui.muted, "m-0 text-xs")} data-testid="content-summary">
+            {summary}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          <div className="grid gap-1">
+            <span className="text-xs font-semibold text-ui-muted-foreground">{m.contentHorizontal}</span>
+            <IconToggleGroup
+              label={m.contentHorizontal}
+              items={horizontal}
+              value={axes.horizontal}
+              disabled={!frame}
+              testId="content-horizontal"
+              onValueChange={(v) => frame && apply(alignContentOps(doc, frame.id, { horizontal: v }), m.contentAlignLabel)}
+            />
+          </div>
+          <div className="grid gap-1">
+            <span className="text-xs font-semibold text-ui-muted-foreground">{m.contentVertical}</span>
+            <IconToggleGroup
+              label={m.contentVertical}
+              items={vertical}
+              value={axes.vertical}
+              disabled={!frame}
+              testId="content-vertical"
+              onValueChange={(v) => frame && apply(alignContentOps(doc, frame.id, { vertical: v }), m.contentAlignLabel)}
+            />
+          </div>
+        </div>
+        {frame ? (
+          <div className="flex items-center justify-between gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="focus-visible:outline-solid"
+              data-testid="content-center"
+              onClick={() => {
+                if (!centered) apply(centerContentOps(doc, [frame.id]).ops, m.contentCenterLabel);
+              }}
+            >
+              {m.contentCenterButton}
+            </Button>
+            <KeyHint keys={["Alt", "C"]} />
+          </div>
+        ) : (
+          <p className={cn(ui.muted, "m-0 flex items-center gap-1.5 text-xs")} data-testid="content-empty">
+            <Info className="size-3.5 shrink-0" aria-hidden />
+            {m.contentEmptyHint}
+          </p>
+        )}
+      </div>
+    </InspectorSection>
+  );
+}
 
 function AlignSection({ ids, doc, apply, onError }: { ids: string[]; doc: Document; apply: Props["apply"]; onError: Props["onError"] }) {
   const m = useT();
@@ -548,6 +656,7 @@ export function Inspector(props: Props) {
           <ConstraintsFields doc={doc} node={node} set={set} />
         </div>
       </InspectorSection>
+      <ContentSection doc={doc} node={node} apply={apply} />
       <InspectorSection id="appearance" title="Preenchimento e traço">
         <div className={ui.grid}>
           <GradientField doc={doc} node={node} mode={themeMode} onChange={(props) => set(props)} />

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Bot, Circle, Cloud, Crosshair, Cylinder, Diamond, Frame, MousePointer2, MoveUpRight, PenTool, RectangleHorizontal, Square, StickyNote, Triangle, Type, type LucideIcon } from "lucide-react";
-import { firstPage, groupOps, isContainer, isScene, newId, ungroupOps, wrapOps, type ConnectorEnd, type Document, type NodeInput, type Op } from "@paprika/core";
+import { centerContentOps, firstPage, groupOps, isContainer, isScene, newId, ungroupOps, wrapOps, type ConnectorEnd, type Document, type NodeInput, type Op } from "@paprika/core";
 import { Canvas, type Tool } from "./Canvas";
 import { Inspector } from "./Inspector";
 import { InviteDialog, JoinDialog, KeysDialog, TeamChip, TeamPanel } from "./Team";
@@ -247,6 +247,12 @@ function Editor() {
         }
         return;
       }
+      if (e.altKey && !mod && !e.shiftKey && e.code === "KeyC") {
+        e.preventDefault();
+        const { ops } = centerContentOps(doc, selected);
+        if (ops.length) live.apply(ops, m.contentCenterLabel);
+        return;
+      }
       if (mod && key === "d" && nodes.length) {
         e.preventDefault();
         const ops: Op[] = [];
@@ -298,6 +304,7 @@ function Editor() {
         return;
       }
       if (nodes.length && e.key.startsWith("Arrow")) {
+        if (t.closest?.('[role="radiogroup"]')) return;
         e.preventDefault();
         const step = e.shiftKey ? 10 : 1;
         const d = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[e.key] ?? [0, 0];
@@ -314,7 +321,7 @@ function Editor() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [doc, selected, pageId, live.apply, live.showError]);
+  }, [doc, selected, pageId, m, live.apply, live.showError]);
 
   if (!doc) {
     return (

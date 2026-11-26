@@ -163,6 +163,42 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
     expect(errors).toEqual([]);
   });
 
+  it("conteúdo centralizado numa forma (layout centro/centro) fica igual no DOM e no WASM", async () => {
+    await agent.callTool({
+      name: "create_nodes",
+      arguments: {
+        nodes: [
+          {
+            type: "frame",
+            id: "centered",
+            name: "centered",
+            x: 0,
+            y: 620,
+            width: 220,
+            height: 90,
+            radius: 12,
+            fill: "#cc3322",
+            layout: { mode: "row", gap: 0, padding: 0, align: "center", justify: "center" },
+            children: [
+              { type: "text", id: "centered-label", text: "Começar", color: "#ffffff", fontSize: 22, fontWeight: 700 },
+              { type: "rect", id: "centered-dot", width: 14, height: 14, radius: 7, fill: "#ffffff" },
+            ],
+          },
+        ],
+      },
+    });
+    await open("dom");
+    await page.waitForSelector('[data-paprika-id="centered"]');
+    const dom = await shot();
+    await open("wasm");
+    await page.waitForSelector('[data-paprika-id="centered"]');
+    const wasm = await shot();
+    const ratio = await diffRatio(page, dom, wasm);
+    await agent.callTool({ name: "delete_nodes", arguments: { ids: ["centered"] } });
+    expect(ratio).toBeLessThan(0.005);
+    expect(errors).toEqual([]);
+  });
+
   it("render_screenshot renderer wasm captura o que a camada WASM pinta", async () => {
     await open("dom");
     const dom = await page.locator('[data-paprika-id="board"]').screenshot();

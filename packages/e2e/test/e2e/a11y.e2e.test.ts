@@ -103,6 +103,30 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
     await page.keyboard.press("Control+z");
   });
 
+  it("a seção Conteúdo do painel tem grupos nomeados, a dica de atalho e o foco visível (4.1.2, 2.4.7)", async () => {
+    await page.locator('[data-layer-id="login"]').click();
+    const section = page.getByTestId("content-section");
+    await section.waitFor({ state: "visible" });
+    await expect(section.getByRole("radiogroup", { name: "Horizontal" }).count()).resolves.toBe(1);
+    await expect(section.getByRole("radiogroup", { name: "Vertical" }).count()).resolves.toBe(1);
+    await expect(section.getByRole("radio").count()).resolves.toBe(6);
+    await expect(section.getByRole("button", { name: "Centralizar" }).count()).resolves.toBe(1);
+    await expect(section.locator("kbd").allInnerTexts()).resolves.toEqual(["Alt", "C"]);
+    const hint = await section.locator("kbd").first().evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor] as const);
+    expect(contrastRatio(hint[0], hint[1])).toBeGreaterThanOrEqual(4.5);
+    await section.getByRole("button", { name: "Centralizar" }).focus();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Shift+Tab");
+    const ring = await page.evaluate(() => {
+      const a = document.activeElement!;
+      const cs = getComputedStyle(a);
+      return { inGroup: !!a.closest("[role=radiogroup]"), visible: a.matches(":focus-visible"), style: cs.outlineStyle, width: parseFloat(cs.outlineWidth) };
+    });
+    expect(ring).toMatchObject({ inGroup: true, visible: true });
+    expect(ring.style).not.toBe("none");
+    await page.keyboard.press("Escape");
+  });
+
   it("asides têm nomes e a página tem um h1 com o nome do workspace", async () => {
     await expect(page.getByRole("complementary", { name: "Páginas e camadas" }).count()).resolves.toBe(1);
     await expect(page.getByRole("complementary", { name: "Propriedades" }).count()).resolves.toBe(1);
@@ -247,6 +271,38 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
 
     const triggerIn = (panel: "dark" | "light", text: string) =>
       gal.locator(`[data-panel=${panel}] button`).filter({ hasText: text }).first();
+
+    it("o alternador de ícones tem nome, foco visível e contraste nos dois temas (4.1.2, 2.4.7, 1.4.11)", async () => {
+      for (const panel of ["dark", "light"] as const) {
+        const group = gal.locator(`[data-panel=${panel}] [role=radiogroup][aria-label="Alinhamento horizontal"]`);
+        await expect(group.count()).resolves.toBe(1);
+        await expect(group.getByRole("radio").evaluateAll((els) => els.map((el) => el.getAttribute("aria-label")))).resolves.toEqual(["Esquerda", "Centro", "Direita"]);
+        const active = group.getByRole("radio", { name: "Centro" });
+        await expect(active.getAttribute("aria-checked")).resolves.toBe("true");
+        const colors = await active.evaluate((el) => {
+          const cs = getComputedStyle(el);
+          return [cs.color, cs.backgroundColor, getComputedStyle(el.parentElement!).backgroundColor] as const;
+        });
+        expect(contrastRatio(colors[0], colors[1])).toBeGreaterThanOrEqual(3);
+        const idle = await group.getByRole("radio", { name: "Esquerda" }).evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el.parentElement!).backgroundColor] as const);
+        expect(contrastRatio(idle[0], idle[1])).toBeGreaterThanOrEqual(3);
+        const disabled = gal.locator(`[data-panel=${panel}] [role=radiogroup][aria-label="Alinhamento desabilitado"]`);
+        await expect(disabled.getByRole("radio").first().isDisabled()).resolves.toBe(true);
+        const hint = await gal.locator(`[data-panel=${panel}] kbd`).first().evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor] as const);
+        expect(contrastRatio(hint[0], hint[1])).toBeGreaterThanOrEqual(4.5);
+      }
+      await gal.locator("[data-panel=dark] [role=radiogroup][aria-label='Alinhamento horizontal'] [role=radio]").first().focus();
+      await gal.keyboard.press("Shift+Tab");
+      await gal.keyboard.press("Tab");
+      const ring = await gal.evaluate(() => {
+        const a = document.activeElement!;
+        const cs = getComputedStyle(a);
+        return { visible: a.matches(":focus-visible"), style: cs.outlineStyle, width: parseFloat(cs.outlineWidth) };
+      });
+      expect(ring.visible).toBe(true);
+      expect(ring.style).not.toBe("none");
+      expect(ring.width).toBeGreaterThan(0);
+    });
 
     it("o botão primário passa de 4,5:1 nos dois temas (1.4.3)", async () => {
       for (const panel of ["dark", "light"] as const) {
