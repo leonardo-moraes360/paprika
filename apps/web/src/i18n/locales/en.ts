@@ -1,3 +1,4 @@
+import { historyPanelEn } from "./frontends/historyPanel";
 import { teamEn } from "./frontends/team";
 import { agentsEn } from "./frontends/agents";
 import { pinsEn } from "./frontends/pins";
@@ -33,6 +34,7 @@ export const en = {
     agents: agentsEn,
     pins: pinsEn,
     team: teamEn,
+    historyPanel: historyPanelEn,
     editorLayout: {
       left: {
         region: "Layers panel",

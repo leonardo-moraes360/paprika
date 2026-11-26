@@ -1,3 +1,4 @@
+import { historyPanelPtBR } from "./frontends/historyPanel";
 import { teamPtBR } from "./frontends/team";
 import { agentsPtBR } from "./frontends/agents";
 import { pinsPtBR } from "./frontends/pins";
@@ -35,6 +36,7 @@ export const ptBR: Translation = {
     agents: agentsPtBR,
     pins: pinsPtBR,
     team: teamPtBR,
+    historyPanel: historyPanelPtBR,
     editorLayout: {
       left: {
         region: "Painel de camadas",
