@@ -222,3 +222,6 @@
     font-family: var(--font-sans);
   }
 }
+
+@custom-variant hover (&:is(:hover, [data-force-hover]));
+@custom-variant focus-visible (&:is(:focus-visible, [data-force-focus]));
