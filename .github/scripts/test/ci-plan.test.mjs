@@ -147,8 +147,14 @@ describe("each area selects its jobs", () => {
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
   });
 
-  it("apps/web triggers the same jobs as web-legacy", () => {
-    assert.deepEqual(plan(["apps/web/src/routes/index.tsx"]), plan(["web-legacy/src/Canvas.tsx"]));
+  it("apps/web only triggers the TS build and analysis, with no e2e and no docker", () => {
+    const p = plan(["apps/web/src/routes/index.tsx"]);
+    assert.equal(p.ts, true);
+    assert.equal(p.build, true);
+    assert.equal(p.docker, false);
+    assert.equal(p.suites, false);
+    assert.deepEqual(JSON.parse(p.suites_matrix), []);
+    assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
   });
 
   it("the e2e fixtures run the black-box suites", () => {
