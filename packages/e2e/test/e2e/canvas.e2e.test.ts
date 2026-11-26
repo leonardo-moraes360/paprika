@@ -7,6 +7,7 @@ import { chromium, type Browser, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { connectorMidpoint, copyId, type Document, type FrameNode } from "@paprika/core";
+import { revealLayer } from "./seededCanvas.js";
 import { pinLocale } from "./locale.js";
 import { startServer, type ExternalServer } from "../harness.js";
 
@@ -896,6 +897,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => bg("tema1")).toBe("rgb(20, 22, 31)");
     await expect.poll(() => fg("tema1t")).toBe("rgb(242, 242, 242)");
 
+    await revealLayer(page, "tema0");
     await page.locator('[data-layer-id="tema0"]').click();
     await page.getByLabel("Modo de tema").click();
     await page.getByRole("option", { name: "escuro", exact: true }).click();
@@ -912,6 +914,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   it("renomear no lugar: duplo clique na camada ou no título do frame, Enter confirma, Esc cancela, Ctrl+Z desfaz", async () => {
     await page.keyboard.press("Escape");
     const name = async (id: string) => (await doc()).nodes[id]?.name;
+    await revealLayer(page, "tema0t");
     const layerName = page.locator('[data-layer-id="tema0t"] .layer-name');
     await layerName.dblclick();
     const layerInput = page.getByLabel("Nome da camada");
@@ -922,6 +925,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const hist = (await agent.callTool({ name: "get_history", arguments: {} })) as { content: { text: string }[] };
     expect(JSON.parse(hist.content[0]!.text).at(-1)).toMatchObject({ actor: "user", label: "renomear camada" });
 
+    await revealLayer(page, "tema0t");
     await page.locator('[data-layer-id="tema0t"] .layer-name').dblclick();
     await page.getByLabel("Nome da camada").fill("Descartado");
     await page.getByLabel("Nome da camada").press("Escape");
@@ -1989,6 +1993,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
       },
     });
     expect(made.isError, JSON.stringify(made.content)).toBeFalsy();
+    await revealLayer(page, "b087");
     await page.locator('[data-layer-id="b087"] .layer-name').click();
     const web = page.getByTestId("inspector-section-frame-web");
     await web.getByRole("button", { name: "Web" }).click();

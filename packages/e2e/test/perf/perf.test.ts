@@ -224,14 +224,16 @@ describe("perf: worst-case document", () => {
       await page.mouse.move(x, y);
       await page.mouse.down();
       const ms: number[] = [];
-      for (let i = 0; i < 5; i++) {
-        const t = performance.now();
-        await page.mouse.move(x + (i + 1) * 6, y);
-        await raf2();
-        ms.push(performance.now() - t);
-      }
+      const cost = await cdpDelta(page, async () => {
+        for (let i = 0; i < 5; i++) {
+          const t = performance.now();
+          await page.mouse.move(x + (i + 1) * 6, y);
+          await raf2();
+          ms.push(performance.now() - t);
+        }
+      });
       await page.mouse.up();
-      return median(ms);
+      return { ms: median(ms), cost };
     };
 
     const canvasMetrics = async (page: Page, srv: ExternalServer, textId: string) => {
@@ -283,7 +285,7 @@ describe("perf: worst-case document", () => {
       heavyMetrics = await canvasMetrics(heavyPage, heavy, plainTextId);
       notes.browser = { small: smallMetrics, heavy: heavyMetrics };
       const rs = [record("wsSnapshotsOnOpen", opened), record("frameP95Ms", heavyMetrics.frameP95, smallMetrics.frameP95), record("tabWriteScriptMs", heavyMetrics.writeCost!.scriptMs, smallMetrics.writeCost!.scriptMs)];
-      if (heavyMetrics.resize !== null && smallMetrics.resize !== null) rs.push(record("panelResizeStepMs", heavyMetrics.resize, smallMetrics.resize));
+      if (heavyMetrics.resize !== null && smallMetrics.resize !== null) rs.push(record("panelResizeStepMs", heavyMetrics.resize.ms, smallMetrics.resize.ms));
       assertWithinBudgets(rs);
     }, 420_000);
 

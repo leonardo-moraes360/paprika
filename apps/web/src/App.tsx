@@ -375,7 +375,7 @@ function Editor() {
           <ConnectionStatus connected={live.connected} />
         </div>
       </header>
-      <aside aria-label={m.pagesAndLayers} className={cn("left overflow-auto border-r border-ui-border bg-ui-card [grid-area:left] max-wide:hidden", leftPanel.collapsed && "hidden")}>
+      <aside aria-label={m.pagesAndLayers} className={cn("left contain-layout contain-paint overflow-auto border-r border-ui-border bg-ui-card [grid-area:left] max-wide:hidden", leftPanel.collapsed && "hidden")}>
         <Pages doc={doc} pageId={pageId} onOpen={openPage} apply={live.apply} />
         <Layers doc={doc} pageId={pageId} selected={selected} onSelect={setSelected} apply={live.apply} />
       </aside>
@@ -418,7 +418,7 @@ function Editor() {
         <WorkspaceNotice />
       </main>
       <PanelResizer side="right" label={m.propsPanelWidth} panel={rightPanel} limits={RIGHT_PANEL} />
-      <aside aria-label={m.properties} className={cn("right overflow-auto border-l border-ui-border bg-ui-card [grid-area:right] max-wide:border-t max-wide:border-l-0", rightPanel.collapsed && "hidden")}>
+      <aside aria-label={m.properties} className={cn("right contain-layout contain-paint overflow-auto border-l border-ui-border bg-ui-card [grid-area:right] max-wide:border-t max-wide:border-l-0", rightPanel.collapsed && "hidden")}>
         {live.team !== undefined && (
           <Tabs
             value={rightTab}

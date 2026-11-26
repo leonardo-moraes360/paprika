@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { flushSync } from "react-dom";
 import { PanelLeftOpen, PanelRightOpen } from "lucide-react";
 import { Button } from "./components/ui/button";
@@ -114,27 +114,46 @@ export function PanelResizer({
   limits: PanelLimits;
 }) {
   const { width, setWidth: onChange, setCollapsed } = panel;
-  const drag = useRef<{ x: number; w: number; last: number } | null>(null);
+  const drag = useRef<{ x: number; w: number; last: number; grid: HTMLElement; bar: HTMLElement } | null>(null);
+  const frame = useRef(0);
   const [active, setActive] = useState(false);
   const dir = side === "left" ? 1 : -1;
+  const cssVar = `--${side}-w`;
+
+  const paint = () => {
+    frame.current = 0;
+    const d = drag.current;
+    if (!d) return;
+    const w = clamp(d.last, limits);
+    d.grid.style.setProperty(cssVar, `${w}px`);
+    d.bar.setAttribute("aria-valuenow", String(w));
+  };
+  const cancelPaint = () => {
+    if (frame.current) cancelAnimationFrame(frame.current);
+    frame.current = 0;
+  };
+  useEffect(() => cancelPaint, []);
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { x: e.clientX, w: width, last: width };
+    const grid = e.currentTarget.parentElement;
+    if (!grid) return;
+    drag.current = { x: e.clientX, w: width, last: width, grid, bar: e.currentTarget };
     setActive(true);
   };
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     const d = drag.current;
     if (!d) return;
     d.last = d.w + (e.clientX - d.x) * dir;
-    onChange(d.last, false);
+    if (!frame.current) frame.current = requestAnimationFrame(paint);
   };
   const end = () => {
     const d = drag.current;
     if (!d) return;
     drag.current = null;
+    cancelPaint();
     setActive(false);
     if (d.last < limits.min - COLLAPSE_SLACK) {
       onChange(d.w);

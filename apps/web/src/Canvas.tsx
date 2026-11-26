@@ -2530,7 +2530,7 @@ export function Canvas({ doc, selected, onSelect, pageId, tool, onToolDone, appl
     <div
       ref={viewportRef}
       className={cx(
-        "viewport absolute inset-0 touch-none overflow-hidden bg-canvas bg-[radial-gradient(rgba(0,0,0,0.09)_1px,transparent_1px)] bg-size-[20px_20px] scheme-light",
+        "viewport absolute inset-0 contain-layout contain-paint touch-none overflow-hidden bg-canvas bg-[radial-gradient(rgba(0,0,0,0.09)_1px,transparent_1px)] bg-size-[20px_20px] scheme-light",
         CROSSHAIR.has(tool) && "cursor-crosshair",
         pan === "ready" && "is-pan-ready cursor-grab! **:cursor-grab!",
         pan === "panning" && "is-panning cursor-grabbing! **:cursor-grabbing!",

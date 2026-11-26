@@ -51,3 +51,24 @@ export async function callTool(client: Client, name: string, args: Record<string
   if (result.isError) throw new Error(result.content.map((part) => part.text ?? "").join("\n"));
   return result;
 }
+
+export async function revealLayer(page: Page, id: string) {
+  const row = page.locator(`[data-layer-id="${id}"]`);
+  if ((await row.count()) > 0) return;
+  const handle = await page.locator('[role="tree"]').first().evaluateHandle((tree) => {
+    let el: HTMLElement | null = tree.parentElement;
+    while (el && !["auto", "scroll"].includes(getComputedStyle(el).overflowY)) el = el.parentElement;
+    return el!;
+  });
+  await handle.evaluate((el) => (el.scrollTop = 0));
+  for (let i = 0; i < 400; i++) {
+    await page.waitForTimeout(40);
+    if ((await row.count()) > 0) return;
+    const more = await handle.evaluate((el) => {
+      const before = el.scrollTop;
+      el.scrollTop += el.clientHeight - 60;
+      return el.scrollTop > before;
+    });
+    if (!more) break;
+  }
+}
