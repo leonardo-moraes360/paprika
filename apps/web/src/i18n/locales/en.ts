@@ -1,3 +1,5 @@
+import { fontPickerEn } from "./frontends/fontPicker";
+
 export const en = {
   home: {
     title: "Paprika",
@@ -27,6 +29,7 @@ export const en = {
     "pt-BR": "Português (Brasil)",
   },
   frontends: {
+    fontPicker: fontPickerEn,
     editorLayout: {
       left: {
         region: "Layers panel",

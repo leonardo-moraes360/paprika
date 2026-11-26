@@ -1,4 +1,5 @@
 import type { Translation } from "../resources";
+import { fontPickerPtBR } from "./frontends/fontPicker";
 
 export const ptBR: Translation = {
   home: {
@@ -29,6 +30,7 @@ export const ptBR: Translation = {
     "pt-BR": "Português (Brasil)",
   },
   frontends: {
+    fontPicker: fontPickerPtBR,
     editorLayout: {
       left: {
         region: "Painel de camadas",
