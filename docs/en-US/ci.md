@@ -37,7 +37,7 @@ Go jobs install the latest patch of the minor in `GO_VERSION` (top of `ci.yml`),
 Selection works at three levels:
 
 1. **Per area** ([`ci-plan.mjs`](../../.github/scripts/ci-plan.mjs)): a job is skipped when its area did not change (table above).
-2. **Per TS test file**: when only one package changed, its unit job runs `vitest --changed <base-sha>`, which runs just the test files whose import graph reaches a changed file. When a package's *dependency* changed, the dependent runs all of its tests, because vitest cannot follow a change through the dependency's built `dist/` (today only `@paprika/core` has `--changed` runs). `@paprika/web` (`apps/web`) always runs all its tests, because its architecture test reads source files that no test imports.
+2. **Per TS test file**: when only one package changed, its unit job runs `vitest --changed <base-sha>`, which runs just the test files whose import graph reaches a changed file. When a package's *dependency* changed, the dependent runs all of its tests, because vitest cannot follow a change through the dependency's built `dist/` (today only `@paprika/core` has `--changed` runs). `@paprika/web` (`apps/web`) always runs all its tests, because its architecture test reads source files that no test imports, and it also runs when only `packages/core` changed, because it depends on it.
 3. **Per Go package** ([`go-affected.sh`](../../.github/scripts/go-affected.sh)): the packages whose files changed (a `testdata/` file belongs to its package) plus every package that imports them, tests included. A change to `go.mod`/`go.sum` selects all packages.
 
 See what CI would run for your branch:

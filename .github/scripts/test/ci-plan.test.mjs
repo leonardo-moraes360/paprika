@@ -110,13 +110,16 @@ describe("docs-only changes run only Plan and CI OK", () => {
 });
 
 describe("each area selects its jobs", () => {
-  it("packages/core runs its unit tests and both suites", () => {
+  it("packages/core runs its unit tests, the unit tests of the app that depends on it, and both suites", () => {
     const p = plan(["packages/core/src/ops.ts", "packages/core/src/schema.ts"]);
     assert.equal(p.full, false);
     assert.equal(p.ts, true);
     assert.equal(p.build, true);
     assert.equal(p.golden, true, "the Go fixtures come from the TS core");
-    assert.deepEqual(JSON.parse(p.unit_matrix), [{ pkg: "@paprika/core", mode: "changed" }]);
+    assert.deepEqual(JSON.parse(p.unit_matrix), [
+      { pkg: "@paprika/core", mode: "changed" },
+      { pkg: "@paprika/web", mode: "all" },
+    ]);
     assert.equal(p.suites, true);
     assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }, { suite: "api" }]);
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
@@ -271,7 +274,10 @@ describe("a mixed change unions every touched area", () => {
   it("core + server + docs keeps the full flags of both areas", () => {
     const p = plan(["packages/core/src/style.ts", "docs/en-US/adr/0002.md", "server/internal/server/routes.go"]);
     assert.equal(p.full, false);
-    assert.deepEqual(JSON.parse(p.unit_matrix), [{ pkg: "@paprika/core", mode: "changed" }]);
+    assert.deepEqual(JSON.parse(p.unit_matrix), [
+      { pkg: "@paprika/core", mode: "changed" },
+      { pkg: "@paprika/web", mode: "all" },
+    ]);
     assert.equal(JSON.parse(p.suites_matrix).length, 2);
     assert.equal(p.golden, true);
     assert.equal(p.go, true);

@@ -46,7 +46,7 @@ export function planFor(files, { ciFull = false } = {}) {
 
   const unit = [];
   if (core) unit.push({ pkg: "@paprika/core", mode: full ? "all" : "changed" });
-  if (app) unit.push({ pkg: "@paprika/web", mode: "all" });
+  if (app || core) unit.push({ pkg: "@paprika/web", mode: "all" });
 
   const suites = [];
   if (core || e2e || web || go) suites.push({ suite: "e2e" });

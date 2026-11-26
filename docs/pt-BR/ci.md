@@ -37,7 +37,7 @@ Os jobs Go instalam o patch mais recente da minor em `GO_VERSION` (no topo do `c
 A seleção acontece em três níveis:
 
 1. **Por área** ([`ci-plan.mjs`](../../.github/scripts/ci-plan.mjs)): um job é pulado quando a área dele não mudou (tabela acima).
-2. **Por arquivo de teste TS**: quando só um pacote mudou, o job de unit dele roda `vitest --changed <base-sha>`, que executa só os arquivos de teste cujo grafo de imports alcança um arquivo alterado. Quando uma *dependência* do pacote mudou, o dependente roda todos os testes, porque o vitest não enxerga a mudança através do `dist/` compilado da dependência (hoje só o `@paprika/core` roda com `--changed`). O `@paprika/web` (`apps/web`) sempre roda todos os testes, porque o teste de arquitetura dele lê arquivos-fonte que nenhum teste importa.
+2. **Por arquivo de teste TS**: quando só um pacote mudou, o job de unit dele roda `vitest --changed <base-sha>`, que executa só os arquivos de teste cujo grafo de imports alcança um arquivo alterado. Quando uma *dependência* do pacote mudou, o dependente roda todos os testes, porque o vitest não enxerga a mudança através do `dist/` compilado da dependência (hoje só o `@paprika/core` roda com `--changed`). O `@paprika/web` (`apps/web`) sempre roda todos os testes, porque o teste de arquitetura dele lê arquivos-fonte que nenhum teste importa, e também roda quando só o `packages/core` mudou, porque depende dele.
 3. **Por pacote Go** ([`go-affected.sh`](../../.github/scripts/go-affected.sh)): os pacotes cujos arquivos mudaram (um arquivo em `testdata/` pertence ao seu pacote) mais todos os pacotes que os importam, incluindo testes. Mudança em `go.mod`/`go.sum` seleciona todos.
 
 Veja o que o CI rodaria para a sua branch:
