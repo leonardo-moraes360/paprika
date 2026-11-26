@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { Document, Op } from "@paprika/core";
 import { appendBuild, applyPresence, BUILD_STEP_MS, createdInOrder, stepBuild, type AgentPresence, type BuildReplay, type PresenceMsg } from "./agents";
+import { applyDelta, orderCreated, type DeltaMsg } from "./docDelta";
 import { catalogs } from "./i18n/messages";
 import { t } from "./i18n/store";
 import type { TeamStatus } from "./Team";
@@ -44,6 +45,7 @@ export interface DocState {
 
 type ServerMsg =
   | { type: "doc"; doc: Document; version: number; actor: string; label: string; kind: string; canUndo: boolean; canRedo: boolean }
+  | DeltaMsg
   | { type: "ack"; reqId: string; version: number }
   | { type: "error"; reqId?: string; message: string }
   | { type: "team"; status: TeamStatus }
@@ -54,7 +56,7 @@ type ServerMsg =
 type DocMsg = Extract<ServerMsg, { type: "doc" }>;
 
 function isDocFrame(raw: string): boolean {
-  return raw.startsWith('{"type":"doc"');
+  return raw.startsWith('{"type":"doc"') || raw.startsWith('{"type":"delta"');
 }
 
 function changedIds(prev: Document | null, next: Document): string[] {
@@ -124,7 +126,8 @@ export class LiveStore {
     let closed = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
     let flash: ReturnType<typeof setTimeout> | undefined;
-    let pendingDoc: string | null = null;
+    let pending: string[] = [];
+    let resyncing = false;
     let docRaf = 0;
     let docTimer: ReturnType<typeof setTimeout> | undefined;
     let buildTimer: ReturnType<typeof setInterval> | undefined;
@@ -140,7 +143,7 @@ export class LiveStore {
         staleVersion = 0;
         const sock = this.ws;
         if (closed || !sock || sock.readyState !== WebSocket.OPEN) return;
-        if (pendingDoc !== null || this.state.version >= want) return;
+        if (pending.length > 0 || this.state.version >= want) return;
         sock.send(JSON.stringify(this.viewMessage(String(++this.seq))));
       }, this.staleResyncMs);
     };
@@ -155,49 +158,84 @@ export class LiveStore {
         this.set((s) => ({ ...s, build: stepBuild(s.build) }));
       }, BUILD_STEP_MS);
     };
-    const applyDoc = (msg: DocMsg) => {
-      this.set((s) => {
-        if (s.doc && s.doc.id !== msg.doc.id) {
-          clearTimeout(flash);
-          return { ...s, doc: msg.doc, version: msg.version, canUndo: msg.canUndo, canRedo: msg.canRedo, activity: [], agentTouched: new Set(), build: null };
-        }
-        const changed = changedIds(s.doc, msg.doc);
-        const fromAgent = msg.actor.startsWith("agent");
-        const created = fromAgent && msg.kind !== "reload" ? createdInOrder(s.doc, msg.doc) : [];
-        const build = appendBuild(s.build, msg.actor, created);
-        const activity =
-          msg.kind === "reload" && msg.actor === "server"
-            ? s.activity
-            : [{ id: msg.version, actor: msg.actor, label: msg.label, at: Date.now(), changed }, ...s.activity].slice(0, 30);
-        if (fromAgent) {
-          clearTimeout(flash);
-          flash = setTimeout(() => this.set((x) => ({ ...x, agentTouched: new Set() })), 1600);
-        }
-        return {
-          ...s,
-          doc: msg.doc,
-          version: msg.version,
-          canUndo: msg.canUndo,
-          canRedo: msg.canRedo,
-          activity,
-          agentTouched: fromAgent ? new Set(changed) : s.agentTouched,
-          build,
-        };
-      });
-      kickBuild();
+    const resync = () => {
+      if (resyncing) return;
+      const sock = this.ws;
+      if (closed || !sock || sock.readyState !== WebSocket.OPEN) return;
+      resyncing = true;
+      sock.send(JSON.stringify(this.viewMessage(String(++this.seq))));
+    };
+    const record = (s: DocState, doc: Document, msg: DocMsg | DeltaMsg, changed: () => string[], created: () => string[]): DocState => {
+      const fromAgent = msg.actor.startsWith("agent");
+      const quiet = msg.kind === "reload" && msg.actor === "server";
+      const ids = quiet ? [] : changed();
+      const build = appendBuild(s.build, msg.actor, fromAgent && msg.kind !== "reload" ? created() : []);
+      const activity = quiet ? s.activity : [{ id: msg.version, actor: msg.actor, label: msg.label, at: Date.now(), changed: ids }, ...s.activity].slice(0, 30);
+      if (fromAgent) {
+        clearTimeout(flash);
+        flash = setTimeout(() => this.set((x) => ({ ...x, agentTouched: new Set() })), 1600);
+      }
+      return {
+        ...s,
+        doc,
+        version: msg.version,
+        canUndo: msg.canUndo,
+        canRedo: msg.canRedo,
+        activity,
+        agentTouched: fromAgent ? new Set(ids) : s.agentTouched,
+        build,
+      };
+    };
+    const applyDoc = (s: DocState, msg: DocMsg): DocState => {
+      resyncing = false;
+      if (s.doc && s.doc.id !== msg.doc.id) {
+        clearTimeout(flash);
+        return { ...s, doc: msg.doc, version: msg.version, canUndo: msg.canUndo, canRedo: msg.canRedo, activity: [], agentTouched: new Set(), build: null };
+      }
+      return record(s, msg.doc, msg, () => changedIds(s.doc, msg.doc), () => createdInOrder(s.doc, msg.doc));
     };
     const flushDoc = () => {
       if (docRaf) cancelAnimationFrame(docRaf);
       docRaf = 0;
       if (docTimer) clearTimeout(docTimer);
       docTimer = undefined;
-      const raw = pendingDoc;
-      pendingDoc = null;
-      if (!raw || closed) return;
-      applyDoc(JSON.parse(raw) as DocMsg);
+      const raws = pending;
+      pending = [];
+      if (raws.length === 0 || closed) return;
+      let from = 0;
+      for (let i = raws.length - 1; i >= 0; i--) {
+        if (raws[i]!.startsWith('{"type":"doc"')) {
+          from = i;
+          break;
+        }
+      }
+      const msgs = raws.slice(from).map((r) => JSON.parse(r) as DocMsg | DeltaMsg);
+      const owned = new Set<object>();
+      let mismatch = false;
+      this.set((s) => {
+        let cur = s;
+        for (let i = 0; i < msgs.length; i++) {
+          const m = msgs[i]!;
+          if (m.type === "doc") {
+            cur = applyDoc(cur, m);
+            owned.clear();
+            continue;
+          }
+          if (!cur.doc || cur.doc.id !== m.id || m.base !== cur.version) {
+            if (cur.doc && cur.doc.id === m.id && m.version <= cur.version) continue;
+            mismatch = true;
+            break;
+          }
+          const r = applyDelta(cur.doc, m, owned);
+          cur = record(cur, r.doc, m, () => r.changed, () => orderCreated(r.doc, r.created));
+        }
+        return cur;
+      });
+      if (mismatch) resync();
+      kickBuild();
     };
     const queueDoc = (raw: string) => {
-      pendingDoc = raw;
+      pending.push(raw);
       if (docRaf || docTimer) return;
       docRaf = requestAnimationFrame(flushDoc);
       docTimer = setTimeout(flushDoc, 50);
@@ -221,6 +259,7 @@ export class LiveStore {
         if (this.ws !== ws) return;
         this.set((s) => ({ ...s, connected: true, error: s.error && offlineMessages.has(s.error) ? null : s.error }));
         reportRenderer(initialRendererMode());
+        resyncing = false;
         const reqId = this.pendingView ?? String(++this.seq);
         this.pendingView = null;
         ws.send(JSON.stringify(this.viewMessage(reqId)));
@@ -233,7 +272,7 @@ export class LiveStore {
           return;
         }
         const msg = JSON.parse(raw) as ServerMsg;
-        if (msg.type === "doc") {
+        if (msg.type === "doc" || msg.type === "delta") {
           queueDoc(raw);
         } else if (msg.type === "team") {
           this.set((s) => ({ ...s, team: msg.status }));
@@ -281,7 +320,7 @@ export class LiveStore {
       docTimer = undefined;
       if (buildTimer) clearInterval(buildTimer);
       buildTimer = undefined;
-      pendingDoc = null;
+      pending = [];
       this.ws?.close();
     };
   };

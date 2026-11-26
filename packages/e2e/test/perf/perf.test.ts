@@ -26,12 +26,14 @@ const record = (id: keyof typeof BUDGETS, measured: number, baseline?: number | 
   return r;
 };
 
-const docFrames = (ws: WebSocket, into: { sizes: number[]; version: number }) =>
+const docFrames = (ws: WebSocket, into: { sizes: number[]; version: number; docs: number }) =>
   ws.on("message", (data) => {
     const s = data.toString();
-    if (!s.startsWith('{"type":"doc"')) return;
-    into.sizes.push(s.length);
-    const m = /"version":(\d+)/.exec(s.slice(-400)) ?? /"version":(\d+)/.exec(s);
+    into.sizes.push(Buffer.byteLength(s));
+    const isDoc = s.startsWith('{"type":"doc"');
+    if (!isDoc && !s.startsWith('{"type":"delta"')) return;
+    if (isDoc) into.docs++;
+    const m = isDoc ? (/"version":(\d+)/.exec(s.slice(-400)) ?? /"version":(\d+)/.exec(s)) : /"version":(\d+)/.exec(s.slice(0, 200));
     if (m) into.version = Number(m[1]);
   });
 
@@ -51,6 +53,7 @@ describe("perf: worst-case document", () => {
   let small: ExternalServer;
   let browser: Browser | undefined;
   let heavyTextId: string;
+  let plainTextId: string;
   let smallTextId: string;
 
   beforeAll(async () => {
@@ -63,6 +66,13 @@ describe("perf: worst-case document", () => {
     heavy = await startServer({ seed: heavyFile, webRoot: hasWeb ? webDist : undefined });
     small = await startServer({ seed: smallFile, webRoot: hasWeb ? webDist : undefined });
     heavyTextId = worst.textIds[0]!;
+    const inComponent = (id: string) => {
+      for (let n = worst.doc.nodes[id] as Record<string, unknown> | undefined; n; n = worst.doc.nodes[n.parentId as string] as Record<string, unknown> | undefined) {
+        if (n.component) return true;
+      }
+      return false;
+    };
+    plainTextId = worst.textIds.find((id) => !inComponent(id))!;
     const smallDoc = await small.doc();
     smallTextId = Object.values(smallDoc.nodes).find((n) => n.type === "text")!.id;
     notes.nodes = Object.keys(worst.doc.nodes).length;
@@ -92,7 +102,7 @@ describe("perf: worst-case document", () => {
   });
 
   it("ws-bytes: one-prop write sends little and open sends one snapshot", async () => {
-    const frames = { sizes: [] as number[], version: 0 };
+    const frames = { sizes: [] as number[], version: 0, docs: 0 };
     const ws = new WebSocket(`${heavy.url.replace("http", "ws")}/ws`, { maxPayload: 256 * 1024 * 1024 });
     docFrames(ws, frames);
     await new Promise((ok, fail) => {
@@ -100,11 +110,16 @@ describe("perf: worst-case document", () => {
       ws.once("error", fail);
     });
     await settle(frames);
-    const onOpen = frames.sizes.length;
+    const onOpen = frames.docs;
     frames.sizes.length = 0;
-    await mcp(heavy.url, "update_nodes", { updates: [{ id: heavyTextId, props: { opacity: 0.5 } }] });
+    frames.docs = 0;
+    await mcp(heavy.url, "update_nodes", { updates: [{ id: plainTextId, props: { opacity: 0.5 } }] });
     await settle(frames);
     const bytes = frames.sizes.reduce((a, b) => a + b, 0);
+    frames.sizes.length = 0;
+    await mcp(heavy.url, "update_nodes", { updates: [{ id: heavyTextId, props: { opacity: 0.6 } }] });
+    await settle(frames);
+    notes.wsBytesComponentMasterWrite = frames.sizes.reduce((a, b) => a + b, 0);
     ws.close();
     notes.wsFramesPerWrite = frames.sizes.length;
     notes.wsSnapshotsOnOpenRaw = onOpen;
@@ -135,7 +150,7 @@ describe("perf: worst-case document", () => {
     await writeFile(file, JSON.stringify({ format: "paprika/1", id: "perffat001", name: "Fat", tokens: {}, rootIds: ["pg"], nodes }));
     const fat = await startServer({ seed: file });
     try {
-      const frames = { sizes: [] as number[], version: 0 };
+      const frames = { sizes: [] as number[], version: 0, docs: 0 };
       const ws = new WebSocket(`${fat.url.replace("http", "ws")}/ws`, { maxPayload: 256 * 1024 * 1024 });
       docFrames(ws, frames);
       await new Promise((ok, fail) => {
@@ -163,15 +178,19 @@ describe("perf: worst-case document", () => {
   }, 240_000);
 
   describe.skipIf(!hasWeb)("browser", () => {
-    const incoming = new WeakMap<Page, { snapshots: number }>();
+    const incoming = new WeakMap<Page, { snapshots: number; writes: number }>();
 
     const open = async (srv: ExternalServer, docId: string): Promise<Page> => {
       const page = await browser!.newPage({ viewport: { width: 1600, height: 1000 } });
-      const seen = { snapshots: 0 };
+      const seen = { snapshots: 0, writes: 0 };
       incoming.set(page, seen);
       page.on("websocket", (sock) =>
         sock.on("framereceived", (f) => {
-          if (String(f.payload).startsWith('{"type":"doc"')) seen.snapshots++;
+          const p = String(f.payload);
+          if (p.startsWith('{"type":"doc"')) {
+            seen.snapshots++;
+            seen.writes++;
+          } else if (p.startsWith('{"type":"delta"')) seen.writes++;
         }),
       );
       await instrument(page);
@@ -225,10 +244,10 @@ describe("perf: worst-case document", () => {
       const write = await longTasks(page, async () => {
         cost = await cdpDelta(page, async () => {
           const seen = incoming.get(page)!;
-          const before = seen.snapshots;
+          const before = seen.writes;
           await mcp(srv.url, "update_nodes", { updates: [{ id: textId, props: { opacity: 0.9 } }] });
           const start = Date.now();
-          while (seen.snapshots === before && Date.now() - start < 60_000) await page.waitForTimeout(50);
+          while (seen.writes === before && Date.now() - start < 60_000) await page.waitForTimeout(50);
           await page.waitForTimeout(2500);
         });
       });
@@ -248,7 +267,7 @@ describe("perf: worst-case document", () => {
       heavyPage = await open(heavy, worst.doc.id);
       const opened = incoming.get(heavyPage)!.snapshots;
       notes.heavyDom = await heavyPage.evaluate(() => ({ nodes: document.querySelectorAll(".world [data-paprika-id]").length, all: document.querySelectorAll("*").length }));
-      heavyMetrics = await canvasMetrics(heavyPage, heavy, heavyTextId);
+      heavyMetrics = await canvasMetrics(heavyPage, heavy, plainTextId);
       notes.browser = { small: smallMetrics, heavy: heavyMetrics };
       const rs = [record("wsSnapshotsOnOpen", opened), record("frameP95Ms", heavyMetrics.frameP95, smallMetrics.frameP95), record("tabWriteScriptMs", heavyMetrics.writeCost!.scriptMs, smallMetrics.writeCost!.scriptMs)];
       if (heavyMetrics.resize !== null && smallMetrics.resize !== null) rs.push(record("panelResizeStepMs", heavyMetrics.resize, smallMetrics.resize));
