@@ -118,7 +118,7 @@ func buildWorstCase(totalNodes, heavyNodes, pages, instanceTarget int) worstCase
 		counted += 5
 		body := link(c, frame("body", "layout", jsonv.NewObject("mode", "column", "gap", 6.0)))
 		counted++
-		for i := 0; i < 6; i++ {
+		for i := range 6 {
 			link(body, row(i < withInstances))
 		}
 		link(c, text("Footer note with a longer sentence to wrap inside the card width", "fontSize", 12.0, "color", "#6b6470", "width", "fill"))
@@ -137,7 +137,7 @@ func buildWorstCase(totalNodes, heavyNodes, pages, instanceTarget int) worstCase
 	var rootIDs []any
 	var pageIDs []string
 	heavy := ""
-	for p := 0; p < pages; p++ {
+	for p := range pages {
 		pg := add(jsonv.NewObject("id", nid("pg"), "type", "page", "name", fmt.Sprintf("Page %d", p+1), "parentId", nil, "children", []any{}))
 		rootIDs = append(rootIDs, pg.Str("id"))
 		pageIDs = append(pageIDs, pg.Str("id"))
@@ -187,7 +187,7 @@ func openWorst(b testing.TB, wc worstCase) *Store {
 	if _, err := s.Apply([]any{warm}, "agent:bench", "warm"); err != nil {
 		b.Fatal(err)
 	}
-	for i := 0; i < warmHistory; i++ {
+	for i := range warmHistory {
 		op := parseOp(b, fmt.Sprintf(`{"op":"update","id":"%s","props":{"opacity":%v}}`, wc.textID, 0.2+float64(i%5)/10))
 		if _, err := s.Apply([]any{op}, "agent:bench", "warm"); err != nil {
 			b.Fatal(err)

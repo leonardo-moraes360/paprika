@@ -20,3 +20,4 @@ design/
 !docs/en-US/design/**
 .claude/settings.local.json
 .astro/
+*.test
