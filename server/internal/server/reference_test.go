@@ -22,10 +22,10 @@ func TestPlaceReferenceUnderFrame(t *testing.T) {
 	}
 	out := r.Obj("structuredContent")
 	if !out.Bool("locked") || out.Num("opacity") != 0.5 || out.Str("frameId") != "screen" {
-		t.Fatalf("result = %s", out)
+		t.Fatalf("result = %v", out)
 	}
 	if out.Num("width") != 160 || out.Num("height") != 120 || out.Num("x") != 20 || out.Num("y") != 0 {
-		t.Fatalf("box = %s", out)
+		t.Fatalf("box = %v", out)
 	}
 	frame := core.GetNode(s.Doc(), "screen")
 	kids := frame.Strings("children")
@@ -34,7 +34,7 @@ func TestPlaceReferenceUnderFrame(t *testing.T) {
 	}
 	node := core.GetNode(s.Doc(), out.Str("id"))
 	if node.Str("type") != "image" || !node.Bool("locked") || node.Num("opacity") != 0.5 || node.Str("layoutPositioning") != "absolute" || node.Str("name") != "Reference" {
-		t.Fatalf("node = %s", node)
+		t.Fatalf("node = %v", node)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, "pixel.png"))
 	if err != nil {

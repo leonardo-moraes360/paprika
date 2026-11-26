@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"strings"
@@ -43,13 +44,11 @@ func plainNode(doc *Document, n *Node, idx *ScopeIndex) bool {
 	if n.Str("type") == "connector" || idx.slotRefs[n.Str("id")] {
 		return false
 	}
-	for _, k := range plainBlockers {
-		if n.Has(k) {
-			return false
-		}
+	if slices.ContainsFunc(plainBlockers, n.Has) {
+		return false
 	}
 	cur := n
-	for depth := 0; depth < 1000; depth++ {
+	for range 1000 {
 		pid, ok := ParentID(cur)
 		if !ok || pid == "" {
 			return true
@@ -100,7 +99,7 @@ func planDerived(prev, draft *Document, idx *ScopeIndex) *derivedScope {
 			d.structural = true
 		}
 	}
-	d.next = &ScopeIndex{slotRefs: idx.slotRefs, hasConnectors: idx.hasConnectors, lagging: idx.lagging, pinned: maps_clone(idx.pinned)}
+	d.next = &ScopeIndex{slotRefs: idx.slotRefs, hasConnectors: idx.hasConnectors, lagging: idx.lagging, pinned: maps.Clone(idx.pinned)}
 	affected := map[string]bool{}
 	for _, id := range d.ids {
 		affected[id] = true
@@ -132,14 +131,6 @@ func differsOn(a, b *Node, keys []string) bool {
 		}
 	}
 	return false
-}
-
-func maps_clone(m map[string]bool) map[string]bool {
-	out := make(map[string]bool, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
 }
 
 func depthOf(doc *Document, n *Node) int {
@@ -286,10 +277,8 @@ func (d *derivedScope) subtreePlain(n *Node) bool {
 		if cn.Str("type") == "connector" || d.idx.slotRefs[c] {
 			return false
 		}
-		for _, k := range plainBlockers {
-			if cn.Has(k) {
-				return false
-			}
+		if slices.ContainsFunc(plainBlockers, cn.Has) {
+			return false
 		}
 		if IsContainer(cn.Str("type")) && !d.subtreePlain(cn) {
 			return false
