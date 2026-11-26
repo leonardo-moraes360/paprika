@@ -22,6 +22,7 @@ Os números ficam num só arquivo, `packages/e2e/test/perf/budgets.ts`.
 |---|---|---|---|
 | Bytes no WS por escrita de 1 prop | 2 KB | 608 B (exigido; eram 7,23 MB) | PAP-A-057 |
 | Snapshots do documento ao abrir | 1 | 1 (exigido; eram 2) | PAP-A-057 |
+| Bytes no fio do snapshot de abertura, em % do JSON | 25% | 9% no pior caso (exigido; era 100%: o `/ws` não tinha permessage-deflate). O workspace real do mantenedor (17.139 nós) cai de 8,4 MB para 1,25 MB | PAP-A-070 |
 | Tempo do servidor por escrita de 1 prop | 50 ms | 2 a 7 ms acima de um documento pequeno (imposto; era 1,08 s) em um nó comum | PAP-A-060 |
 | Tempo do servidor por escrita de 1 prop em um componente-mestre com 1.000 instâncias | 50 ms | 0,4 s (só relatório; era 2,2 s). O piso é cerca de 0,35 s: as 1.000 cópias são reconstruídas e cerca de 4.000 linhas são gravadas | PAP-A-060 |
 | Tempo do servidor para criar um frame com 200 filhos | 50 ms | 31 ms acima de um documento pequeno (só relatório; era cerca de 450 ms) | PAP-A-060 |

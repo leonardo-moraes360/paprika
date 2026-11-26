@@ -35,6 +35,17 @@ export const BUDGETS: Record<string, Budget> = {
     enforce: true,
     ticket: "PAP-A-057",
   },
+  wsOpenWireRatio: {
+    id: "wsOpenWireRatio",
+    scenario: "ws-open",
+    label: "bytes on the wire for the snapshot on open, as % of its JSON",
+    unit: "count",
+    kind: "exact",
+    limit: 25,
+    today: "100% before PAP-A-070 (no permessage-deflate)",
+    enforce: true,
+    ticket: "PAP-A-070",
+  },
   serverWriteMs: {
     id: "serverWriteMs",
     scenario: "server-write",

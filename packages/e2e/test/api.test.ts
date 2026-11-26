@@ -2825,7 +2825,7 @@ describe("API: HTTP + WebSocket", () => {
     const post = (ops: unknown[]) =>
       fetch(`${srv.url}/api/ops`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ops, actor: "script" }) });
     expect((await post(nodes.map((node) => ({ op: "create", node })))).status).toBe(200);
-    const ws = new WebSocket(`${srv.url.replace("http", "ws")}/ws`, { headers: { origin: srv.url } });
+    const ws = new WebSocket(`${srv.url.replace("http", "ws")}/ws`, { headers: { origin: srv.url }, perMessageDeflate: false });
     let lastVersion = 0;
     let frames = 0;
     ws.on("message", (m) => {

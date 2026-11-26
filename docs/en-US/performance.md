@@ -22,6 +22,7 @@ The numbers live in one file, `packages/e2e/test/perf/budgets.ts`.
 |---|---|---|---|
 | WS bytes per one-prop write | 2 KB | 608 B (enforced; was 7.23 MB) | PAP-A-057 |
 | Doc snapshots on open | 1 | 1 (enforced; was 2) | PAP-A-057 |
+| Wire bytes of the snapshot on open, as % of its JSON | 25% | 9% on the worst case (enforced; was 100%: `/ws` had no permessage-deflate). The maintainer's real workspace (17,139 nodes) goes from 8.4 MB to 1.25 MB | PAP-A-070 |
 | Server time per one-prop write | 50 ms | 2 to 7 ms over a small document (enforced; was 1.08 s) on a plain node | PAP-A-060 |
 | Server time per one-prop write on a component master with 1,000 instances | 50 ms | 0.4 s (report-only; was 2.2 s). The floor is about 0.35 s: the 1,000 copies are rebuilt and about 4,000 rows are written | PAP-A-060 |
 | Server time to create a frame with 200 children | 50 ms | 31 ms over a small document (report-only; was about 450 ms) | PAP-A-060 |
