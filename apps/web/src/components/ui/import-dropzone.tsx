@@ -5,7 +5,8 @@ import { cn, focusRing } from "@/lib/utils";
 
 export type ImportDropzoneState = "idle" | "dragging" | "error";
 
-export type ImportDropzoneProps = Omit<ComponentProps<typeof FileInput>, "children" | "className"> & {
+export type ImportDropzoneProps = Omit<ComponentProps<typeof FileInput>, "children" | "className" | "announcement"> & {
+  announcement: NonNullable<ComponentProps<typeof FileInput>["announcement"]>;
   state?: ImportDropzoneState;
   prompt: ReactNode;
   draggingPrompt: ReactNode;
@@ -15,19 +16,19 @@ export type ImportDropzoneProps = Omit<ComponentProps<typeof FileInput>, "childr
   className?: string;
 };
 
-export function ImportDropzone({ state = "idle", prompt, draggingPrompt, errorPrompt, formats, browseLabel, className, ...props }: ImportDropzoneProps) {
+export function ImportDropzone({ state = "idle", prompt, draggingPrompt, errorPrompt, formats, browseLabel, announcement, className, ...props }: ImportDropzoneProps) {
   return (
-    <FileInput {...props}>
+    <FileInput announcement={announcement} {...props}>
       <FileInputDropzone
         className={(zone) => {
           const dragging = state === "dragging" || zone.dragging;
           const invalid = state === "error" || zone.dragReject;
           return cn(
-            "relative flex h-31 w-70 max-w-full flex-col items-center justify-center gap-1.5 rounded-[10px] p-3 text-center",
+            "relative flex h-31 w-70 max-w-full flex-col items-center justify-center gap-1.5 rounded-popup p-3 text-center",
             invalid
               ? "bg-red-soft outline-[1.5px] -outline-offset-[1.5px] outline-red-ink outline-dashed forced-colors:outline-solid"
               : dragging
-                ? "border-2 border-select bg-select/12 forced-colors:border-[Highlight]"
+                ? "border-2 border-select bg-drop-active forced-colors:border-[Highlight]"
                 : "bg-field-bg outline-[1.5px] -outline-offset-[1.5px] outline-field outline-dashed",
             zone.disabled && "cursor-not-allowed",
             className,
@@ -46,7 +47,7 @@ export function ImportDropzone({ state = "idle", prompt, draggingPrompt, errorPr
               <span className={cn("text-xs leading-[1.4]", invalid ? "text-red-soft-ink" : "text-muted")}>{formats}</span>
               <FileInputTrigger
                 aria-label={browseLabel}
-                className={cn("absolute inset-0 cursor-pointer rounded-[10px] bg-transparent", focusRing)}
+                className={cn("absolute inset-0 cursor-pointer rounded-popup bg-transparent", focusRing)}
               />
             </>
           );

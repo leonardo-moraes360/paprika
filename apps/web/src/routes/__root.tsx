@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { Notifications } from "@/components/notifications";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
 import { themeInitScript } from "@/lib/theme";
@@ -29,6 +30,7 @@ function RootComponent() {
     <RootDocument>
       <ClientOnly fallback={null}>
         <Outlet />
+        <Notifications />
       </ClientOnly>
     </RootDocument>
   );

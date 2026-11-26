@@ -1,3 +1,4 @@
+import type { FileInputChange } from "@ui-sdk/react/file-input";
 import { useState } from "react";
 import { EmptyIllustration, type EmptyIllustrationKind } from "@/components/ui/empty-illustration";
 import { ExportCode } from "@/components/ui/export-code";
@@ -20,6 +21,13 @@ const snippets: Record<string, string> = {
 };
 const imageLabels = { format: "Format", scale: "Scale", file: "File", vectorNote: "Vector: no scale, text stays text.", exportAction: "Export", pendingAnnouncement: "Exporting" };
 const codeLabels = { format: "Format", tokens: "Tokens as CSS variables", code: "Generated code", copy: "Copy", download: "Download", pendingAnnouncement: "Working" };
+
+const announce = ({ added, removed, rejected }: FileInputChange) => {
+  if (rejected.length) return `${rejected.length} not imported`;
+  if (added.length) return `${added.length} imported`;
+  if (removed.length) return `${removed[0]?.name ?? "File"} removed`;
+  return null;
+};
 
 const kinds: ReadonlyArray<{ kind: EmptyIllustrationKind; label: string; tone: string }> = [
   { kind: "first-use", label: "first use", tone: "positive" },
@@ -66,7 +74,7 @@ export default function ExchangeSection() {
         </Specimen>
         <Specimen
           label="Export code · live"
-          note={`Format field 36 high, checkbox 18 with the action fill, code block 150 high in 12 px mono (scrolls, focusable), Copy secondary and Download primary 36 high. Copy pressed ${copied} times.`}
+          note={`Format is the Select (the leading code icon of the drawing is not in the Select API) and the option the Checkbox, both from components/ui; code block 150 high in 12 px mono on the code token (a focusable named region), Copy secondary and Download primary 36 high. Copy pressed ${copied} times.`}
         >
           <ExportCode
             formats={codeFormats}
@@ -80,18 +88,19 @@ export default function ExchangeSection() {
             labels={{ ...codeLabels, download: codeFormat === "react" ? "Download .tsx" : "Download .html" }}
           />
         </Specimen>
-        <Specimen label="Import dropzone · states" note="280 × 124, radius 10. Rest: dashed 1.5 px field outline on the field background. Dragging: 2 px select border on a select tint. Error: red soft with a dashed red outline. The live one takes drops, pastes and a click or Enter on the zone.">
+        <Specimen label="Import dropzone · states" note="280 × 124, radius 10. Rest: dashed 1.5 px field outline on the field background. Dragging: 2 px select border on the drop-active fill. Error: red soft with a dashed red outline. The live one takes drops, pastes and a click or Enter on the zone; announcement is required so the polite live region speaks the page language.">
           <Cell label="rest">
-            <ImportDropzone prompt="Drop files or paste with Ctrl V" draggingPrompt="Drop to import into Cover" formats="PNG, JPEG, WebP, AVIF, GIF, SVG, HTML" browseLabel="Choose files" />
+            <ImportDropzone announcement={announce} prompt="Drop files or paste with Ctrl V" draggingPrompt="Drop to import into Cover" formats="PNG, JPEG, WebP, AVIF, GIF, SVG, HTML" browseLabel="Choose files" />
           </Cell>
           <Cell label="dragging">
-            <ImportDropzone state="dragging" prompt="Drop files or paste with Ctrl V" draggingPrompt="Drop to import into Cover" formats="PNG, JPEG, WebP, AVIF, GIF, SVG, HTML" browseLabel="Choose files" />
+            <ImportDropzone announcement={announce} state="dragging" prompt="Drop files or paste with Ctrl V" draggingPrompt="Drop to import into Cover" formats="PNG, JPEG, WebP, AVIF, GIF, SVG, HTML" browseLabel="Choose files" />
           </Cell>
           <Cell label="error">
-            <ImportDropzone state="error" prompt="Drop files or paste with Ctrl V" draggingPrompt="Drop to import into Cover" errorPrompt="This file type is not supported" formats="PNG, JPEG, WebP, AVIF, GIF, SVG, HTML" browseLabel="Choose files" />
+            <ImportDropzone announcement={announce} state="error" prompt="Drop files or paste with Ctrl V" draggingPrompt="Drop to import into Cover" errorPrompt="This file type is not supported" formats="PNG, JPEG, WebP, AVIF, GIF, SVG, HTML" browseLabel="Choose files" />
           </Cell>
           <Cell label={`live${picked.length ? ` · ${picked.join(", ")}` : ""}`}>
             <ImportDropzone
+              announcement={announce}
               multiple
               accept={["image/*", ".html"]}
               prompt="Drop files or paste with Ctrl V"

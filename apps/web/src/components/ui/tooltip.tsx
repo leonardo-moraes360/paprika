@@ -39,6 +39,7 @@ export function Tooltip({ content, children, side = "top", arrow = true, delay =
       <TooltipTrigger render={children} />
       <TooltipContent
         side={side}
+        sideOffset={arrow ? 10 : 4}
         className={slot(
           `${bodyClasses} transition-opacity duration-150 motion-reduce:transition-none data-ending-style:opacity-0 data-starting-style:opacity-0 data-instant:transition-none`,
           className,

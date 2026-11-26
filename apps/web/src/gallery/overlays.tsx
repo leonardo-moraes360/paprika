@@ -1,19 +1,21 @@
-import { createToaster } from "@ui-sdk/react/toast";
 import { Layers, SlidersHorizontal } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
 import { MenuButton } from "@/components/ui/menu-button";
+import { TextField } from "@/components/ui/text-field";
 import { PanelHandle } from "@/components/ui/panel-handle";
 import { Popover, PopoverClose } from "@/components/ui/popover";
 import type { Status } from "@/components/ui/status-icon";
-import { showStatusToast, showUndoToast, StatusToast, StatusToastRegion, ToastShell } from "@/components/ui/toast";
+import { ToastShell } from "@/components/ui/toast";
 import { Tooltip, TooltipBubble } from "@/components/ui/tooltip";
 import { Undo2, X } from "lucide-react";
 import { IconButton } from "@/components/ui/icon-button";
+import { dismissToasts, showStatusToast, showUndoToast } from "@/lib/notify";
 import { Cell, Grid, Specimen, type GalleryMeta } from "./_kit";
+import { StatusToastSpecimen } from "./_toast-static";
 
 export const meta: GalleryMeta = { title: "Overlays", order: 300 };
 
@@ -41,7 +43,7 @@ function PanelMock({ side, open, onToggle, children }: { side: "left" | "right";
     <div className="relative flex h-40 w-full items-center overflow-hidden rounded-lg border border-line bg-canvas">
       <div className={side === "right" ? "absolute inset-y-0 right-0 flex items-center" : "absolute inset-y-0 left-0 flex items-center"}>
         {side === "right" ? (
-          <Tooltip content={label} side="left">
+          <Tooltip content={label} side="left" type="label">
             <PanelHandle side={side} aria-label={label} expanded={open} controls={id} icon={<Icon />} onClick={onToggle} />
           </Tooltip>
         ) : null}
@@ -49,7 +51,7 @@ function PanelMock({ side, open, onToggle, children }: { side: "left" | "right";
           {children}
         </div>
         {side === "left" ? (
-          <Tooltip content={label} side="right">
+          <Tooltip content={label} side="right" type="label">
             <PanelHandle side={side} aria-label={label} expanded={open} controls={id} icon={<Icon />} onClick={onToggle} />
           </Tooltip>
         ) : null}
@@ -59,17 +61,15 @@ function PanelMock({ side, open, onToggle, children }: { side: "left" | "right";
 }
 
 export default function OverlaysSection() {
-  const [toaster] = useState(() => createToaster<ReactNode>());
   const [openAlert, setOpenAlert] = useState(false);
   const [left, setLeft] = useState(true);
   const [right, setRight] = useState(false);
   const [count, setCount] = useState(0);
-  useEffect(() => () => toaster.dismiss(), [toaster]);
   return (
     <>
       <Specimen
         label="Alert dialog · status × live"
-        note="440 wide, radius 14, padding 24, gap 16; 36 px status circle on the soft tone, title 17/700, body 14/1.5 muted. Danger confirms with the destructive Button, the other statuses with the primary. Cancel is the first answer in focus order; Tab stays inside, Escape closes and returns focus to the trigger; the backdrop does not close it."
+        note="440 wide, radius 14, padding 24, gap 16; 36 px status circle on the soft tone, title 17/700, body 14/1.5 muted. Danger confirms with the destructive Button, the other statuses with the primary. Cancel is the first answer in focus order and takes the initial focus, so an accidental Enter never confirms; it is required for danger and optional for the other statuses. Tab stays inside, Escape closes and returns focus to the trigger; the backdrop does not close it."
       >
         {alerts.map((a) => (
           <Cell key={a.status} label={a.status}>
@@ -84,6 +84,16 @@ export default function OverlaysSection() {
             />
           </Cell>
         ))}
+        <Cell label="no cancel (info)">
+          <AlertDialog
+            status="info"
+            title="Update available"
+            description="The only answer is to continue."
+            confirmLabel="Reload"
+            pendingAnnouncement="Working"
+            trigger={<Button variant="secondary" pendingAnnouncement="Working">No cancel</Button>}
+          />
+        </Cell>
         <Cell label="slot + extra action">
           <AlertDialog
             status="danger"
@@ -114,7 +124,7 @@ export default function OverlaysSection() {
         </Cell>
       </Specimen>
       <Grid>
-        <Specimen label="Dialog · simple" note="The alert surface without a status: title and description at the top, a close icon button, free content, footer actions on the right. Escape and the backdrop close it.">
+        <Specimen label="Dialog · simple" note="The alert surface without a status: title and description at the top, a close icon button, free content, footer actions on the right. The close button is last in the DOM so the first field takes the initial focus; contentProps takes initialFocus and finalFocus. Escape and the backdrop close it.">
           <Dialog
             title="Share workspace"
             description="Anyone on the team can open it."
@@ -123,7 +133,7 @@ export default function OverlaysSection() {
             trigger={<Button variant="secondary" pendingAnnouncement="Working">Open dialog</Button>}
             footer={<Button pendingAnnouncement="Working">Done</Button>}
           >
-            <p className="text-sm text-muted">Dialog content goes here.</p>
+            <TextField label="Email" type="email" placeholder="name@studio.com" />
           </Dialog>
         </Specimen>
         <Specimen label="Popover · surface" note="Radius 12, padding 16, gap 12, popover fill, line border, popover shadow. Opens under the trigger; Escape or a press outside closes it and focus returns to the trigger.">
@@ -140,7 +150,7 @@ export default function OverlaysSection() {
       </Grid>
       <Specimen
         label="Tooltip · live and static"
-        note="Ink fill, bg text, 12/500, padding 6 / 10, radius 6; arrow 6 × 12 on the sides and 12 × 6 above and below. Opens 400 ms after hover and at once on keyboard focus. Static bubbles below show each arrow side and no arrow."
+        note="Ink fill, bg text, 12/500, padding 6 / 10, radius 6; arrow 6 × 12 on the sides and 12 × 6 above and below. Opens 400 ms after hover and at once on keyboard focus; the arrow tip sits 4 px from the trigger (offset 10 with an arrow). Pass type=label (a prop) when the content repeats the trigger name, so it is not also read as a description. Static bubbles below show each arrow side and no arrow."
       >
         {(["top", "right", "bottom", "left"] as const).map((side) => (
           <Cell key={side} label={`live · ${side}`}>
@@ -198,12 +208,12 @@ export default function OverlaysSection() {
       </Specimen>
       <Specimen
         label="Toast · status (static)"
-        note="360 wide, radius 10, popover fill, line border, 28 px status circle, title 13/600, description 12 muted, action is the small secondary Button, close is the 24 px icon button; the optional time bar is 3 px in the status colour. Danger reads as role=alert, the others as role=status."
+        note="360 wide, radius 10, popover fill, line border, 28 px status circle, title 13/600, description 12 muted, action is the small secondary Button, close is the 24 px icon button; the optional time bar is 3 px in the status colour. Specimen only: no role and no live announcement, the real ones come from the region below."
       >
         <div className="flex w-full flex-wrap gap-4">
           {statuses.map((s) => (
             <div key={s.status} className="flex w-90 max-w-full flex-col gap-1.5">
-              <StatusToast
+              <StatusToastSpecimen
                 status={s.status}
                 title={s.title}
                 description={s.description}
@@ -216,7 +226,12 @@ export default function OverlaysSection() {
           ))}
           <div className="flex w-90 max-w-full flex-col gap-1.5">
             <ToastShell
-              leading={<Undo2 aria-hidden="true" className="mt-0.5 size-[18px] text-fg" />}
+              kind="undo"
+              leading={
+                <span aria-hidden="true" className="mt-0.5 inline-flex h-5 w-[18px] shrink-0 items-center justify-center text-fg [&_svg]:size-[18px]">
+                  <Undo2 />
+                </span>
+              }
               title="Undone: Change Button colour"
               actions={
                 <>
@@ -226,13 +241,13 @@ export default function OverlaysSection() {
               }
               close={<IconButton aria-label="Close" size="xs"><X aria-hidden="true" /></IconButton>}
             />
-            <span className="text-xs text-muted">undo toast · action + shortcut</span>
+            <span className="text-xs text-muted">undo toast · action + shortcut (padding 12 / 8 / 12 / 14, gap 10, title 13/400)</span>
           </div>
         </div>
       </Specimen>
       <Specimen
         label="Toast · live region"
-        note="The queue is the SDK toaster; the app only mounts the region. At most 3 are visible and the 4th waits; success and info last 5 s, 8 s with an action, danger stays until closed. Hover or focus pauses the timers and expands the stack; F6 moves focus to the newest toast and Escape closes it."
+        note="The queue is the app toaster in lib/notify.ts, rendered by the single region the root mounts. At most 3 are visible and the 4th waits; success and info last 5 s, 8 s with an action, danger stays until closed and a new danger replaces the previous one (one persistent danger at most, so it never starves the queue). Hover or focus pauses the timers and expands the stack; F6 moves focus to the newest toast and Escape closes it."
       >
         {statuses.map((s) => (
           <Cell key={s.status} label={s.status}>
@@ -240,7 +255,7 @@ export default function OverlaysSection() {
               variant="secondary"
               pendingAnnouncement="Working"
               onClick={() =>
-                showStatusToast(toaster, {
+                showStatusToast({
                   status: s.status,
                   title: s.title,
                   description: s.description,
@@ -258,11 +273,22 @@ export default function OverlaysSection() {
             variant="secondary"
             pendingAnnouncement="Working"
             onClick={() => {
-              for (let i = 0; i < 5; i++) showStatusToast(toaster, { status: "info", title: `Notification ${count + i + 1}`, timeBar: true });
+              for (let i = 0; i < 5; i++) showStatusToast({ status: "info", title: `Notification ${count + i + 1}`, timeBar: true });
               setCount((c) => c + 5);
             }}
           >
             Fire five
+          </Button>
+        </Cell>
+        <Cell label="three dangers + success">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              for (let i = 1; i <= 3; i++) showStatusToast({ status: "danger", title: `Error ${i}`, id: `error-${i}` });
+              showStatusToast({ status: "success", title: "Saved", timeBar: true });
+            }}
+          >
+            3 dangers + 1
           </Button>
         </Cell>
         <Cell label="undo toast">
@@ -270,7 +296,7 @@ export default function OverlaysSection() {
             variant="secondary"
             pendingAnnouncement="Working"
             onClick={() =>
-              showUndoToast(toaster, {
+              showUndoToast({
                 title: "Undone: Change Button colour",
                 action: { label: "Redo" },
                 shortcut: (
@@ -286,12 +312,11 @@ export default function OverlaysSection() {
           </Button>
         </Cell>
         <Cell label="dismiss all">
-          <Button variant="ghost" pendingAnnouncement="Working" onClick={() => toaster.dismiss()}>
+          <Button variant="ghost" pendingAnnouncement="Working" onClick={dismissToasts}>
             Dismiss all
           </Button>
         </Cell>
       </Specimen>
-      <StatusToastRegion toaster={toaster} aria-label="Notifications" closeLabel="Close" pendingAnnouncement="Working" className="mb-4" />
     </>
   );
 }

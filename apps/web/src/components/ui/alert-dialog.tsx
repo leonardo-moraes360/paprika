@@ -10,27 +10,24 @@ import {
 import type { ComponentProps, ReactElement, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
+import { dialogBackdropClasses, dialogSurfaceClasses } from "./overlay-surface";
 import { StatusIcon, type Status } from "./status-icon";
 
-export const dialogBackdropClasses =
-  "fixed inset-0 bg-overlay transition-opacity duration-200 motion-reduce:transition-none data-ending-style:opacity-0 data-starting-style:opacity-0";
-
-export const dialogSurfaceClasses =
-  "fixed inset-0 m-auto h-fit max-h-[calc(100dvh-2rem)] w-110 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-[14px] border border-line bg-popover p-6 text-fg shadow-[0_24px_48px_var(--color-shadow)] transition-[opacity,scale] duration-200 motion-reduce:transition-none data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0 forced-colors:border-2";
-
-export type AlertDialogProps = Omit<ComponentProps<typeof AlertDialogPrimitive>, "children" | "pendingAnnouncement"> & {
+type AlertDialogBaseProps = Omit<ComponentProps<typeof AlertDialogPrimitive>, "children" | "pendingAnnouncement"> & {
   pendingAnnouncement: string;
-  status?: Status;
   title: ReactNode;
   description?: ReactNode;
   children?: ReactNode;
   trigger?: ReactElement;
   confirmLabel: ReactNode;
-  cancelLabel?: ReactNode;
   extra?: ReactNode;
   onConfirm?: (event: Event | undefined, details: { source: string }) => unknown;
+  contentProps?: Omit<ComponentProps<typeof AlertDialogContent>, "children" | "className">;
   className?: string;
 };
+
+export type AlertDialogProps = AlertDialogBaseProps &
+  ({ status?: "danger"; cancelLabel: ReactNode } | { status: Exclude<Status, "danger">; cancelLabel?: ReactNode });
 
 export function AlertDialog({
   status = "danger",
@@ -43,6 +40,7 @@ export function AlertDialog({
   extra,
   onConfirm,
   pendingAnnouncement,
+  contentProps,
   className,
   ...props
 }: AlertDialogProps) {
@@ -50,7 +48,7 @@ export function AlertDialog({
     <AlertDialogPrimitive pendingAnnouncement={pendingAnnouncement} {...props}>
       {trigger ? <AlertDialogTrigger render={trigger} /> : null}
       <AlertDialogBackdrop className={dialogBackdropClasses} />
-      <AlertDialogContent className={cn(dialogSurfaceClasses, "flex flex-col gap-4", className)}>
+      <AlertDialogContent className={cn(dialogSurfaceClasses, "flex flex-col gap-4", className)} {...contentProps}>
         <div className="flex items-center gap-3">
           <StatusIcon status={status} size="lg" />
           <AlertDialogTitle className="min-w-0 flex-1 text-[17px] leading-[1.3] font-bold text-fg">{title}</AlertDialogTitle>

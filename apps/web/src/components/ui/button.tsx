@@ -16,13 +16,12 @@ const sizes = {
   sm: "h-7 px-4.5 text-base",
 };
 
-export type ButtonProps = Omit<ComponentProps<typeof ButtonPrimitive>, "pendingAnnouncement"> & {
-  pendingAnnouncement: string;
+export type ButtonProps = ComponentProps<typeof ButtonPrimitive> & {
   variant?: keyof typeof variants;
   size?: keyof typeof sizes;
 };
 
-export function Button({ className, children, variant = "primary", size = "md", pendingAnnouncement, ...props }: ButtonProps) {
+export function Button({ className, children, variant = "primary", size = "md", pendingAnnouncement = "", ...props }: ButtonProps) {
   return (
     <ButtonPrimitive
       pendingAnnouncement={pendingAnnouncement}

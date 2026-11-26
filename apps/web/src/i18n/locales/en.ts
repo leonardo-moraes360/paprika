@@ -8,6 +8,10 @@ export const en = {
   common: {
     working: "Working",
   },
+  notifications: {
+    label: "Notifications",
+    close: "Close notification",
+  },
   notFound: {
     title: "Page not found",
     home: "Back to home",

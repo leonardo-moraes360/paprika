@@ -12,9 +12,10 @@ export type NavItemProps = Omit<ComponentProps<typeof ButtonPrimitive>, "childre
   trailing?: ReactNode;
 };
 
-export function NavItem({ className, label, icon, active = false, level = 0, expanded, trailing, ...props }: NavItemProps) {
+export function NavItem({ className, label, icon, active = false, level = 0, expanded, trailing, pendingAnnouncement = "", ...props }: NavItemProps) {
   return (
     <ButtonPrimitive
+      pendingAnnouncement={pendingAnnouncement}
       aria-current={active ? "page" : undefined}
       aria-expanded={expanded}
       data-active={active ? "" : undefined}
@@ -35,7 +36,7 @@ export function NavItem({ className, label, icon, active = false, level = 0, exp
         <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 stroke-[1.75] text-muted" />
       )}
       {icon ? (
-        <span aria-hidden="true" className="inline-flex size-4 shrink-0 items-center justify-center text-muted [&_svg]:size-4 [&_svg]:stroke-[1.75]">
+        <span aria-hidden="true" className={cn("inline-flex size-4 shrink-0 items-center justify-center text-muted [&_svg]:size-4 [&_svg]:stroke-[1.75]", active && "text-fg")}>
           {icon}
         </span>
       ) : null}

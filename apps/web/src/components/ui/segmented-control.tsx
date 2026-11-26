@@ -6,17 +6,23 @@ import {
 import type { ComponentProps } from "react";
 import { cn, focusRing, slot } from "@/lib/utils";
 
+const sizes = {
+  md: "h-7.5",
+  sm: "h-7",
+};
+
 export type SegmentedControlProps = ComponentProps<typeof SegmentedControlPrimitive> & {
+  size?: keyof typeof sizes;
   stretch?: boolean;
   indicatorClassName?: string;
 };
 
-export function SegmentedControl({ className, children, stretch = false, indicatorClassName, ...props }: SegmentedControlProps) {
+export function SegmentedControl({ className, children, size = "md", stretch = false, indicatorClassName, ...props }: SegmentedControlProps) {
   return (
     <SegmentedControlPrimitive
       className={slot(
         cn(
-          "relative isolate inline-flex h-7.5 items-center gap-0.5 rounded-md border border-field bg-bg p-px data-disabled:border-line data-disabled:bg-surface",
+          `relative isolate inline-flex ${sizes[size]} items-center gap-0.5 rounded-md border border-field bg-bg p-px data-disabled:border-line data-disabled:bg-surface`,
           stretch && "flex w-full *:data-[slot=segmented-control-item]:flex-1",
         ),
         className,

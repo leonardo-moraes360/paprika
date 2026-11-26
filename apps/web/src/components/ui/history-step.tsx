@@ -19,7 +19,7 @@ export function HistoryStep({
   label,
   time,
   author,
-  tone = "select",
+  tone = "select-pill",
   undone = false,
   undoneLabel,
   active = false,
@@ -40,7 +40,7 @@ export function HistoryStep({
         <span
           className={cn(
             "inline-flex h-5 shrink-0 items-center rounded-full px-2 text-xs font-bold forced-colors:border",
-            tone === "select" ? "bg-select-pill text-on-select-pill" : toneSurface[tone],
+            toneSurface[tone],
           )}
         >
           {author}

@@ -1,16 +1,17 @@
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
-import { toneDot, type AgentTone } from "./agent-tone";
+import { toneDot, type AgentColor } from "./agent-tone";
 
 export type TeamRowProps = Omit<ComponentProps<"div">, "children"> & {
-  tone: Exclude<AgentTone, "select">;
+  tone: AgentColor;
   name: string;
   tool: string;
   page: string;
   idle?: boolean;
+  idleLabel?: string;
 };
 
-export function TeamRow({ className, tone, name, tool, page, idle = false, ...props }: TeamRowProps) {
+export function TeamRow({ className, tone, name, tool, page, idle = false, idleLabel, ...props }: TeamRowProps) {
   return (
     <div
       data-idle={idle ? "" : undefined}
@@ -20,13 +21,14 @@ export function TeamRow({ className, tone, name, tool, page, idle = false, ...pr
       <span
         aria-hidden="true"
         className={cn(
-          "size-2.5 shrink-0 rounded-full border border-[light-dark(var(--color-field),var(--color-line))] forced-colors:border-[CanvasText]",
+          "size-2.5 shrink-0 rounded-full border border-dot-ring forced-colors:border-[CanvasText]",
           toneDot[tone],
         )}
       />
       <span className="w-16 shrink-0 truncate text-sm font-semibold text-fg">{name}</span>
       <span className="w-27.5 shrink-0 truncate text-xs text-muted">{tool}</span>
       <span className="w-14 shrink-0 truncate text-xs text-muted">{page}</span>
+      {idle && idleLabel ? <span className="sr-only">{idleLabel}</span> : null}
     </div>
   );
 }
