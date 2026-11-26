@@ -22,7 +22,8 @@ Os números ficam num só arquivo, `packages/e2e/test/perf/budgets.ts`.
 |---|---|---|---|
 | Bytes no WS por escrita de 1 prop | 2 KB | 608 B (exigido; eram 7,23 MB) | PAP-A-057 |
 | Snapshots do documento ao abrir | 1 | 1 (exigido; eram 2) | PAP-A-057 |
-| Tempo do servidor por escrita de 1 prop | 50 ms | 1,08 s | PAP-A-060 |
+| Tempo do servidor por escrita de 1 prop | 50 ms | 3 ms acima de um documento pequeno (imposto; era 1,08 s) em um nó comum | PAP-A-060 |
+| Tempo do servidor por escrita de 1 prop em um componente-mestre com 1.000 instâncias | 50 ms | 2,2 s (só relatório: as 1.000 cópias são reconstruídas e gravadas) | PAP-A-060 |
 | Tempo de script na aba numa escrita recebida | 50 ms | 2,6 s (pior caso sintético) | PAP-A-061 |
 | Quadro p95 em scroll, zoom e pan | 20 ms | cumprido (17 ms; antes 33–83 ms) | PAP-A-062 |
 | Passo de redimensionar painel | 20 ms | cumprido (17 ms sobre o documento pequeno; antes 750 ms) | PAP-A-063 |

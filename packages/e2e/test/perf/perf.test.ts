@@ -137,8 +137,10 @@ describe("perf: worst-case document", () => {
       return median(ms.slice(1));
     };
     const small_ = await time(small, smallTextId);
-    const heavy_ = await time(heavy, heavyTextId);
-    assertWithinBudgets([record("serverWriteMs", heavy_, small_)]);
+    const heavy_ = await time(heavy, plainTextId);
+    const master_ = await time(heavy, heavyTextId);
+    notes.serverWriteMs = { small: small_, plainNode: heavy_, componentMaster: master_ };
+    assertWithinBudgets([record("serverWriteMs", heavy_, small_), record("serverWriteMasterMs", master_, small_)]);
   }, 180_000);
 
   it("slow-tab: a slow consumer ends on the latest version", async () => {
