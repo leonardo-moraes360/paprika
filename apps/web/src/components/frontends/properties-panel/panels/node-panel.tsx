@@ -35,10 +35,10 @@ export function NodePanel({ doc, node, set, onApply, onSelect, renderFontPicker,
       {node.type === "shape" ? <ShapeSection node={node} set={set} /> : null}
       {node.type === "image" ? <ImageSection node={node} set={set} /> : null}
       {node.type === "path" ? <VectorSection node={node} set={set} /> : null}
+      {node.type === "frame" ? <LayoutSection node={node} set={set} /> : null}
       <EffectsSection doc={doc} node={node} set={set} />
       {node.type === "frame" ? (
         <>
-          <LayoutSection node={node} set={set} />
           <ComponentSection node={node} set={set} onApply={onApply} onSelect={onSelect} />
           <WebSection doc={doc} node={node} set={set} />
           <ThemeModeSection doc={doc} node={node} set={set} />

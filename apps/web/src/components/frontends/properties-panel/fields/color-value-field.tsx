@@ -15,6 +15,8 @@ export type ColorValueFieldProps = {
   label: string;
   value: string | undefined;
   clearable?: boolean;
+  /** Show the label above the field, as the design does for fill and border. */
+  showLabel?: boolean;
   onCommit: (value: string | null) => void;
   className?: string;
 };
@@ -33,7 +35,7 @@ export function sameColor(next: string, current: string | null): boolean {
   return current !== null && normalize(next) === normalize(current);
 }
 
-export function ColorValueField({ doc, mode, label, value, clearable = true, onCommit, className }: ColorValueFieldProps) {
+export function ColorValueField({ doc, mode, label, value, clearable = true, showLabel = false, onCommit, className }: ColorValueFieldProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const preview = resolvedColor(doc, value, mode);
@@ -42,6 +44,11 @@ export function ColorValueField({ doc, mode, label, value, clearable = true, onC
 
   return (
     <div className={className}>
+      {showLabel ? (
+        <p aria-hidden="true" className="mb-1.5 text-xs font-semibold text-label">
+          {label}
+        </p>
+      ) : null}
       <ColorField
         value={preview ?? value ?? null}
         label={label}

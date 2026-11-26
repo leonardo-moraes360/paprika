@@ -269,21 +269,36 @@ describe("Position and size", () => {
     expect(box("X")).toHaveValue("12");
   });
 
-  it("accepts a comma as the decimal separator for opacity", async () => {
-    const user = userEvent.setup();
-    const { onApply } = setup({ id: "f1" });
-    await user.clear(box("Opacity"));
-    await user.type(box("Opacity"), "0,3{Enter}");
-    expect(onApply).toHaveBeenCalledWith([{ op: "update", id: "f1", props: { opacity: 0.3 } }], "change opacity");
+  it("shows opacity as a percentage", () => {
+    setup({ id: "f1" });
+    expect(box("Opacity")).toHaveValue("100");
+    expect(screen.getByText("%")).toBeInTheDocument();
   });
 
-  it("clamps opacity into 0..1 and explains it", async () => {
+  it("accepts a comma as the decimal separator for opacity and sends a number from 0 to 1", async () => {
     const user = userEvent.setup();
     const { onApply } = setup({ id: "f1" });
     await user.clear(box("Opacity"));
-    await user.type(box("Opacity"), "1,4{Enter}");
-    expect(screen.getByRole("alert")).toHaveTextContent("Use a number between 0 and 1.");
-    expect(box("Opacity")).toHaveValue("1");
+    await user.type(box("Opacity"), "33,5{Enter}");
+    expect(onApply).toHaveBeenCalledWith([{ op: "update", id: "f1", props: { opacity: 0.335 } }], "change opacity");
+  });
+
+  it("shows a stored opacity of 0.4 as 40 and steps it by one percent", async () => {
+    const user = userEvent.setup();
+    const doc = applyOps(buildDocument(), [{ op: "update", id: "f1", props: { opacity: 0.4 } }]).doc;
+    const { onApply } = setup({ id: "f1", doc });
+    expect(box("Opacity")).toHaveValue("40");
+    await user.click(screen.getByRole("button", { name: "Increase Opacity" }));
+    expect(onApply).toHaveBeenCalledWith([{ op: "update", id: "f1", props: { opacity: 0.41 } }], "change opacity");
+  });
+
+  it("clamps opacity into 0..100 and explains it", async () => {
+    const user = userEvent.setup();
+    const { onApply } = setup({ id: "f1" });
+    await user.clear(box("Opacity"));
+    await user.type(box("Opacity"), "140{Enter}");
+    expect(screen.getByRole("alert")).toHaveTextContent("Use a number between 0 and 100.");
+    expect(box("Opacity")).toHaveValue("100");
     expect(onApply).not.toHaveBeenCalled();
   });
 
@@ -291,9 +306,17 @@ describe("Position and size", () => {
     const user = userEvent.setup();
     const { onApply } = setup({ id: "f1" });
     await user.clear(box("Opacity"));
-    await user.type(box("Opacity"), "7{Enter}");
-    expect(screen.getByRole("alert")).toHaveTextContent("Use a number between 0 and 1.");
+    await user.type(box("Opacity"), "700{Enter}");
+    expect(screen.getByRole("alert")).toHaveTextContent("Use a number between 0 and 100.");
     expect(onApply).not.toHaveBeenCalled();
+  });
+
+  it("keeps the steppers on width and height, which also take hug and fill", async () => {
+    const user = userEvent.setup();
+    const { onApply } = setup({ id: "f1" });
+    await user.click(screen.getByRole("button", { name: "Increase Width" }));
+    expect(onApply).toHaveBeenCalledWith([{ op: "update", id: "f1", props: { width: 521 } }], "resize");
+    expect(screen.getByRole("button", { name: "Decrease Height" })).toBeInTheDocument();
   });
 
   it("accepts the hug and fill keywords for the size", async () => {
@@ -423,13 +446,41 @@ describe("Auto layout", () => {
     expect(call[1]).toBe("layout");
   });
 
-  it("accepts one or four padding values and rejects the rest", async () => {
+  it("edits a uniform padding as a number with steppers", async () => {
     const user = userEvent.setup();
     const { onApply } = setup({ id: "f1" });
+    expect(box("Padding")).toHaveValue("48");
+    await user.click(screen.getByRole("button", { name: "Increase Padding" }));
+    const call = onApply.mock.calls[0] as [{ props: { layout: Record<string, unknown> } }[], string];
+    expect(call[0][0]?.props.layout).toMatchObject({ padding: 49, gap: 24 });
+  });
+
+  it("switches to four sides and back to one", async () => {
+    const user = userEvent.setup();
+    const { onApply } = setup({ id: "f1" });
+    await user.click(screen.getByRole("button", { name: "Padding per side" }));
+    const first = onApply.mock.calls[0] as [{ props: { layout: { padding: unknown } } }[], string];
+    expect(first[0][0]?.props.layout.padding).toEqual([48, 48, 48, 48]);
+  });
+
+  it("offers one value for a four-sided padding", async () => {
+    const user = userEvent.setup();
+    const doc = applyOps(buildDocument(), [{ op: "update", id: "f1", props: { layout: { mode: "column", gap: 24, padding: [1, 2, 3, 4] } } }]).doc;
+    const { onApply } = setup({ id: "f1", doc });
+    expect(box("Padding")).toHaveValue("1 2 3 4");
+    await user.click(screen.getByRole("button", { name: "Same padding on all sides" }));
+    const call = onApply.mock.calls[0] as [{ props: { layout: { padding: unknown } } }[], string];
+    expect(call[0][0]?.props.layout.padding).toBe(1);
+  });
+
+  it("accepts one or four padding values and rejects the rest", async () => {
+    const user = userEvent.setup();
+    const doc = applyOps(buildDocument(), [{ op: "update", id: "f1", props: { layout: { mode: "column", gap: 24, padding: [48, 48, 48, 48] } } }]).doc;
+    const { onApply } = setup({ id: "f1", doc });
     await user.clear(box("Padding"));
     await user.type(box("Padding"), "1 2{Enter}");
     expect(screen.getByText("Use 1 value or 4 values, not negative.")).toBeInTheDocument();
-    expect(box("Padding")).toHaveValue("48");
+    expect(box("Padding")).toHaveValue("48 48 48 48");
     expect(onApply).not.toHaveBeenCalled();
     await user.clear(box("Padding"));
     await user.type(box("Padding"), "1 2 3 4{Enter}");
@@ -547,7 +598,7 @@ describe("Fill, radius and border", () => {
 
   it("has no per-side border controls", () => {
     setup({ id: "f1" });
-    expect(screen.queryByText(/top border|per side/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/top border|border per side/i)).not.toBeInTheDocument();
   });
 
   it("edits a single radius and unlinks into four corners", async () => {
@@ -1012,6 +1063,35 @@ describe("Group, connector, component and instance", () => {
     expect(onSelect).toHaveBeenCalledWith(["i1"]);
   });
 
+  it("edits what a copy may override, in percent for opacity, and restores it from the component", async () => {
+    const user = userEvent.setup();
+    const base = applyOps(buildDocument(), [{ op: "create", parentId: "c1", node: { type: "text", id: "ct", name: "Label", text: "Hi" } }]).doc;
+    const copyId = Object.keys(base.nodes).find((id) => base.nodes[id]?.parentId === "i1") as string;
+    const first = setup({ id: copyId, doc: base });
+    await user.clear(box("Content"));
+    await user.type(box("Content"), "Bye");
+    await user.tab();
+    expect(first.onApply).toHaveBeenLastCalledWith([{ op: "update", id: copyId, props: { text: "Bye" } }], "override");
+    await user.clear(box("Opacity"));
+    await user.type(box("Opacity"), "50{Enter}");
+    expect(first.onApply).toHaveBeenLastCalledWith([{ op: "update", id: copyId, props: { opacity: 0.5 } }], "override");
+    await choose(user, "Visible", "no");
+    expect(first.onApply).toHaveBeenLastCalledWith([{ op: "update", id: copyId, props: { visible: false } }], "override");
+    expect(screen.queryByRole("button", { name: "Restore from component" })).not.toBeInTheDocument();
+    first.unmount();
+    const overridden = applyOps(base, [{ op: "update", id: copyId, props: { text: "Bye", opacity: 0.5 } }]).doc;
+    const second = setup({ id: copyId, doc: overridden });
+    await user.click(screen.getByRole("button", { name: "Restore from component" }));
+    const call = second.onApply.mock.calls[0] as [{ props: Record<string, unknown> }[], string];
+    expect(Object.values(call[0][0]?.props ?? {}).every((value) => value === null)).toBe(true);
+    expect(Object.keys(call[0][0]?.props ?? {}).sort()).toEqual(["opacity", "text"]);
+  });
+
+  it("shows the connector opacity in percent", () => {
+    setup({ id: "k1" });
+    expect(box("Opacity")).toHaveValue("100");
+  });
+
   it("edits notes", async () => {
     const user = userEvent.setup();
     const { onApply } = setup({ id: "f1" });
@@ -1081,6 +1161,26 @@ it("re-renders with a new node without keeping a stale draft", async () => {
   rerender(<PropertiesPanel doc={doc} node={doc.nodes.f2 ?? null} selected={["f2"]} onApply={() => {}} onSelect={() => {}} />);
   expect(box("X")).toHaveValue("700");
   await act(async () => {});
+});
+
+describe("Layout of the node panel", () => {
+  const titles = () => screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent?.trim());
+
+  it("orders the sections as the design does: position, fill, auto layout, effects, component, web", () => {
+    setup({ id: "f1" });
+    const order = titles();
+    const at = (title: string) => order.findIndex((text) => text?.startsWith(title));
+    const wanted = ["Position and size", "Fill and border", "Auto layout", "Effects", "Component", "Web"].map(at);
+    expect(wanted.every((index) => index >= 0)).toBe(true);
+    expect([...wanted].sort((a, b) => a - b)).toEqual(wanted);
+  });
+
+  it("labels the fill and the border above their color fields", () => {
+    const doc = applyOps(buildDocument(), [{ op: "update", id: "f1", props: { stroke: { color: "rgb(0, 0, 0)", width: 1 } } }]).doc;
+    setup({ id: "f1", doc });
+    expect(screen.getByText("Fill", { selector: "p" })).toBeInTheDocument();
+    expect(screen.getByText("Border", { selector: "p" })).toBeInTheDocument();
+  });
 });
 
 describe("Typed property names", () => {

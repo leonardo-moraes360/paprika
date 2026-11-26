@@ -93,12 +93,11 @@ export function NumericField({ label, prefix, unit, value, onCommit, onClear, mi
   };
 
   const current = parseNumeric(draft) ?? parseNumeric(baseline);
-  const steppers = !keywords?.length;
   const atMin = min !== undefined && current !== undefined && current <= min;
   const atMax = max !== undefined && current !== undefined && current >= max;
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (steppers && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+    if ((event.key === "ArrowUp" || event.key === "ArrowDown")) {
       event.preventDefault();
       nudge(event.key === "ArrowUp" ? 1 : -1, event.shiftKey);
     } else if (event.key === "Enter") {
@@ -159,32 +158,30 @@ export function NumericField({ label, prefix, unit, value, onCommit, onClear, mi
             {unit}
           </span>
         ) : null}
-        {steppers ? (
-          <div className="flex shrink-0 flex-col items-center justify-center gap-0.5">
-            <button
-              type="button"
-              tabIndex={-1}
-              disabled={disabled || atMax}
-              aria-label={t("frontends.propertiesPanel.numeric.increase", { field: label })}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={(event) => nudge(1, event.shiftKey)}
-              className={stepClasses}
-            >
-              <Plus aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              tabIndex={-1}
-              disabled={disabled || atMin}
-              aria-label={t("frontends.propertiesPanel.numeric.decrease", { field: label })}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={(event) => nudge(-1, event.shiftKey)}
-              className={stepClasses}
-            >
-              <Minus aria-hidden="true" />
-            </button>
-          </div>
-        ) : null}
+        <div className="flex shrink-0 flex-col items-center justify-center gap-0.5">
+          <button
+            type="button"
+            tabIndex={-1}
+            disabled={disabled || atMax}
+            aria-label={t("frontends.propertiesPanel.numeric.increase", { field: label })}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={(event) => nudge(1, event.shiftKey)}
+            className={stepClasses}
+          >
+            <Plus aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            tabIndex={-1}
+            disabled={disabled || atMin}
+            aria-label={t("frontends.propertiesPanel.numeric.decrease", { field: label })}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={(event) => nudge(-1, event.shiftKey)}
+            className={stepClasses}
+          >
+            <Minus aria-hidden="true" />
+          </button>
+        </div>
       </div>
       {message ? (
         <InlineNotice id={messageId} tone="error">

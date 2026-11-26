@@ -28,6 +28,7 @@ export function BorderFields({ doc, node, mode, set }: BorderFieldsProps) {
       <ColorValueField
         doc={doc}
         mode={mode}
+        showLabel
         label={t("frontends.propertiesPanel.border.color")}
         value={stroke?.color}
         onCommit={(color) =>

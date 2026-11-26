@@ -6,6 +6,7 @@ import { ChoiceField } from "../fields/choice-field";
 import { ColorValueField } from "../fields/color-value-field";
 import { CommitTextField } from "../fields/commit-text-field";
 import { NumericField } from "../fields/numeric-field";
+import { OpacityField } from "../fields/opacity-field";
 import { IdentityHeader } from "../identity-header";
 import { PanelSection } from "../panel-section";
 import { ArrangeSection } from "../sections/arrange-section";
@@ -74,7 +75,7 @@ export function ConnectorPanel({ doc, node, set, onApply, onSelect }: NodePanelB
         <ColorValueField doc={doc} mode={modeOf(doc, node)} label={t("frontends.propertiesPanel.border.color")} value={node.stroke.color} clearable={false} onCommit={(color) => color && set({ stroke: { ...node.stroke, color } }, label)} />
         <PropertyRow title={t("frontends.propertiesPanel.connector.stroke")} hideTitle>
           <NumericField label={t("frontends.propertiesPanel.border.width")} prefix="W" unit="px" min={0} value={node.stroke.width} onCommit={(width) => set({ stroke: { ...node.stroke, width } }, label)} />
-          <NumericField label={t("frontends.propertiesPanel.position.opacity")} prefix="O" min={0} max={1} value={node.opacity} onCommit={(opacity) => set({ opacity }, label)} />
+          <OpacityField label={t("frontends.propertiesPanel.position.opacity")} value={node.opacity} onCommit={(opacity) => set({ opacity }, label)} />
         </PropertyRow>
         <InlineNotice>{t("frontends.propertiesPanel.connector.followHint")}</InlineNotice>
       </PanelSection>
