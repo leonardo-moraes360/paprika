@@ -81,7 +81,7 @@ describe.skipIf(!existsSync(webDist))("E2E: construção ao vivo", () => {
 
   // PAP-E2E: o app novo não tem o botão "código" do replay (BuildCode do antigo mostrava o exportReact do frame em construção)
   it.fails("o botão de código mostra o JSX do frame que o agente constrói", async () => {
-    const toggle = page.getByTestId("build-code-toggle");
+    const toggle = page.getByRole("button", { name: /código/i });
     await expect.poll(() => toggle.getAttribute("aria-pressed"), { timeout: 3000 }).toBe("false");
     await expect.poll(() => page.getByTestId("build-code").count()).toBe(0);
     await toggle.click({ timeout: 3000 });
