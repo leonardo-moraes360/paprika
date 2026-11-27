@@ -24,7 +24,10 @@ async function openEditor() {
 const nodeIds = (view: Awaited<ReturnType<typeof openEditor>>) => Object.keys(view.doc.nodes);
 const presence = (i: number, ids: string[], tool = i % 3 === 0 ? "get_nodes" : "update_nodes") => ({ type: "presence" as const, agent: `s:${i}`, actor: `agent:client-${i % 8}`, tool, nodes: [ids[100 + i] as string], idle: 0 });
 const others = (except: string) => editorRegionIds.filter((id) => id !== except);
-/** The roster lives inside the header (as in the design), so the header's profiler sees every commit of the roster. */
+/**
+ * The roster lives inside the header (as in the design). The header's profiler sees every commit of its subtree, but the
+ * perf log counts for the header only the commits where something besides the roster rendered (see `NESTED_ONLY_MS`).
+ */
 const outsideRoster = others("agents").filter((id) => id !== "header");
 
 describe("collaboration regions with a document of 5 000 nodes", () => {
@@ -37,10 +40,11 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
     expect(view.rig.client.store.state.agents).toHaveLength(AGENTS);
     // The pages (who is on which page) and the layers (who touches which node) show the arrival, once each; nothing else does.
     for (const id of outsideRoster) expect(view.log.commits(id), id).toBe(id === "pages" || id === "layers" ? 1 : 0);
-    // The roster: its mount and the sync of its clock on mount, plus at most one for the tones of the 8 clients; the header's profiler holds it.
+    // The roster: its mount and the sync of its clock on mount (`useNow`, in lib/), plus at most one for the tones of the 8 clients.
     expect(view.log.commits("agents")).toBeGreaterThan(0);
     expect(view.log.commits("agents")).toBeLessThanOrEqual(3);
-    expect(view.log.commits("header")).toBe(view.log.commits("agents"));
+    // The header itself renders once: the roster appears (its agents count changed). The roster's later commits are its own.
+    expect(view.log.commits("header")).toBe(1);
     view.unmount();
   });
 
@@ -50,23 +54,21 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
     for (let i = 0; i < AGENTS; i += 1) view.rig.push(presence(i, ids));
     view.log.reset();
     for (let i = 0; i < AGENTS; i += 1) view.rig.push(presence(i, ids, "update_nodes"));
-    // Nothing but the roster (its profiler and the header's, the same commits) shows when an agent was last active.
+    // Nothing but the roster shows when an agent was last active: the header does not render for it.
     for (const id of outsideRoster) expect(view.log.commits(id), id).toBe(0);
     expect(view.log.commits("agents")).toBeLessThanOrEqual(AGENTS);
-    expect(view.log.commits("header")).toBe(view.log.commits("agents"));
+    expect(view.log.commits("agents")).toBeGreaterThan(0);
+    expect(view.log.commits("header")).toBe(0);
     view.unmount();
   });
 
   it("the roster's clock ticks inside the roster: ten seconds commit it and no other region", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
     const view = await openEditor();
+    // From here on time is the test's (the editor opened on real timers, which `findBy*` needs); the roster's interval is created below, on the fake ones.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
     const ids = nodeIds(view);
     act(() => {
       for (let i = 0; i < AGENTS; i += 1) view.rig.sockets.last.receive(presence(i, ids));
-    });
-    // The document lint (properties) answers a moment after the editor opens: let it settle, it is not the roster's clock.
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(3000);
     });
     view.log.reset();
     for (let second = 0; second < 10; second += 1) {
@@ -76,8 +78,9 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
     }
     expect(view.log.commits("agents")).toBeGreaterThanOrEqual(5);
     for (const id of outsideRoster) expect(view.log.commits(id), id).toBe(0);
+    expect(view.log.commits("header")).toBe(0);
     view.unmount();
-  }, 30_000);
+  });
 
   it("a burst of 200 deltas with 64 agents present does not commit the roster, the pages or the layers (they depend on the page and nodes of each agent, not on the document)", async () => {
     const view = await openEditor();

@@ -8,6 +8,7 @@ import { createMemoryHistory, createRootRoute, createRoute, createRouter, Outlet
 import { act, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { Notifications } from "@/components/notifications";
+import { DocLintTransportProvider, nullTransport, type TransportFactory } from "@/data/lint";
 import { createQueryClient } from "@/data/query-client";
 import { LiveProvider } from "@/data/live/hooks";
 import { createLiveClient, type FlushScheduler, type LiveClient, type LiveClientOptions } from "@/data/live/live-store";
@@ -223,14 +224,14 @@ export function nodeDelta(doc: Document, nodeId: string, props: Bag, version: nu
   return deltaMessage(doc, version, { nodes: { set: { [nodeId]: { ...node, ...props } as Node } }, ...extra });
 }
 
-export type EditorRigOptions = { nodes?: number; workspaceId?: string; client?: LiveRig; log?: PerfLog; path?: string; extraRoutes?: (root: AnyRootRoute) => AnyRoute[] };
+export type EditorRigOptions = { nodes?: number; workspaceId?: string; client?: LiveRig; log?: PerfLog; path?: string; /** The lint transport of the editor; default none (no lint result arrives, so nothing commits when one would). */ lint?: TransportFactory; extraRoutes?: (root: AnyRootRoute) => AnyRoute[] };
 
 /**
  * The workspace route (`/w/$workspaceId`) with a fake server behind it: providers, router at `/w/<id>`, a perf log.
  * Resolves once the editor is on screen. `/` renders a marker `<div data-testid="overview-route" />` unless `extraRoutes` is given.
  */
 export async function renderEditorRig(options: EditorRigOptions = {}) {
-  const { nodes = 100, workspaceId = "doc-1", log = createPerfLog() } = options;
+  const { nodes = 100, workspaceId = "doc-1", log = createPerfLog(), lint = nullTransport } = options;
   window.scrollTo = () => {};
   const rig = options.client ?? createLiveRig();
   const doc = makeDocument(nodes, { id: workspaceId });
@@ -240,7 +241,9 @@ export async function renderEditorRig(options: EditorRigOptions = {}) {
       <PerfProvider log={log}>
         <QueryClientProvider client={queryClient}>
           <LiveProvider client={rig.client}>
-            <Outlet />
+            <DocLintTransportProvider transport={lint}>
+              <Outlet />
+            </DocLintTransportProvider>
             <Notifications />
           </LiveProvider>
         </QueryClientProvider>

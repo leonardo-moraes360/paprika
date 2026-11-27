@@ -1,14 +1,18 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Notifications } from "@/components/notifications";
 import { LiveProvider } from "@/data/live";
 import { dismissToasts } from "@/lib/notify";
 import { createLiveRig, docMessage, makeDocument, nodeDelta, type LiveRig } from "@/test/live-harness";
 import { EditorProvider, initialEditorState, useEditorStore, type EditorActions } from "../editor-store";
+import { ACTIVITY_REFRESH_MS } from "./activity";
 import { Properties } from "./properties";
 
-afterEach(() => dismissToasts());
+afterEach(() => {
+  vi.useRealTimers();
+  dismissToasts();
+});
 
 async function mount(rig: LiveRig = createLiveRig()) {
   const doc = makeDocument(60, { perFrame: 20 });
@@ -136,9 +140,12 @@ describe("Properties region", () => {
 
   it("lists the activity in the document panel: you, the agent, and a step as undone", async () => {
     const view = await mount();
+    // The panel lists new entries at most every ACTIVITY_REFRESH_MS: time is the test's, so three edits in a row show after it passes.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     view.rig.deliver(nodeDelta(view.doc, view.ids[0] as string, { x: 1 }, 2, { actor: "user", label: "move" }));
     view.rig.deliver(nodeDelta(view.rig.client.store.state.doc!, view.ids[1] as string, { x: 1 }, 3, { actor: "agent:claude", label: "update_nodes" }));
     view.rig.deliver(nodeDelta(view.rig.client.store.state.doc!, view.ids[1] as string, { x: 2 }, 4, { actor: "user", label: "undo: move", kind: "undo" }));
+    act(() => void vi.advanceTimersByTime(ACTIVITY_REFRESH_MS + 20));
     const list = screen.getByRole("list", { name: "Activity" });
     expect(list.textContent).toContain("claude");
     expect(list.textContent).toContain("You");
