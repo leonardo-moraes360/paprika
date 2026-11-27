@@ -60,7 +60,7 @@ export function commitGradient(rt: CanvasRuntime, id: string, gradient: Gradient
  */
 export const gradientHandle: Gesture = {
   id: "gradient-handle",
-  accepts: (rt, event) => event.button === 0 && event.target instanceof Element && event.target.closest("[data-gradient-handle]") !== null,
+  accepts: (rt, event) => event.button === 0 && rt.tool() === "select" && event.target instanceof Element && event.target.closest("[data-gradient-handle]") !== null,
   start: (rt, event) => {
     const el = (event.target as Element).closest<HTMLElement>("[data-gradient-handle]");
     const handle = parseHandle(el?.dataset.gradientHandle);

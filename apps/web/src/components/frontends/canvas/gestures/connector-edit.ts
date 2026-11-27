@@ -25,7 +25,7 @@ const kindOf = (target: EventTarget | null): HandleKind | null => {
  */
 export const connectorEdit: Gesture = {
   id: "connector-edit",
-  accepts: (rt, event) => event.button === 0 && kindOf(event.target) !== null && editableConnector(rt) !== null,
+  accepts: (rt, event) => event.button === 0 && rt.tool() === "select" && kindOf(event.target) !== null && editableConnector(rt) !== null,
   start: (rt, event) => {
     const kind = kindOf(event.target);
     const conn = editableConnector(rt);
