@@ -85,7 +85,7 @@ export type LiveClientOptions = {
   schedule?: FlushScheduler;
   /** How long a version announced by an ack may stay unseen before the client asks for a snapshot (default 1500 ms). */
   staleResyncMs?: number;
-  fetchTeam?: () => Promise<RawTeamStatus | null>;
+  fetchTeam?: () => Promise<RawTeamStatus | null | undefined>;
   now?: () => number;
 };
 
@@ -172,6 +172,8 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
   let renderer: RendererMode | null = null;
   let noticeSeq = 0;
   let pending: string[] = [];
+  /** Presence frames of the frame in progress, each with the time it arrived (`idle` counts back from it). */
+  let pendingPresence: { message: PresenceMessage; at: number }[] = [];
   let cancelFlush: (() => void) | null = null;
   let resyncing = false;
   let staleTimer: ReturnType<typeof setTimeout> | undefined;
@@ -188,20 +190,28 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
 
   /** The view request on its way: a second `view` for the same workspace joins it instead of asking for another snapshot. */
   let inflight: { id: string | null; waiters: Deferred[] } | null = null;
+  /** Whether anyone has asked for a workspace (`view`) in this client's life: until then the server decides (the active one, after its short wait). */
+  let asked = false;
+  /** The workspace (`null`: the active one) the server confirmed on THIS connection: asking for it again would only download the same document again. */
+  let ackedView: { id: string | null } | null = null;
 
   const sendView = (waiters: Deferred[]) => {
     const entry = { id: viewId, waiters };
     inflight = entry;
+    ackedView = null;
     const settle = () => {
       if (inflight === entry) inflight = null;
     };
     socket.request(viewMessage()).then(
       () => {
+        // Only the latest request says what the server is showing now: the late ack of an earlier one (a quick a, then b) does not.
+        if (inflight === entry) ackedView = { id: entry.id };
         settle();
         for (const waiter of entry.waiters) waiter.resolve();
       },
       (error: unknown) => {
         settle();
+        ackedView = null;
         if (isOfflineError(error) && socket.isRunning) {
           queuedViews.push(...entry.waiters);
           return;
@@ -279,7 +289,9 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
     cancelFlush = null;
     const raws = pending;
     pending = [];
-    if (raws.length === 0) return;
+    const presences = pendingPresence;
+    pendingPresence = [];
+    if (raws.length === 0 && presences.length === 0) return;
     // A full snapshot supersedes everything queued before it.
     let from = 0;
     for (let i = raws.length - 1; i >= 0; i -= 1) {
@@ -299,22 +311,34 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
           owned.clear();
           continue;
         }
-        if (!current.doc || current.doc.id !== message.id || message.base !== current.version) {
-          if (current.doc && current.doc.id === message.id && message.version <= current.version) continue;
+        // A delta of another workspace (late, after a `view` switched to this one) says nothing about this document: drop it, no snapshot needed.
+        if (current.doc && current.doc.id !== message.id) continue;
+        if (!current.doc || message.base !== current.version) {
+          if (current.doc && message.version <= current.version) continue;
           mismatch = true;
           break;
         }
         const result = applyDelta(current.doc, message, owned);
         current = record(current, result.doc, message);
       }
+      // Who is where: every presence of the frame, in order, in the same update as the document (one commit per region, not one per message).
+      if (presences.length > 0) {
+        let agents = current.agents;
+        for (const { message, at } of presences) agents = applyPresence(agents, message, at);
+        current = { ...current, agents };
+      }
       return current;
     });
     if (mismatch) resync();
   };
 
+  const queueFlush = () => {
+    if (!cancelFlush) cancelFlush = schedule(flush);
+  };
+
   const queueDoc = (raw: string) => {
     pending.push(raw);
-    if (!cancelFlush) cancelFlush = schedule(flush);
+    queueFlush();
   };
 
   const onMessage = (message: ServerMessage) => {
@@ -338,7 +362,9 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
         emit({ type: "pins", rev: message.rev });
         break;
       case "presence":
-        set((s) => ({ ...s, agents: applyPresence(s.agents, message, now()) }));
+        // Not applied here: a hundred reports in one frame (an agent reading node after node) would be a hundred updates of the store.
+        pendingPresence.push({ message, at: now() });
+        queueFlush();
         break;
       case "error":
         set((s) => ({ ...s, error: message.message }));
@@ -361,10 +387,14 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
         set((s) => ({ ...s, connected: true }));
         reportRenderer();
         resyncing = false;
-        sendView(queuedViews.splice(0));
+        ackedView = null;
+        // Nobody has asked yet (the socket opens before the route mounts): the server sends the active workspace after a short wait
+        // unless a `view` comes first, so sending one here with no id would only bring a document that the route's own `view` replaces.
+        if (asked || queuedViews.length > 0) sendView(queuedViews.splice(0));
       },
       onClose: () => {
         resyncing = false;
+        ackedView = null;
         set((s) => (s.connected ? { ...s, connected: false } : s));
       },
       onDocFrame: queueDoc,
@@ -412,7 +442,8 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
         const abort = new AbortController();
         teamAbort = abort;
         void fetchTeam().then((team) => {
-          if (abort.signal.aborted) return;
+          // `undefined`: the server did not say (an error, no answer): nothing is known, so the state stays as it is.
+          if (abort.signal.aborted || team === undefined) return;
           set((s) => (s.team !== undefined ? s : { ...s, team }));
         });
       });
@@ -429,16 +460,19 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
       cancelFlush?.();
       cancelFlush = null;
       pending = [];
+      pendingPresence = [];
       for (const waiter of queuedViews.splice(0)) waiter.reject(new LiveOfflineError());
       socket.stop();
       set((s) => (s.connected ? { ...s, connected: false } : s));
     },
     view: (workspaceId) => {
       viewId = workspaceId;
+      asked = true;
       return new Promise<void>((resolve, reject) => {
         const waiter: Deferred = { resolve, reject };
         if (!socket.isOpen) queuedViews.push(waiter);
         else if (inflight && inflight.id === workspaceId) inflight.waiters.push(waiter);
+        else if (!inflight && ackedView && ackedView.id === workspaceId) resolve();
         else sendView([waiter]);
       });
     },

@@ -125,7 +125,7 @@ export type LiveRig = {
   connect: () => Promise<FakeSocket>;
   /** Send frames and apply them as one batch (what the next animation frame would do). */
   deliver: (...messages: (ServerMessage | string)[]) => void;
-  /** Send frames that are handled at once (acks, presence, errors, workspace ops), without flushing the document batch. */
+  /** Send frames that are handled at once (acks, errors, workspace ops), without flushing the document batch. Presence waits for the frame like the document does, so a push with a presence in it flushes the batch too. */
   push: (...messages: (ServerMessage | string)[]) => void;
 };
 
@@ -147,6 +147,7 @@ export function createLiveRig(options: LiveClientOptions = {}): LiveRig {
     push: (...messages) => {
       act(() => {
         for (const message of messages) sockets.last.receive(message);
+        if (messages.some((message) => typeof message !== "string" && message.type === "presence")) scheduler.flush();
       });
     },
     deliver: (...messages) => {

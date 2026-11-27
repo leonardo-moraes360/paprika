@@ -47,7 +47,8 @@ describe("Export region", () => {
     await user.click(within(dialog).getByRole("radio", { name: "2x" }));
     await user.click(within(dialog).getByRole("button", { name: /export/i }));
     await waitFor(() => expect(view.downloads).toHaveLength(1));
-    expect(view.calls.map((c) => `${c.method} ${c.url}`)).toEqual(["GET /api/health", "GET /api/screenshot?root=n3&scale=2"]);
+    // The workspace is read again after the PNG came in (it may have changed while the server drew it).
+    expect(view.calls.map((c) => `${c.method} ${c.url}`)).toEqual(["GET /api/health", "GET /api/screenshot?root=n3&scale=2", "GET /api/health"]);
     expect(view.downloads[0]!.type).toBe("image/png");
   });
 

@@ -9,7 +9,9 @@ import {
   createsAtModuleScope,
   diskEnvironment,
   editorRegions,
+  isNetworkFree,
   moduleScopeCreators,
+  mutableCollectionRule,
   mutableState,
   scan,
   sourceFiles,
@@ -35,7 +37,10 @@ describe("architecture of the app layers: the real tree", () => {
   const layerFiles = (dir: string) => sourceFiles(join(srcDir, dir));
 
   it("only data/ talks to the network, and nothing in a layer builds a store, socket or client at import time", () => {
-    const files = [...["data", "adapters", "editor", "overview", "routes", "perf", "i18n", "lib"].flatMap(layerFiles), join(srcDir, "router.tsx")];
+    // Every file of src/ outside data/, test/ and components/ (which has its own test), so a folder added later is checked too.
+    const files = sourceFiles(srcDir).filter((file) => isNetworkFree(file.slice(srcDir.length + 1)));
+    expect(files.length).toBeGreaterThan(50);
+    expect(files.some((file) => file.endsWith("router.tsx"))).toBe(true);
     const violations = files.flatMap((file) => checkAppFile(disk, file, read(file.slice(srcDir.length + 1)) as string));
     expect(violations).toEqual([]);
   });
@@ -45,7 +50,8 @@ describe("architecture of the app layers: the real tree", () => {
     expect(files.length).toBeGreaterThan(0);
     // `adapters/doc-fonts.ts` keeps a `let last` that makes its result depend on the previous call (review finding A1, the
     // performance package replaces it): delete this exception together with that `let`.
-    const exceptions = {};
+    // `noActiveAgents` is an empty sentinel typed `ReadonlyMap`: nothing ever writes to it.
+    const exceptions = { "adapters/active-agents.ts": [mutableCollectionRule.id] };
     const violations = files.flatMap((file) => checkAdapterFile(disk, file, disk.read(file) as string, exceptions));
     expect(violations).toEqual([]);
   });
@@ -181,7 +187,47 @@ describe("architecture of the app layers: holes found by probe (T1)", () => {
     expect(app("data/queries/x.ts", 'const url = "/api/pins";')).toEqual([]);
     expect(app("editor/x.test.tsx", 'expect(url).toBe("/api/pins");')).toEqual([]);
     expect(app("editor/x.ts", "// GET /api/pins\nconst a = 1;")).toEqual([]);
-    expect(app("editor/x.ts", 'const a = "/apiary"; const b = "https://a.b/api/c"; const c = "x/api";')).toEqual([]);
+    expect(app("editor/x.ts", 'const a = "/apiary"; const b = "/ws-info"; const c = "x/api"; const d = "/fonts/inter.css";')).toEqual([]);
+  });
+
+  it.each([
+    ["an interpolated base", "const url = `${base}/api/x`;"],
+    ["an absolute URL", 'const url = "http://host/api";'],
+    ["an absolute URL with a path", 'const url = "https://a.b/api/c";'],
+    ["the socket route", 'const url = "/ws";'],
+    ["the MCP route", "const url = `/mcp`;"],
+    ["an interpolated socket route", "const url = `${proto}://${host}/ws`;"],
+  ])("sees an API route written as %s", (_name, source) => {
+    expect(app("editor/x.ts", source)).toEqual(["editor/x.ts: api path"]);
+  });
+
+  it("checks every folder under src/ except data/, test/ and components/, including one added later", () => {
+    for (const path of ["hooks/use-thing.ts", "services/client.ts", "router.tsx", "adapters/x.ts", "lib/x.ts", "perf/x.ts", "editor/x.ts", "overview/x.ts", "routes/x.tsx", "i18n/x.ts"]) {
+      expect(isNetworkFree(path), path).toBe(true);
+      expect(app(path, "const r = fetch(u);"), path).toEqual([`${path}: fetch`]);
+    }
+    for (const path of ["data/api.ts", "test/live-harness.tsx", "components/frontends/x/x.tsx"]) expect(isNetworkFree(path), path).toBe(false);
+  });
+
+  it.each([
+    ["a timer", "const id = setInterval(tick, 1000);"],
+    ["a window listener", "window.addEventListener('resize', f);"],
+    ["a bare listener", "document.addEventListener('keydown', f);"],
+    ["an abort controller", "export const abort = new AbortController();"],
+    ["a broadcast channel", "const channel = new BroadcastChannel('x');"],
+    ["an observer", "const o = new ResizeObserver(f);"],
+  ])("sees %s created at import time", (_name, source) => {
+    expect(app("editor/x.ts", source)).toEqual(["editor/x.ts: store, socket or client created at module scope"]);
+    expect(app("editor/x.ts", `export function start() { ${source} }`)).toEqual([]);
+  });
+
+  it("an adapter cannot keep an empty Map or Set at module scope (a cache), but a constant table and a WeakMap are fine", () => {
+    for (const source of ["const cache = new Map();", "const seen = new Set<string>();", "export const memo = new Map<string, number[]>();", "export const empty = { nodes: new Map(), pages: new Map() };"]) {
+      expect(adapter(source), source).toEqual([`adapters/x.ts: ${mutableCollectionRule.id}`]);
+    }
+    expect(adapter('const tools = new Set(["a", "b"]); const memo = new WeakMap<object, string>();')).toEqual([]);
+    expect(adapter("export function f() { const seen = new Map(); return seen; }\nconst g = () => new Set();")).toEqual([]);
+    expect(adapter("const cache = new Map();", "adapters/x.test.ts")).toEqual([]);
   });
 
   const lib = (files: Record<string, string>, source: string, path = "adapters/x.ts") => {

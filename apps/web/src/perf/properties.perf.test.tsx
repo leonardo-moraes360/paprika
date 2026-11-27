@@ -143,8 +143,9 @@ describe("properties region commits with a document of 5 000 nodes", () => {
     }
     expect(view.rig.client.store.state.version).toBe(201);
     // 640 ms of edits: the first entry shows at once, then one render per 100 ms. Without the throttle this is one per frame (40).
-    expect(commits(view)).toBeGreaterThanOrEqual(2);
-    expect(commits(view)).toBeLessThanOrEqual(10);
+    // Measured: 7 (the first at once, then one per 100 ms; the clock is the test's). A regression to 10 or to one per frame (40) fails.
+    expect(commits(view)).toBeGreaterThanOrEqual(6);
+    expect(commits(view)).toBeLessThanOrEqual(8);
     await settle();
     // The last render shows every entry that came in (the list is capped by the store, so look at the newest).
     expect(screen.getByRole("list", { name: "Activity" }).textContent).toContain("edit");

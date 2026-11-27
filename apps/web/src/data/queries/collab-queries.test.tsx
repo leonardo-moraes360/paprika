@@ -51,10 +51,11 @@ describe("pins queries", () => {
     const calls = fakeServer({ "GET /api/pins": () => json({ pins: Array.from({ length: ++served }, (_, i) => pin({ id: `p${i}` })) }) });
     const rig = createLiveRig();
     await rig.connect();
-    const { Wrapper } = wrapper(rig);
+    const { Wrapper, client } = wrapper(rig);
     const hook = renderHook(() => { usePinsLiveSync("w1"); return usePins("w1"); }, { wrapper: Wrapper });
     await waitFor(() => expect(hook.result.current.data).toBeDefined());
-    await new Promise((resolve) => setTimeout(resolve, 30));
+    // Nothing is in flight any more (the sync's own first fetch included), so what is counted below is the announcement's.
+    await waitFor(() => expect(client.isFetching()).toBe(0));
     const before = calls.length;
     const shown = hook.result.current.data!.length;
     rig.push({ type: "pins", rev: 5 });
@@ -98,7 +99,8 @@ describe("pins queries", () => {
     expect(calls[1]!.body).toEqual({ text: "On it" });
     expect(calls[2]!.body).toEqual({ status: "resolved" });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: pinsKey("w1") });
-    expect(invalidate.mock.calls.length).toBeGreaterThanOrEqual(4);
+    // One refresh per command (create, reply, status, delete), no more: a command that refreshed twice would fetch the list twice.
+    expect(invalidate.mock.calls.length).toBe(4);
   });
 
   it("rejects with the server's message", async () => {
@@ -165,7 +167,23 @@ describe("image export", () => {
     const calls = fakeServer({ "GET /api/health": () => json({ docId: "w1" }), "GET /api/screenshot": () => reply(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } }) });
     const blob = await fetchPng("w1", "f 1", 2);
     expect(blob.size).toBe(4);
-    expect(calls.map((call) => call.url)).toEqual(["/api/health", "/api/screenshot?root=f%201&scale=2"]);
+    // The workspace is checked again once the PNG is in: the active one may have changed while Chromium drew it.
+    expect(calls.map((call) => call.url)).toEqual(["/api/health", "/api/screenshot?root=f%201&scale=2", "/api/health"]);
+  });
+
+  it("rejects a PNG when the server's open workspace changed while it was drawn (it may be another workspace's)", async () => {
+    let health = 0;
+    fakeServer({
+      "GET /api/health": () => json({ docId: ++health === 1 ? "w1" : "other" }),
+      "GET /api/screenshot": () => reply(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } }),
+    });
+    await expect(fetchPng("w1", null, 1)).rejects.toMatchObject({ code: "http", status: 409, message: expect.stringContaining("PNG needs this workspace") });
+  });
+
+  it("does not check the workspace again after a screenshot that failed", async () => {
+    const calls = fakeServer({ "GET /api/health": () => json({ docId: "w1" }), "GET /api/screenshot": () => json({ error: "no chromium" }, 500) });
+    await expect(fetchPng("w1", null, 1)).rejects.toMatchObject({ status: 500 });
+    expect(calls.map((call) => call.url)).toEqual(["/api/health", "/api/screenshot?scale=1"]);
   });
 
   it("shows the server's error when it cannot take the screenshot", async () => {

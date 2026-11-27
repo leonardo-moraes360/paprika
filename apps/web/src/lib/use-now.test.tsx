@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { Profiler, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useNow } from "./use-now";
 
@@ -19,6 +20,19 @@ describe("useNow", () => {
     time = 3500;
     act(() => vi.advanceTimersByTime(500));
     expect(result.current).toBe(3500);
+  });
+
+  it("commits once on mount: the clock was read in the render, so the effect does not read it again", () => {
+    let time = 0;
+    let commits = 0;
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <Profiler id="now" onRender={() => (commits += 1)}>
+        {children}
+      </Profiler>
+    );
+    // A clock that moves on every read (a real one does) would commit a second time if the effect synced it.
+    renderHook(() => useNow(undefined, () => (time += 1), 500), { wrapper });
+    expect(commits).toBe(1);
   });
 
   it("uses a 1 second interval by default", () => {

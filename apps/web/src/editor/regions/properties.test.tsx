@@ -119,6 +119,21 @@ describe("Properties region", () => {
     view.unmount();
   });
 
+  it("says the change may have been applied when the connection dropped after it was sent", async () => {
+    const user = userEvent.setup();
+    const view = await mount();
+    view.select([view.ids[0] as string]);
+    const name = screen.getByRole("textbox", { name: "Name" });
+    await user.clear(name);
+    await user.type(name, "Z{Enter}");
+    expect(view.socket.lastReqId("ops")).toBeTruthy();
+    act(() => view.socket.drop());
+    expect(await screen.findByText(/may have been applied/)).toBeInTheDocument();
+    expect(screen.queryByText(/cannot be sent/)).not.toBeInTheDocument();
+    expect(screen.getAllByText("Could not apply the change")).toHaveLength(1);
+    view.unmount();
+  });
+
   it("hints the group shortcuts the way the platform spells them", async () => {
     const view = await mount();
     const [a, b] = view.ids as [string, string];

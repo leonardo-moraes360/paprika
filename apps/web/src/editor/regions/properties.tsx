@@ -6,10 +6,10 @@ import { panelInput, type PanelInput } from "@/adapters/properties";
 import { FontPicker } from "@/components/frontends/font-picker";
 import { PropertiesPanel, type FontPickerSlot, type PropertiesPanelProps, type PropertiesPanelShortcuts } from "@/components/frontends/properties-panel";
 import { useDocLint } from "@/data/lint";
-import { isOfflineError, shallow, useLive, useLiveActions, useLiveClient } from "@/data/live";
+import { shallow, useLive, useLiveActions, useLiveClient } from "@/data/live";
 import { showStatusToast } from "@/lib/notify";
-import { errorText } from "@/lib/use-async-action";
 import { useEditorActions, useEditorStore } from "../editor-store";
+import { useFailureText } from "../use-apply";
 import { usePanelActivity } from "./activity";
 
 const MemoPanel = memo(PropertiesPanel);
@@ -107,15 +107,16 @@ export function Properties({ header }: { header?: ReactNode } = {}) {
   const lint = useDocLint(documentView);
   const shortcuts = usePanelShortcuts();
 
-  // Strings that the stable callbacks read at call time.
-  const texts = useRef({ failed: "", offline: "" });
-  texts.current = { failed: t("app.properties.applyFailed"), offline: t("app.connection.lost") };
+  // What the stable callbacks read at call time.
+  const failure = useFailureText();
+  const texts = useRef({ title: "", failure });
+  texts.current = { title: t("app.properties.applyFailed"), failure };
 
   const report = useCallback((error: unknown) => {
-    // The panel hands its own `onError` the message of the rejection, and an offline one reads just "offline".
-    const description = isOfflineError(error) || errorText(error) === "offline" ? texts.current.offline : errorText(error);
+    // The panel hands its own `onError` only the message of the rejection: the text of `LiveOfflineError` and of `LiveInterruptedError` tell the two connection failures apart.
+    const description = texts.current.failure(error);
     // One id: a rejected promise reported both here and by the panel's own `onError` shows one toast.
-    showStatusToast({ status: "danger", id: ERROR_TOAST_ID, title: texts.current.failed, description: description || undefined });
+    showStatusToast({ status: "danger", id: ERROR_TOAST_ID, title: texts.current.title, description });
   }, []);
 
   const onApply = useCallback<PropertiesPanelProps["onApply"]>(

@@ -1,7 +1,7 @@
 import type { Op } from "@paprika/core";
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { isInterruptedError, isOfflineError, useLiveActions } from "@/data/live";
+import { INTERRUPTED_MESSAGE, isInterruptedError, isOfflineError, OFFLINE_MESSAGE, useLiveActions } from "@/data/live";
 import { showStatusToast } from "@/lib/notify";
 import { errorText } from "@/lib/use-async-action";
 
@@ -9,7 +9,13 @@ import { errorText } from "@/lib/use-async-action";
 export function useFailureText() {
   const { t } = useTranslation();
   return useCallback(
-    (error: unknown) => (isInterruptedError(error) ? t("app.connection.interrupted") : isOfflineError(error) ? t("app.connection.lost") : errorText(error).trim() || t("app.shell.actionFailed")),
+    (error: unknown) => {
+      // A screen may hold only the text of the rejection (a panel's `onError(message)`): "interrupted" and "offline" are the messages of the two connection errors.
+      const text = errorText(error);
+      if (isInterruptedError(error) || text === INTERRUPTED_MESSAGE) return t("app.connection.interrupted");
+      if (isOfflineError(error) || text === OFFLINE_MESSAGE) return t("app.connection.lost");
+      return text.trim() || t("app.shell.actionFailed");
+    },
     [t],
   );
 }

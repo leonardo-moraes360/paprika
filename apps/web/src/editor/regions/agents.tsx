@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo } from "react";
 import { Agents as AgentsFrontend } from "@/components/frontends/agents";
 import { agentPages, presenceActors, toAgentEntries } from "@/adapters/agents";
-import { useLive, useLiveClient, type LiveState } from "@/data/live";
+import { useLive, useLiveClient, type AgentPresence, type LiveState } from "@/data/live";
 import { RegionProfiler } from "@/perf";
 import { useAgentTones, useAssignTones } from "../collab";
 import { useEditor, useEditorActions } from "../editor-store";
@@ -11,11 +11,28 @@ const pagesKey = (s: LiveState) => agentPages(s.doc, s.agents).flatMap((page) =>
 const sameStrings = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((value, i) => value === b[i]);
 
 /**
+ * The roster shows how long ago each agent was active in whole seconds (its own clock ticks every second), so a report that only
+ * moves `at` forward by less than that changes nothing it shows: an agent that keeps reading nodes does not re-render it. Compared
+ * with the value the roster last rendered, so the difference never adds up to a visible one.
+ */
+const AT_PRECISION_MS = 1000;
+export function sameRoster(a: readonly AgentPresence[], b: readonly AgentPresence[]): boolean {
+  if (a === b) return true;
+  return (
+    a.length === b.length &&
+    a.every((x, i) => {
+      const y = b[i] as AgentPresence;
+      return x.agent === y.agent && x.actor === y.actor && x.tool === y.tool && Math.abs(x.at - y.at) < AT_PRECISION_MS && sameStrings(x.nodes, y.nodes);
+    })
+  );
+}
+
+/**
  * The roster: the frontend with its own trigger (active count on a clock of its own, so a tick re-renders only this
  * component). `onFocusAgent` has no canvas to fly to: it goes to the agent's page and selects the nodes it touches.
  */
 export const AgentsRoster = memo(function AgentsRoster() {
-  const agents = useLive((s) => s.agents);
+  const agents = useLive((s) => s.agents, sameRoster);
   const pages = useLive(pagesKey, sameStrings);
   const tones = useAgentTones();
   const open = useEditor((s) => s.dialogs.agents);

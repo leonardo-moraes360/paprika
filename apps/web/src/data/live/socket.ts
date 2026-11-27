@@ -18,10 +18,15 @@ const OPEN = 1;
 /** Reconnection delays in ms: 1 s, 2 s, then 5 s for every later attempt. */
 export const reconnectDelays: readonly number[] = [1000, 2000, 5000];
 
+/** The message of a `LiveInterruptedError` (the one of a `LiveOfflineError` is `"offline"`). */
+export const INTERRUPTED_MESSAGE = "interrupted";
+
+export const OFFLINE_MESSAGE = "offline";
+
 export class LiveOfflineError extends Error {
   readonly code = "offline";
   constructor() {
-    super("offline");
+    super(OFFLINE_MESSAGE);
     this.name = "LiveOfflineError";
   }
 }
@@ -37,6 +42,8 @@ export class LiveInterruptedError extends LiveOfflineError {
   constructor() {
     super();
     this.name = "LiveInterruptedError";
+    // Its own message: a screen that is handed only the text of the rejection can tell it from plain "offline".
+    this.message = INTERRUPTED_MESSAGE;
   }
 }
 
