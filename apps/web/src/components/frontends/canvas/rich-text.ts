@@ -50,6 +50,8 @@ function markOf(el: HTMLElement): Partial<TextRun> {
 
 /** The text and the runs of what the person typed: a block or a `<br>` is a line break, a marked element is a run. */
 export function readEditable(root: HTMLElement): { text: string; runs: TextRun[] | null } {
+  // An emptied editor keeps a lone <br> so the line stays open: that is no text.
+  if ((root.textContent ?? "") === "") return { text: "", runs: null };
   let text = "";
   const runs: TextRun[] = [];
   let open: { start: number; key: string; mark: Partial<TextRun> } | null = null;

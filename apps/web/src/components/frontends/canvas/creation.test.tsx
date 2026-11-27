@@ -369,6 +369,12 @@ describe("rich text", () => {
     expect(readEditable(el)).toEqual({ text: "a\nb\ncde", runs: [{ start: 5, end: 6, fontWeight: 700 }, { start: 6, end: 7, italic: true }] });
   });
 
+  it("reads an emptied editor (the browser leaves a <br>) as no text", () => {
+    const el = document.createElement("div");
+    el.innerHTML = "<br>";
+    expect(readEditable(el)).toEqual({ text: "", runs: null });
+  });
+
   it("cuts a run at the ends of the range and drops a piece left with no mark", () => {
     const runs = [{ start: 0, end: 10, fontWeight: 700 }];
     expect(editRange("0123456789", runs, 2, 5, marks.bold)).toEqual([

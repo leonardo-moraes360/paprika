@@ -27,12 +27,16 @@ function TextEditorFor({ id }: { id: string }) {
   return node?.type === "text" ? <TextSurface node={node} /> : null;
 }
 
+const BAR_GAP = 8;
+const BAR_MARGIN = 8;
+
 const hexOf = (value: unknown) => (typeof value === "string" && value.startsWith("#") ? value : "");
 
 function TextSurface({ node }: { node: TextNode }) {
   const rt = useCanvasRuntime();
   const [initial] = useState(node);
   const shell = useRef<HTMLDivElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
   const surface = useRef<HTMLDivElement>(null);
   const done = useRef(false);
   const saved = useRef<{ start: number; end: number } | null>(null);
@@ -50,6 +54,19 @@ function TextSurface({ node }: { node: TextNode }) {
       wrap.style.width = `${box.width}px`;
       wrap.style.minHeight = `${box.height}px`;
       wrap.style.transform = box.rotation ? `rotate(${box.rotation}deg)` : "";
+    }
+    // The bar keeps inside the canvas: pushed in from a side it would run past, and under the text when there is no room above it.
+    const strip = bar.current;
+    const viewport = rt.viewport();
+    if (strip && wrap && viewport) {
+      const room = viewport.getBoundingClientRect();
+      const r = strip.getBoundingClientRect();
+      const zoom = rt.view.get().zoom;
+      let dx = 0;
+      if (r.right > room.right - BAR_MARGIN) dx = room.right - BAR_MARGIN - r.right;
+      if (r.left + dx < room.left + BAR_MARGIN) dx = room.left + BAR_MARGIN - r.left;
+      const flip = r.top < room.top + BAR_MARGIN;
+      strip.style.transform = `translateX(${dx / zoom}px) scale(calc(1 / var(--view-zoom))) translateY(${flip ? `${wrap.getBoundingClientRect().height + BAR_GAP}px` : `calc(-100% - ${BAR_GAP}px)`})`;
     }
     if (!el) return;
     paintEditable(el, initial.text, initial.runs);
@@ -110,8 +127,9 @@ function TextSurface({ node }: { node: TextNode }) {
       }}
     >
       <div
+        ref={bar}
         className="pointer-events-auto absolute top-0 left-0 w-max origin-top-left"
-        style={{ transform: "scale(calc(1 / var(--view-zoom))) translateY(calc(-100% - 8px))" }}
+        style={{ transform: `scale(calc(1 / var(--view-zoom))) translateY(calc(-100% - ${BAR_GAP}px))` }}
         onMouseDown={(e) => {
           const el = surface.current;
           if (el) saved.current = selectionOffsets(el);
@@ -132,7 +150,7 @@ function TextSurface({ node }: { node: TextNode }) {
           <TextField
             aria-label={text("size")}
             inputMode="numeric"
-            className="h-7 w-12 px-1.5 text-sm"
+            className="h-7 w-11 px-1.5 text-sm"
             value={size}
             onChange={(e) => setSize(e.target.value)}
             onKeyDown={(e) => {
@@ -143,7 +161,7 @@ function TextSurface({ node }: { node: TextNode }) {
           />
           <TextField
             aria-label={text("color")}
-            className="h-7 w-24 px-1.5 text-sm"
+            className="h-7 w-20 px-1.5 text-sm"
             value={color}
             placeholder={text("color")}
             onChange={(e) => setColor(e.target.value)}
@@ -155,7 +173,7 @@ function TextSurface({ node }: { node: TextNode }) {
           />
           <TextField
             aria-label={text("link")}
-            className="h-7 w-36 px-1.5 text-sm"
+            className="h-7 w-32 px-1.5 text-sm"
             value={href}
             onChange={(e) => setHref(e.target.value)}
             onKeyDown={(e) => {
