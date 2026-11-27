@@ -8,9 +8,14 @@ import { useOverlayValue } from "../overlay-bus";
 import { useCanvasRuntime, type CanvasRuntime } from "../runtime";
 import { coveredBox } from "../geometry";
 import type { Box } from "../types";
+import { dashedRing, ring } from "./stroke";
 import { useDocVersion } from "./use-doc-version";
 
-const toneBorder: Record<AgentColor, string> = { "agent-1": "border-agent-1", "agent-2": "border-agent-2", "agent-3": "border-agent-3", "agent-4": "border-agent-4" };
+const toneVar: Record<AgentColor, string> = { "agent-1": "var(--color-agent-1)", "agent-2": "var(--color-agent-2)", "agent-3": "var(--color-agent-3)", "agent-4": "var(--color-agent-4)" };
+const ACTION = "var(--color-action)";
+
+/** The outline of a pin's mark: solid for an element, dashed for an area. */
+const markEdge = (area: boolean, color: string) => (area ? dashedRing(2, color) : ring(2, color));
 
 /** A pin shows on the page it was made on; one with no page shows on every page. */
 export const pinOnPage = (pin: Pick<CanvasPin, "pageId">, pageId: string | null) => !pin.pageId || pin.pageId === pageId;
@@ -40,7 +45,6 @@ function placeMark(outline: HTMLElement | null, badge: HTMLElement | null, box: 
 
 const badgeShell = "pointer-events-none absolute z-10 origin-center -translate-x-1/2 -translate-y-1/2";
 const BADGE_SCALE = { transformOrigin: "center", scale: "calc(1 / var(--view-zoom))" } as const;
-const outlineWidth = { borderWidth: "calc(2px / var(--view-zoom))" } as const;
 
 /**
  * The pins of the page, as the old canvas showed them: an outline around what each points at (solid for an element, dashed for
@@ -81,8 +85,8 @@ export function Pins() {
             <div
               ref={entry("outline")}
               aria-hidden="true"
-              className={`pointer-events-none absolute hidden rounded-md ${pin.nodeId ? "border-solid" : "border-dashed bg-action/10"} ${claimed && pin.tone ? toneBorder[pin.tone] : "border-action"}`}
-              style={outlineWidth}
+              className={`pointer-events-none absolute hidden rounded-md ${pin.nodeId ? "" : "bg-action/10"}`}
+              style={markEdge(!pin.nodeId, claimed && pin.tone ? toneVar[pin.tone] : ACTION)}
             />
             <div ref={entry("badge")} className={badgeShell} style={BADGE_SCALE}>
               <Pin
@@ -92,7 +96,7 @@ export function Pins() {
                 status={pin.status}
                 tone={pin.tone}
                 data-testid="pin-badge"
-                className={`pointer-events-auto ${selected === pin.id ? "outline-2 outline-offset-2 outline-select" : ""}`}
+                className={`pointer-events-auto ${selected === pin.id ? "outline-2 outline-offset-2 outline-select-brand" : ""}`}
                 onPointerDown={(event) => event.stopPropagation()}
                 onClick={() => rt.pinSelect(pin.id)}
               />
@@ -122,10 +126,10 @@ export function PinDraft() {
 
   return (
     <>
-      {drag ? <div data-testid="pin-drag" aria-hidden="true" className="pointer-events-none absolute rounded-md border-dashed border-action bg-action/10" style={{ ...outlineWidth, left: drag.x, top: drag.y, width: drag.width, height: drag.height }} /> : null}
+      {drag ? <div data-testid="pin-drag" aria-hidden="true" className="pointer-events-none absolute rounded-md bg-action/10" style={{ ...markEdge(true, ACTION), left: drag.x, top: drag.y, width: drag.width, height: drag.height }} /> : null}
       {draft ? (
         <div data-testid="pin-draft">
-          <div ref={outline} aria-hidden="true" className={`pointer-events-none absolute hidden rounded-md border-action ${draft.nodeId ? "border-solid" : "border-dashed bg-action/10"}`} style={outlineWidth} />
+          <div ref={outline} aria-hidden="true" className={`pointer-events-none absolute hidden rounded-md ${draft.nodeId ? "" : "bg-action/10"}`} style={markEdge(!draft.nodeId, ACTION)} />
           <div ref={badge} aria-hidden="true" className={badgeShell} style={BADGE_SCALE}>
             <PinBadge number={draft.number} />
           </div>

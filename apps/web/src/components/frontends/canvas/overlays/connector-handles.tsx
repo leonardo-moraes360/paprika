@@ -7,9 +7,11 @@ import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
 import type { LinkUi } from "../vector/ui";
 import { UI_LINK } from "../vector/ui";
+import { ring } from "./stroke";
 import { useDocVersion } from "./use-doc-version";
 
 const size = "calc(10px / var(--view-zoom, 1))";
+const EDGE = ring(1.5, "var(--color-select-brand)");
 const stroke = (n: number) => ({ strokeWidth: `calc(${n}px / var(--view-zoom, 1))` });
 
 type HandleProps = { kind: "from" | "to" | "curve"; x: number; y: number; label: string };
@@ -23,8 +25,8 @@ function Handle({ kind, x, y, label }: HandleProps) {
       title={label}
       data-connector-handle={kind}
       data-testid={`connector-${kind}-handle`}
-      className="pointer-events-auto absolute cursor-grab rounded-full border-select-brand bg-panel active:cursor-grabbing"
-      style={{ left: x, top: y, width: size, height: size, borderWidth: "calc(1.5px / var(--view-zoom, 1))", transform: "translate(-50%, -50%)" }}
+      className="pointer-events-auto absolute cursor-grab rounded-full bg-panel active:cursor-grabbing"
+      style={{ left: x, top: y, width: size, height: size, ...EDGE, transform: "translate(-50%, -50%)" }}
     />
   );
 }
@@ -34,6 +36,12 @@ function Handle({ kind, x, y, label }: HandleProps) {
  * curve, one that bends it. They follow the arrow while it is previewed, so an end that moves shows where it will land.
  */
 export function ConnectorHandles() {
+  // The handles are the select tool's: with another tool armed a press on them would make something, so they are not drawn.
+  const select = useCanvasState((s) => s.tool === "select");
+  return select ? <ConnectorHandlesShown /> : null;
+}
+
+function ConnectorHandlesShown() {
   const rt = useCanvasRuntime();
   const { t } = useTranslation();
   const id = useCanvasState((s) => (s.selection.length === 1 ? s.selection[0]! : null));

@@ -9,10 +9,12 @@ import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
 import { readUi, UI_GRADIENT, writeUi, type GradientUi } from "../vector/ui";
 import { placeBox } from "./place";
+import { ring } from "./stroke";
 import { useDocVersion } from "./use-doc-version";
 
 const MIN_SIDE = 8;
 const size = "calc(12px / var(--view-zoom, 1))";
+const EDGE = ring(2, "var(--color-select-brand)");
 const line = (n: number) => ({ strokeWidth: `calc(${n}px / var(--view-zoom, 1))` });
 
 type Size = { w: number; h: number };
@@ -23,6 +25,12 @@ type Size = { w: number; h: number };
  * the camera. Dragging is `gestures/gradient-handle.ts`; the arrow keys move a focused handle by a step and send it.
  */
 export function GradientHandles() {
+  // The handles are the select tool's: with another tool armed a press on them would make something, so they are not drawn.
+  const select = useCanvasState((s) => s.tool === "select");
+  return select ? <GradientHandlesShown /> : null;
+}
+
+function GradientHandlesShown() {
   const rt = useCanvasRuntime();
   const { t } = useTranslation();
   const id = useCanvasState((s) => (s.selection.length === 1 ? s.selection[0]! : null));
@@ -100,8 +108,8 @@ export function GradientHandles() {
           data-testid={h.handle.kind === "stop" ? "gradient-stop" : `gradient-${h.handle.kind}`}
           data-index={h.handle.kind === "stop" ? h.handle.index : undefined}
           onKeyDown={onKey(h.handle)}
-          className="pointer-events-auto absolute cursor-grab rounded-full border-select-brand bg-panel active:cursor-grabbing"
-          style={{ left: h.x, top: h.y, width: size, height: size, borderWidth: "calc(2px / var(--view-zoom, 1))", transform: "translate(-50%, -50%)", ...(h.color ? { background: h.color } : null) }}
+          className="pointer-events-auto absolute cursor-grab rounded-full bg-panel active:cursor-grabbing"
+          style={{ left: h.x, top: h.y, width: size, height: size, ...EDGE, transform: "translate(-50%, -50%)", ...(h.color ? { background: h.color } : null) }}
         />
       ))}
     </div>

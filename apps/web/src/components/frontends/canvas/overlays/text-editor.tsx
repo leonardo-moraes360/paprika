@@ -7,7 +7,8 @@ import { ToolbarButton } from "@/components/ui/toolbar-button";
 import { editRange, linkOk, marks, paintEditable, readEditable, sameText, selectOffsets, selectionOffsets } from "../rich-text";
 import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
-import { confirmKey, editorOutline, editorOutlineStyle } from "./editor-chrome";
+import { confirmKey, editorOutlineStyle } from "./editor-chrome";
+import { useDocVersion } from "./use-doc-version";
 import { useNode } from "./use-node";
 
 type TextNode = Extract<Node, { type: "text" }>;
@@ -46,8 +47,9 @@ function TextSurface({ node }: { node: TextNode }) {
   const [color, setColor] = useState(hexOf(node.color));
   const [href, setHref] = useState("https://");
 
+  const version = useDocVersion();
+  // The shell and the bar follow the text: another client may move it, or change its size, while it is open.
   useLayoutEffect(() => {
-    const el = surface.current;
     const box = rt.measure(initial.id);
     const wrap = shell.current;
     if (wrap && box) {
@@ -70,6 +72,10 @@ function TextSurface({ node }: { node: TextNode }) {
       const flip = r.top < room.top + BAR_MARGIN;
       strip.style.transform = `translateX(${dx / zoom}px) scale(calc(1 / var(--view-zoom))) translateY(${flip ? `${wrap.getBoundingClientRect().height + BAR_GAP}px` : `calc(-100% - ${BAR_GAP}px)`})`;
     }
+  }, [rt, initial, version]);
+
+  useLayoutEffect(() => {
+    const el = surface.current;
     if (!el) return;
     paintEditable(el, initial.text, initial.runs);
     el.focus();
@@ -212,7 +218,7 @@ function TextSurface({ node }: { node: TextNode }) {
         aria-label={text("field")}
         contentEditable
         suppressContentEditableWarning
-        className={`whitespace-pre-wrap ${editorOutline}`}
+        className="whitespace-pre-wrap scheme-light"
         style={{ ...style, ...editorOutlineStyle }}
         onKeyDown={(e) => {
           if (confirmKey(e)) {
