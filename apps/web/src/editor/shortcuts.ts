@@ -14,7 +14,9 @@ import { useSelectionActions } from "./use-selection-actions";
  *   focus on the page (nothing focused), on the stage, in the layers tree or on the stage toolbar. In the history, the pins,
  *   the properties, the pages, the header or any other panel they do nothing, so Delete there never deletes a node;
  * - `arrows` are `edit` keys that also leave a widget that moves the focus with them (tree, tab list, slider, ...) alone;
- * - `letters` are `edit` keys (tools) that also leave the layers tree alone: its typeahead owns single letters.
+ * - `letters` (the tool keys) act from ANY focus in the editor, as in the old app: the layers tree, the header, the pages
+ *   and the panels included. The tree has no typeahead for them (a letter picks the tool, it does not jump to a layer):
+ *   they are taken in the capture phase, before the tree sees the key, and mark it handled.
  * Every group stands aside when the key already did something (`defaultPrevented`), while composing text, in a text
  * field (the hotkeys library skips inputs, textareas, selects and contenteditable) and inside a dialog, menu, list box,
  * tooltip or combo box, which own their Esc, arrows and Enter. The toolbar's own `shortcuts` are turned off: this table
@@ -62,6 +64,9 @@ export const shortcutTable = [
 
 const OWNS_KEYS = '[role="dialog"],[role="alertdialog"],[role="menu"],[role="menubar"],[role="listbox"],[role="tooltip"],[role="combobox"]';
 const OWNS_ARROWS = '[role="tree"],[role="tablist"],[role="radiogroup"],[role="toolbar"],[role="slider"],[role="spinbutton"],[role="grid"],[role="listbox"],[role="menu"],[role="menubar"],[role="combobox"],[role="separator"]';
+/** Where a plain letter is text: a field that takes typing, a spin box, or editable content. */
+const TEXT_ENTRY =
+  'input:not([type="button"],[type="checkbox"],[type="radio"],[type="submit"],[type="reset"],[type="range"],[type="file"],[type="image"],[type="color"]),textarea,select,[role="textbox"],[role="searchbox"],[role="spinbutton"],[contenteditable=""],[contenteditable="true"],[contenteditable="plaintext-only"]';
 /** Where the keys that edit the selection live: the stage (it carries `data-workspace`), the layers tree and the stage toolbar. */
 const EDIT_SURFACE = '[role="region"][data-workspace],[role="tree"],[role="toolbar"]';
 
@@ -80,12 +85,17 @@ export function standsAside(event: KeyboardEvent, scope: KeyScope = "app"): bool
   const target = targetOf(event);
   if (target?.closest(OWNS_KEYS)) return true;
   if (scope === "app") return false;
+  if (scope === "letters") return target?.closest(TEXT_ENTRY) != null || (target instanceof HTMLElement && target.isContentEditable);
   if (!onEditSurface(target)) return true;
   if (!target) return false;
-  if (scope === "arrows") return target.closest(OWNS_ARROWS) !== null;
-  // The layers tree jumps to the layer that starts with the letter typed (typeahead): single letters are its own there.
-  return scope === "letters" && target.closest('[role="tree"]') !== null;
+  return scope === "arrows" && target.closest(OWNS_ARROWS) !== null;
 }
+
+const act = (action: () => void, scope: KeyScope) => (event: KeyboardEvent) => {
+  if (standsAside(event, scope)) return;
+  event.preventDefault();
+  action();
+};
 
 export function useEditorShortcuts() {
   const editor = useEditorStore();
@@ -93,11 +103,6 @@ export function useEditorShortcuts() {
   const history = useHistoryActions();
 
   const definitions = useMemo(() => {
-    const act = (action: () => void, scope: KeyScope) => (event: KeyboardEvent) => {
-      if (standsAside(event, scope)) return;
-      event.preventDefault();
-      action();
-    };
     const { actions } = editor;
     const nudge = (dx: number, dy: number) => act(() => void selection.nudge(dx, dy), "arrows");
     const list: { hotkey: string; callback: (event: KeyboardEvent) => void }[] = [
@@ -136,13 +141,24 @@ export function useEditorShortcuts() {
       { hotkey: "Shift+ArrowDown", callback: nudge(0, NUDGE_BIG) },
       { hotkey: "Shift+I", callback: act(() => actions.toggleDialog("pins"), "app") },
     ];
-    for (const [key, tool] of Object.entries(toolHotkeys)) list.push({ hotkey: key, callback: act(() => actions.setTool(tool), "letters") });
     return list;
   }, [editor, selection, history]);
 
+  const tools = useMemo(
+    () => Object.entries(toolHotkeys).map(([key, tool]) => ({ hotkey: key, callback: act(() => editor.actions.setTool(tool), "letters") })),
+    [editor],
+  );
+
+  const target = typeof document === "undefined" ? undefined : document;
   useHotkeys(
     definitions.map(({ hotkey, callback }) => ({ hotkey: hotkey as never, callback: (event: KeyboardEvent) => callback(event) })),
-    { target: typeof document === "undefined" ? undefined : document, ignoreInputs: true, preventDefault: false, stopPropagation: false },
+    { target, ignoreInputs: true, preventDefault: false, stopPropagation: false },
+  );
+  // Capture phase: a tree or any other widget that would use the plain letter itself sees the key already handled (`defaultPrevented`) and leaves it.
+  // `ignoreInputs` is off on purpose: the library would also skip every widget that "owns" letters (the tree's typeahead); `standsAside` skips text only.
+  useHotkeys(
+    tools.map(({ hotkey, callback }) => ({ hotkey: hotkey as never, callback: (event: KeyboardEvent) => callback(event) })),
+    { target, ignoreInputs: false, preventDefault: false, stopPropagation: false, capture: true },
   );
 }
 

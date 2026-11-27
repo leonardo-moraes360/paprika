@@ -258,7 +258,7 @@ describe("keyboard", () => {
     const name = within(tree()).getAllByRole("treeitem")[1]?.textContent as string;
     await user.click(within(layer(name)).getByText(name));
     await user.keyboard("t");
-    expect(screen.getByRole("button", { name: "Text" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Text" })).toHaveAttribute("aria-pressed", "true");
     (document.activeElement as HTMLElement | null)?.blur();
     await user.keyboard("v");
     expect(screen.getByRole("button", { name: "Select" })).toHaveAttribute("aria-pressed", "true");
@@ -323,13 +323,14 @@ describe("keyboard scope (E1)", () => {
     await user.click(within(layer(name)).getByText(name));
     expect(selectedCount()).toBe(1);
   };
-  const editKeys = ["{Delete}", "{Backspace}", "r", "{ArrowRight}", "{Shift>}{ArrowDown}{/Shift}", "{Control>}a{/Control}", "{Control>}g{/Control}", "{Control>}d{/Control}", "{Alt>}c{/Alt}"];
+  const editKeys = ["{Delete}", "{Backspace}", "{ArrowRight}", "{Shift>}{ArrowDown}{/Shift}", "{Control>}a{/Control}", "{Control>}g{/Control}", "{Control>}d{/Control}", "{Alt>}c{/Alt}"];
 
   /** Focus on a button inside each region that is not the stage or the layers: no edit key may touch the document, the selection or the tool. */
   const regionFocus: [string, () => Promise<HTMLElement>][] = [
     ["the history", async () => within(await screen.findByRole("region", { name: "History" })).getAllByRole("button")[0]!],
     ["the pins", async () => within(await screen.findByRole("region", { name: "Pins" })).getAllByRole("button")[0]!],
     ["the header", async () => within(screen.getAllByRole("banner")[0]!).getAllByRole("button")[0]!],
+    ["the pages panel", async () => within(screen.getByRole("list", { name: "Pages" })).getAllByRole("button")[0]!],
   ];
   for (const [place, focusIn] of regionFocus) {
     it(`edit keys do nothing with the focus in ${place}`, async () => {
@@ -348,6 +349,87 @@ describe("keyboard scope (E1)", () => {
       view.unmount();
     });
   }
+
+  describe("tool letters (F9): they pick the tool from any focus in the editor", () => {
+    const pressed = (name: string) => screen.getByRole("button", { name }).getAttribute("aria-pressed") === "true";
+
+    it("from a layer in the tree, even when a layer's name starts with the letter (the tree has no typeahead)", async () => {
+      const user = userEvent.setup();
+      const view = await openShell();
+      const items = within(tree()).getAllByRole("treeitem");
+      expect(items.some((el) => /^Frame/.test(el.textContent ?? ""))).toBe(true);
+      const focused = items.find((el) => /^Rect/.test(el.textContent ?? ""))!;
+      focused.focus();
+      await user.keyboard("f");
+      expect(pressed("Frame")).toBe(true);
+      expect(document.activeElement).toBe(focused);
+      await user.keyboard("r");
+      expect(pressed("Rectangle")).toBe(true);
+      expect(document.activeElement).toBe(focused);
+      await user.keyboard("v");
+      expect(pressed("Select")).toBe(true);
+      expect(opsSent(view)).toHaveLength(0);
+      view.unmount();
+    });
+
+    const places: [string, () => HTMLElement | Promise<HTMLElement>][] = [
+      ["the header", () => within(screen.getAllByRole("banner")[0]!).getAllByRole("button")[0]!],
+      ["the pages panel", () => within(screen.getByRole("list", { name: "Pages" })).getAllByRole("button")[0]!],
+      ["the stage toolbar", () => within(screen.getByRole("toolbar", { name: "Tools" })).getAllByRole("button")[0]!],
+      ["the layers header", () => screen.getByRole("heading", { name: "Layers", level: 2 }).closest("button") ?? screen.getByRole("heading", { name: "Layers", level: 2 })],
+    ];
+    for (const [place, find] of places) {
+      it(`from ${place}`, async () => {
+        const user = userEvent.setup();
+        const view = await openShell();
+        const target = await find();
+        target.tabIndex = target.tabIndex < 0 ? 0 : target.tabIndex;
+        target.focus();
+        expect(document.activeElement).toBe(target);
+        await user.keyboard("r");
+        expect(pressed("Rectangle")).toBe(true);
+        expect(opsSent(view)).toHaveLength(0);
+        view.unmount();
+      });
+    }
+
+    it("from the history panel", async () => {
+      const user = userEvent.setup();
+      const view = await openShell();
+      await user.keyboard("{Control>}h{/Control}");
+      const close = within(await screen.findByRole("region", { name: "History" })).getAllByRole("button")[0]!;
+      close.focus();
+      await user.keyboard("t");
+      expect(pressed("Text")).toBe(true);
+      view.unmount();
+    });
+
+    it("still not in a text field, a contenteditable, a menu, a listbox or a dialog, nor in the layer rename field", async () => {
+      const user = userEvent.setup();
+      const view = await openShell();
+      const make = (tag: string, attrs: Record<string, string>) => {
+        const el = document.body.appendChild(document.createElement(tag));
+        for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
+        el.tabIndex = 0;
+        return el;
+      };
+      const traps = [make("input", { type: "text" }), make("textarea", {}), make("div", { contenteditable: "true" }), make("div", { role: "menu" }), make("div", { role: "listbox" }), make("div", { role: "dialog" })];
+      for (const trap of traps) {
+        trap.focus();
+        await user.keyboard("o");
+        expect(pressed("Ellipse")).toBe(false);
+        trap.remove();
+      }
+      const name = within(tree()).getAllByRole("treeitem")[1]?.textContent as string;
+      await user.click(within(layer(name)).getByText(name));
+      await user.keyboard("{F2}");
+      const field = await screen.findByRole("textbox", { name: "Layer name" });
+      await user.keyboard("o");
+      expect(pressed("Ellipse")).toBe(false);
+      expect((field as HTMLInputElement).value).toContain("o");
+      view.unmount();
+    });
+  });
 
   it("the app keys still work from a panel: Ctrl+Z asks for the undo and Esc closes the history", async () => {
     const user = userEvent.setup();
