@@ -6,10 +6,10 @@ import { toProjectEntries, toWorkspaceEntries } from "@/adapters/workspaces";
 import { errorText } from "@/data/api";
 import { useLiveClient } from "@/data/live";
 import { openWorkspace, useWorkspaceActions, useWorkspaces, useWorkspacesFollow, type PreviewShape } from "@/data/queries/workspaces";
-import { showStatusToast } from "@/lib/notify";
 import { RegionProfiler } from "@/perf";
 import { coverBody } from "./cover-image";
 import { previewFor } from "./workspace-preview";
+import { showOpenFailure } from "./open-failure";
 import { OverviewNotice } from "./overview-notice";
 
 /**
@@ -49,9 +49,7 @@ export function OverviewContainer() {
   const onOpen = useCallback(
     (id: string) => {
       void navigate({ to: "/w/$workspaceId", params: { workspaceId: id } });
-      openWorkspace(id).catch((error: unknown) => {
-        showStatusToast({ status: "danger", title: t("app.overview.openFailed"), description: errorText(error) });
-      });
+      openWorkspace(id).catch((error: unknown) => showOpenFailure(t, error));
     },
     [navigate, t],
   );

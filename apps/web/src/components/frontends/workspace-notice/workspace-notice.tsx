@@ -47,9 +47,11 @@ export function WorkspaceNotice({ notice, onDismiss, onViewWorkspaces, className
           closeLabel={t("frontends.workspaceNotice.dismiss")}
           onClose={leave(onDismiss)}
           actions={
-            <Button variant="secondary" size="sm" className="h-7.5" pendingAnnouncement="" onClick={leave(onViewWorkspaces)}>
-              {t("frontends.workspaceNotice.view")}
-            </Button>
+            onViewWorkspaces ? (
+              <Button variant="secondary" size="sm" className="h-7.5" pendingAnnouncement="" onClick={leave(onViewWorkspaces)}>
+                {t("frontends.workspaceNotice.view")}
+              </Button>
+            ) : undefined
           }
         >
           {summary || null}

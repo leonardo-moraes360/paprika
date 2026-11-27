@@ -2,7 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { isOfflineError, useLiveClient, useLiveEvent } from "@/data/live";
-import { errorText } from "@/data/api";
+import { showOpenFailure } from "@/overview/open-failure";
 import { showStatusToast } from "@/lib/notify";
 
 /**
@@ -21,7 +21,7 @@ export function useWorkspaceView(id: string) {
     client.view(id).catch((error: unknown) => {
       if (!active || isOfflineError(error)) return;
       const { t, navigate } = latest.current;
-      showStatusToast({ status: "danger", title: t("app.open.failedTitle"), description: errorText(error) || t("app.open.failedFallback") });
+      showOpenFailure(t, error);
       void navigate({ to: "/", replace: true });
     });
     return () => {
@@ -30,8 +30,10 @@ export function useWorkspaceView(id: string) {
   }, [client, id]);
   useLiveEvent((event) => {
     if (event.type !== "workspaceOp" || event.op.op !== "delete" || event.op.workspaceId !== id) return;
+    const op = event.op;
     const { t, navigate } = latest.current;
-    showStatusToast({ status: "warning", title: t("app.open.deleted") });
+    // An agent's deletion already raises the workspace notice (it names who did it and what went), which the overview shows: one warning, not two.
+    if (!op.actor.startsWith("agent")) showStatusToast({ status: "warning", title: t("app.open.deleted") });
     void navigate({ to: "/", replace: true });
   });
 }

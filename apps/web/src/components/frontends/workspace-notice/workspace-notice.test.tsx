@@ -44,6 +44,12 @@ describe("WorkspaceNotice", () => {
     expect(onDismiss).toHaveBeenCalledOnce();
   });
 
+  it("offers no \"View workspaces\" where the person is already on the list (no handler)", () => {
+    setup({ onViewWorkspaces: undefined });
+    expect(screen.queryByRole("button", { name: "View workspaces" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dismiss notice" })).toBeInTheDocument();
+  });
+
   it("returns the focus to where it was before the notice when it is dismissed", async () => {
     const user = userEvent.setup();
     const { rerender } = render(
