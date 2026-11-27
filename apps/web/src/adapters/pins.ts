@@ -1,9 +1,8 @@
 import type { PinAuthor, PinEntry, PinReplyEntry, PinTarget } from "@/components/frontends/pins";
 import type { ServerPin } from "@/data/queries/pins";
-import { agentLabel, toneFor, type AgentColor } from "./agents";
+import { agentLabel, toneFor, type AgentTones } from "./agents";
 
-/** Tones given to the agent clients (`actor` → tone); an actor with none yet falls back to a stable one. */
-export type AgentTones = Readonly<Record<string, AgentColor>>;
+export type { AgentTones };
 
 const authorOf = (actor: string, tones: AgentTones): PinAuthor => (actor === "user" ? { name: "user", you: true } : { name: agentLabel(actor), tone: toneFor(actor, tones) });
 

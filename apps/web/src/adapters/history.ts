@@ -1,14 +1,15 @@
 import type { HistoryAuthor, HistoryStepData } from "@/lib/history-model";
 import type { PanelStep } from "@/data/queries/history";
 import type { StepResult } from "@/data/live/protocol";
-import { toneFor, type AgentColor } from "./agents";
+import { agentLabel, toneFor, topOf, type AgentColor } from "./agents";
 
 /** The server's actor for the person at the keyboard. */
 export const HUMAN_ACTOR = "user";
 
 export const isHumanActor = (actor: string) => actor === HUMAN_ACTOR;
 
-export const actorName = (actor: string) => actor.replace(/^agent:?/, "") || (actor.startsWith("agent") ? "agent" : actor);
+/** The name of an actor in the panel: the one rule of `agentLabel`. */
+export const actorName = agentLabel;
 
 /** Author of a step: "user" is you; an agent keeps the tone the editor gave it (the roster's), or a stable pick from its name while it has none. */
 export function historyAuthor(actor: string, tones: Readonly<Record<string, AgentColor>>): HistoryAuthor {
@@ -66,16 +67,6 @@ export function stepOutcome(result: StepResult, redo: boolean, own: boolean): St
 }
 
 type NodeMap = Record<string, { parentId?: string | null; type: string } | undefined>;
-
-function topOf(nodes: NodeMap, id: string): string {
-  let current = id;
-  for (let guard = 0; guard < 1000; guard += 1) {
-    const parent = nodes[current]?.parentId;
-    if (!parent || !nodes[parent]) break;
-    current = parent;
-  }
-  return current;
-}
 
 /** Of the nodes a step touched, the ones that still exist and sit on the same page as the first of them, and that page. */
 export function pageOfNodes(nodes: NodeMap, ids: readonly string[]): { ids: string[]; pageId: string | null } {

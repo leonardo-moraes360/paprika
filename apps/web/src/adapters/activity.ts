@@ -1,5 +1,5 @@
 import type { ActivityEntry } from "@/components/frontends/activity";
-import { toneFor, type AgentColor } from "./agents";
+import { agentLabel, toneFor, type AgentColor, type AgentTones } from "./agents";
 
 /** One entry of the live `activity` (see `LiveState`); `kind` is the server's step kind (`undo`, `redo`, `ops`, ...) when the store keeps it. */
 export type ActivitySource = { id: number; actor: string; label: string; at: number; kind?: string };
@@ -14,15 +14,12 @@ export function isStep(entry: Pick<ActivitySource, "kind" | "label">): boolean {
   return STEP_LABEL.test(entry.label);
 }
 
-/** `user` is you; `agent:claude` is `claude`; anything else (an import, the server) keeps its own name. */
-export function actorName(actor: string): string {
-  if (actor.startsWith("agent")) return actor.replace(/^agent:?/, "") || "agent";
-  return actor;
-}
+/** `user` is you; `agent:claude` is `claude`; anything else (an import, the server) keeps its own name (the rule of `agentLabel`). */
+export const actorName = agentLabel;
 
 const isAgent = (actor: string) => actor.startsWith("agent");
 
-export type ActivityTones = Readonly<Record<string, AgentColor>>;
+export type ActivityTones = AgentTones;
 
 /** The distinct agent actors of the list, in order of appearance (they get their tones from the editor). */
 export const activityActors = (list: readonly ActivitySource[]): string[] => [...new Set(list.filter((item) => isAgent(item.actor)).map((item) => item.actor))];
