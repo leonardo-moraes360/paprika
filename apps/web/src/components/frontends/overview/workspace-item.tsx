@@ -1,6 +1,6 @@
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { Archive, ArchiveRestore, Ellipsis, ImagePlus, ImageOff, Pencil, Trash2, ExternalLink } from "lucide-react";
-import { useCallback, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode, type RefObject } from "react";
+import { memo, useCallback, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { IconButton } from "@/components/ui/icon-button";
 import {
@@ -40,7 +40,7 @@ export type WorkspaceItemProps = {
   onMove: (id: string, projectId: string | null) => void;
 };
 
-export function WorkspaceItem({
+export const WorkspaceItem = memo(function WorkspaceItem({
   workspace,
   projects,
   preview,
@@ -201,4 +201,4 @@ export function WorkspaceItem({
       />
     </li>
   );
-}
+});

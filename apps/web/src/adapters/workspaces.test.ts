@@ -56,4 +56,10 @@ describe("workspaces adapter", () => {
   it("maps folders to projects", () => {
     expect(toProjectEntries([{ id: "f", name: "Apps", updatedAt: 1 }])).toEqual([{ id: "f", name: "Apps" }]);
   });
+
+  it("when every workspace is archived none can be deleted, but restoring (canArchive on an archived one) stays allowed", () => {
+    const [entry] = toWorkspaceEntries([ws("a", { archived: true })]);
+    expect(entry?.canDelete).toBe(false);
+    expect(entry?.canArchive).toBe(true);
+  });
 });

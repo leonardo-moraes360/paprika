@@ -8,7 +8,7 @@ import { openWorkspace, useWorkspaceActions, useWorkspaces, useWorkspacesFollow,
 import { showStatusToast } from "@/lib/notify";
 import { RegionProfiler } from "@/perf";
 import { coverBody } from "./cover-image";
-import { WorkspacePreview } from "./workspace-preview";
+import { previewFor } from "./workspace-preview";
 import { OverviewNotice } from "./overview-notice";
 
 /**
@@ -23,7 +23,8 @@ export function OverviewContainer() {
   const actions = useWorkspaceActions();
   useWorkspacesFollow();
   const workspaces = useMemo(() => toWorkspaceEntries(query.data?.workspaces ?? []), [query.data]);
-  const projects = useMemo(() => toProjectEntries(query.data?.folders ?? []), [query.data]);
+  const folders = query.data?.folders;
+  const projects = useMemo(() => toProjectEntries(folders ?? []), [folders]);
   const previews = useMemo(() => {
     const map = new Map<string, readonly PreviewShape[]>();
     for (const workspace of query.data?.workspaces ?? []) if (workspace.preview?.length) map.set(workspace.id, workspace.preview);
@@ -32,7 +33,7 @@ export function OverviewContainer() {
   const renderPreview = useCallback(
     (workspace: { id: string }): ReactNode => {
       const shapes = previews.get(workspace.id);
-      return shapes ? <WorkspacePreview shapes={shapes} /> : undefined;
+      return shapes ? previewFor(shapes) : undefined;
     },
     [previews],
   );

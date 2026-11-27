@@ -17,7 +17,7 @@ import { DeleteDialog } from "./delete-dialog";
 import { filterWorkspaces, sameView, workspacesView } from "./model";
 import { Sidebar } from "./sidebar";
 import { initialOverviewState, OverviewRegion } from "./store";
-import type { ActionResult, OverviewProps, OverviewView, WorkspaceEntry } from "./types";
+import type { ActionResult, OverviewProps, OverviewView, ProjectEntry, WorkspaceEntry } from "./types";
 import { WorkspaceItem } from "./workspace-item";
 
 export function Overview(props: OverviewProps) {
@@ -32,11 +32,12 @@ type FailureKind = "create" | "rename" | "delete" | "archive" | "restore" | "cov
 type PendingFocus = { removedId: string; targetId: string | null };
 
 const staleFocusMs = 1000;
+const noProjects: readonly ProjectEntry[] = [];
 const gridClasses = "grid list-none grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-6";
 
 function OverviewView({
   workspaces,
-  projects = [],
+  projects = noProjects,
   profile,
   loading = false,
   error: listError = null,
@@ -105,6 +106,18 @@ function OverviewView({
   );
 
   const visible = useMemo(() => filterWorkspaces(workspaces, view, query), [workspaces, view, query]);
+  // The cards are memoized: what they receive must keep its identity while their own data does not change, so the owner's
+  // callbacks are read through a ref and the handlers below depend only on `run`.
+  const owner = useRef({ onRename, onArchive, onRestore, onChangeCover, onMoveToProject });
+  owner.current = { onRename, onArchive, onRestore, onChangeCover, onMoveToProject };
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+  const renameCard = useCallback((id: string, name: string) => void run("rename", () => owner.current.onRename(id, name)), [run]);
+  const archiveCard = useCallback((id: string) => void run("archive", () => owner.current.onArchive(id)), [run]);
+  const restoreCard = useCallback((id: string) => void run("restore", () => owner.current.onRestore(id)), [run]);
+  const dropCover = useCallback((id: string, file: File) => void run("cover", () => owner.current.onChangeCover(id, file)), [run]);
+  const removeCover = useCallback((id: string) => void run("cover", () => owner.current.onChangeCover(id, null)), [run]);
+  const moveCard = useCallback((id: string, projectId: string | null) => void run("move", () => owner.current.onMoveToProject(id, projectId)), [run]);
   const deletingEntry = useRef<WorkspaceEntry | null>(null);
   const found = workspaces.find((workspace) => workspace.id === deletingId);
   if (found) deletingEntry.current = found;
@@ -135,12 +148,16 @@ function OverviewView({
     actions.closeCreate();
   };
 
-  const requestDelete = (id: string) => {
-    const index = visible.findIndex((workspace) => workspace.id === id);
-    const neighbour = visible[index + 1] ?? visible[index - 1];
-    pendingFocus.current = { removedId: id, targetId: neighbour?.id ?? null };
-    actions.askDelete(id);
-  };
+  const requestDelete = useCallback(
+    (id: string) => {
+      const list = visibleRef.current;
+      const index = list.findIndex((workspace) => workspace.id === id);
+      const neighbour = list[index + 1] ?? list[index - 1];
+      pendingFocus.current = { removedId: id, targetId: neighbour?.id ?? null };
+      actions.askDelete(id);
+    },
+    [actions],
+  );
 
   const confirmDelete = async (id: string) => {
     const ok = await run("delete", () => onDelete(id));
@@ -155,10 +172,10 @@ function OverviewView({
     }, staleFocusMs);
   };
 
-  const pickCover = (id: string) => {
+  const pickCover = useCallback((id: string) => {
     coverFor.current = id;
     coverInput.current?.click();
-  };
+  }, []);
 
   const count = visible.length;
   const archivedView = view.kind === "archived";
@@ -270,14 +287,14 @@ function OverviewView({
                 now={now}
                 buttons={buttons}
                 onOpen={onOpen}
-                onRename={(id, name) => void run("rename", () => onRename(id, name))}
+                onRename={renameCard}
                 onRequestDelete={requestDelete}
-                onArchive={(id) => void run("archive", () => onArchive(id))}
-                onRestore={(id) => void run("restore", () => onRestore(id))}
+                onArchive={archiveCard}
+                onRestore={restoreCard}
                 onPickCover={pickCover}
-                onDropCover={(id, file) => void run("cover", () => onChangeCover(id, file))}
-                onRemoveCover={(id) => void run("cover", () => onChangeCover(id, null))}
-                onMove={(id, projectId) => void run("move", () => onMoveToProject(id, projectId))}
+                onDropCover={dropCover}
+                onRemoveCover={removeCover}
+                onMove={moveCard}
               />
             ))}
           </ul>

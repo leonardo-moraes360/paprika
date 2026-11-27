@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { PreviewShape } from "@/data/queries/workspaces";
 
 /** The server's thumbnail of a workspace (up to a few dozen rectangles with their fills), fitted to the card. Pure SVG. */
@@ -22,4 +23,16 @@ export function WorkspacePreview({ shapes }: { shapes: readonly PreviewShape[] }
       ))}
     </svg>
   );
+}
+
+const elements = new WeakMap<readonly PreviewShape[], ReactNode>();
+
+/** The preview element of one `preview` array: the same array (a refetch that changed nothing keeps it) gives the same element, so a memoized card does not re-render. */
+export function previewFor(shapes: readonly PreviewShape[]): ReactNode {
+  let element = elements.get(shapes);
+  if (!element) {
+    element = <WorkspacePreview shapes={shapes} />;
+    elements.set(shapes, element);
+  }
+  return element;
 }
