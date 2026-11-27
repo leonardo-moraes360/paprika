@@ -34,12 +34,11 @@ function parentAt(rt: CanvasRuntime, target: EventTarget | null): { parentId: st
 export function finishPen(rt: CanvasRuntime, closed: boolean, draft = readUi(rt, "pen")) {
   writeUi(rt, "pen", null);
   if (!draft || draft.anchors.length < 2) return;
-  const paint = rt.vectorDefaults();
-  if (!paint) return;
+  const paint = rt.defaults().vector;
   let made: ReturnType<typeof penOps>;
   try {
     const paths = Object.values(rt.doc().nodes).filter((n) => n.type === "path").length;
-    made = penOps(draft, closed, paths, paint);
+    made = penOps(draft, closed, `${rt.text("names.vector")} ${paths + 1}`, paint);
   } catch {
     return;
   }

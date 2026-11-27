@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { everyKindDocument, stubLayout } from "@/test/canvas-fixtures";
+import { everyKindDocument, stubLayout, testDefaults } from "@/test/canvas-fixtures";
 import { Canvas, createCanvasFeed } from "./index";
 import { boxCorner } from "./transform";
 
@@ -34,7 +34,7 @@ function mount(doc: Document = everyKindDocument(), extra: Partial<Parameters<ty
   const onApply = vi.fn(apply);
   const onConvertToPath = vi.fn();
   const onCenterContent = vi.fn();
-  const view = render(<Canvas feed={feed} onSelect={onSelect} onHover={(id) => feed.update({ hoveredId: id })} onApply={onApply} onConvertToPath={onConvertToPath} onCenterContent={onCenterContent} />);
+  const view = render(<Canvas feed={feed} defaults={testDefaults} onSelect={onSelect} onHover={(id) => feed.update({ hoveredId: id })} onApply={onApply} onConvertToPath={onConvertToPath} onCenterContent={onCenterContent} />);
   return { ...view, feed, onSelect, onApply, onConvertToPath, onCenterContent, viewport: view.getByTestId("viewport"), world: view.getByTestId("canvas-world"), overlays: view.getByTestId("canvas-overlays") };
 }
 
@@ -196,7 +196,7 @@ describe("move", () => {
     const onApply = vi.fn(() => Promise.resolve(false));
     const view = render(
       <StrictMode>
-        <Canvas feed={feed} onSelect={(ids) => feed.update({ selection: ids })} onApply={onApply} />
+        <Canvas feed={feed} defaults={testDefaults} onSelect={(ids) => feed.update({ selection: ids })} onApply={onApply} />
       </StrictMode>,
     );
     const btn = node(view.getByTestId("canvas-world"), "btn");

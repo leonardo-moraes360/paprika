@@ -1,4 +1,10 @@
 import { applyOps, createDocument, type Document, type Op } from "@paprika/core";
+import type { CanvasDefaults } from "@/components/frontends/canvas";
+import { canvasDefaults } from "@/editor/canvas-defaults";
+
+/** What the canvas creates nodes with in a test: the editor's own defaults (the canvas has none of its own). */
+export const testDefaults: CanvasDefaults = canvasDefaults;
+
 
 /**
  * A document with one of every kind of node, built by the core (so each node is what the server would hold): a page with

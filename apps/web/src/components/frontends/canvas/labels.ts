@@ -1,5 +1,5 @@
 import { FORMAT, shapeDefaults, type Document, type Node, type ShapeKind, type ShapeNode } from "@paprika/core";
-import type { CanvasTool } from "./types";
+import type { CanvasDefaults, CanvasTool } from "./types";
 
 /** The tools that draw a node by dragging a box (or by a click, with the default size). */
 export type DraftTool = "frame" | "rect" | "ellipse" | "text" | "shape" | "diamond" | "triangle" | "cylinder" | "parallelogram" | "cloud" | "note";
@@ -30,9 +30,6 @@ export const DRAFT_DEFAULTS: Readonly<Record<DraftTool, readonly [number, number
 /** A drag smaller than this (in both directions, in the parent's units) is a click. */
 export const CLICK_SIZE = 4;
 
-/** A colour written into the document (the fill of a new node). It is document data, not a colour of this interface, so it is spelled as the document spells it. */
-const docColor = (digits: string) => `#${digits}`;
-
 /** The path of the i18n entry of each tool's default name (`frontends.canvas.names.<tool>`). */
 export const nameKey = (tool: DraftTool) => `names.${tool}`;
 
@@ -46,25 +43,26 @@ export function nextNumber(doc: Document, tool: DraftTool): number {
 }
 
 /** The fill a node of `tool` gets (the diagram shapes take theirs from the core's defaults on the server). */
-const FILLS: Partial<Record<DraftTool, string>> = { frame: docColor("ffffff"), rect: docColor("d9d4cf"), ellipse: docColor("d9d4cf") };
+const fillOf = (defaults: CanvasDefaults, tool: DraftTool): string | undefined => (tool === "frame" ? defaults.frame.fill : tool === "rect" ? defaults.rect.fill : tool === "ellipse" ? defaults.ellipse.fill : undefined);
 
 /** The node a creation sends: only what differs from the core's defaults, as the old canvas sent it. */
-export function creationNode(tool: DraftTool, props: { id: string; name: string; x: number; y: number; width: number; height: number }): Record<string, unknown> {
+export function creationNode(tool: DraftTool, props: { id: string; name: string; x: number; y: number; width: number; height: number }, defaults: CanvasDefaults): Record<string, unknown> {
   const node: Record<string, unknown> = { type: tool, ...props };
-  const fill = FILLS[tool];
+  const fill = fillOf(defaults, tool);
   if (fill) node.fill = fill;
-  if (tool === "text") Object.assign(node, { text: "Texto", height: "hug" });
+  if (tool === "text") Object.assign(node, { text: defaults.text.content, height: "hug" });
   if (isShapeTool(tool)) Object.assign(node, { type: "shape", shape: SHAPE_KINDS[tool] });
   return node;
 }
 
 /** The node the ghost draws while the pointer is down: the node a click would create, with every property spelled out so it paints without a document. */
-export function ghostNode(tool: DraftTool, width: number, height: number): Node {
+export function ghostNode(tool: DraftTool, width: number, height: number, defaults: CanvasDefaults): Node {
   const base = { id: "draft-ghost", name: "", parentId: null as string | null, x: 0, y: 0, width, height, rotation: 0, opacity: 1, visible: true, locked: false, radius: 0 };
-  if (tool === "frame") return { ...base, type: "frame", fill: FILLS.frame, children: [], clip: true } as Node;
-  if (tool === "rect" || tool === "ellipse") return { ...base, type: tool, fill: FILLS[tool] } as Node;
+  if (tool === "frame") return { ...base, type: "frame", fill: defaults.frame.fill, children: [], clip: true } as Node;
+  if (tool === "rect" || tool === "ellipse") return { ...base, type: tool, fill: defaults[tool].fill } as Node;
   if (tool === "text") {
-    return { ...base, type: "text", text: "Texto", color: docColor("111111"), fontFamily: "Inter, system-ui, sans-serif", fontSize: 16, fontWeight: 400, lineHeight: 1.4, letterSpacing: 0, textAlign: "left", height: "hug" } as Node;
+    const { content, ...look } = defaults.text;
+    return { ...base, type: "text", ...look, text: content, height: "hug" } as Node;
   }
   const kind = SHAPE_KINDS[tool];
   return {
@@ -72,11 +70,7 @@ export function ghostNode(tool: DraftTool, width: number, height: number): Node 
     type: "shape",
     shape: kind,
     text: "",
-    color: docColor("1e2336"),
-    fontFamily: "Inter, system-ui, sans-serif",
-    fontSize: 16,
-    fontWeight: 500,
-    lineHeight: 1.3,
+    ...defaults.shape,
     textAlign: kind === "note" ? "left" : "center",
     ...shapeDefaults(kind),
     width,

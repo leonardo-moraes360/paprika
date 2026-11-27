@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Canvas, type CanvasPinPoint } from "@/components/frontends/canvas";
 import { useLiveClient } from "@/data/live";
 import { showStatusToast } from "@/lib/notify";
-import { vectorDefaults } from "../canvas-defaults";
+import { canvasDefaults } from "../canvas-defaults";
 import { createEditorFeed } from "../canvas-feed";
 import { useCanvasCollab } from "../canvas-collab";
 import { useCanvasInputHandler } from "../canvas-input";
@@ -85,7 +85,7 @@ export function CanvasRegion() {
         onHover={onHover}
         onZoomChange={onZoomChange}
         onApply={apply}
-        vectorDefaults={vectorDefaults}
+        defaults={canvasDefaults}
         onConvertToPath={onConvertToPath}
         onCenterContent={onCenterContent}
         onToolDone={onToolDone}

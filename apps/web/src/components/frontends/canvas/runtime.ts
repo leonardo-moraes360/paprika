@@ -7,7 +7,7 @@ import { createOverlayBus, type OverlayBus } from "./overlay-bus";
 import type { PreviewController } from "./preview";
 import type { CanvasActions, CanvasState } from "./region";
 import type { RenderStore } from "./render-index";
-import type { CanvasInputState, CanvasPinPoint, CanvasTool, NodeBox, Pt, VectorDefaults } from "./types";
+import type { CanvasInputState, CanvasPinPoint, CanvasTool, NodeBox, Pt, CanvasDefaults } from "./types";
 import type { ViewStore } from "./view-store";
 
 export type PanMode = "off" | "ready" | "panning";
@@ -50,8 +50,8 @@ export type CanvasRuntime = {
   error: (message: string) => void;
   /** A string of this frontend (`frontends.canvas.<path>`) in the language of the app: history labels, aria-labels. */
   text: (path: string, options?: Record<string, unknown>) => string;
-  /** The paint a new vector gets. */
-  vectorDefaults: () => VectorDefaults | undefined;
+  /** What the nodes the canvas creates carry (document data: the owner's). */
+  defaults: () => CanvasDefaults;
   /** Presence, pins and the build replay, when the owner gives them. */
   collab: CanvasCollabFeed | undefined;
   /** The eyedropper is armed. */
@@ -79,7 +79,7 @@ export type RuntimeParts = {
     toolDone?: () => void;
     error?: (message: string) => void;
     text?: (path: string, options?: Record<string, unknown>) => string;
-    vectorDefaults?: VectorDefaults;
+    defaults: CanvasDefaults;
     pinPoint?: (point: CanvasPinPoint) => void;
     pinSelect?: (id: string) => void;
     sample?: (color: string | null) => void;
@@ -141,7 +141,7 @@ export function createRuntime(parts: RuntimeParts): CanvasRuntime {
     toolDone: () => callbacks().toolDone?.(),
     error: (message) => callbacks().error?.(message),
     text: (path, options) => callbacks().text?.(path, options) ?? path,
-    vectorDefaults: () => callbacks().vectorDefaults,
+    defaults: () => callbacks().defaults,
     get collab() {
       return collab();
     },

@@ -1,5 +1,5 @@
 import { anchorsToPath, newId, parsePath, pathBounds, serializePath, translatePath, type Anchor, type Op } from "@paprika/core";
-import type { Pt, VectorDefaults } from "../types";
+import type { Pt, CanvasDefaults } from "../types";
 
 /** A press this close (screen px) to the first anchor of a path of three or more points closes it. */
 export const PEN_CLOSE_PX = 8;
@@ -35,8 +35,8 @@ export function withoutDoublePress(anchors: readonly Anchor[], zoom: number): An
   return [...anchors];
 }
 
-/** The `create` op of a finished path (the old canvas' defaults: "Vetor N", a 2 px stroke, a fill only when closed), or `null` under two anchors. */
-export function penOps(draft: PenDraft, closed: boolean, existingPaths: number, paint: VectorDefaults, id = newId()): { id: string; ops: Op[] } | null {
+/** The `create` op of a finished path named `name` (the old canvas' defaults: a 2 px stroke, a fill only when closed), or `null` under two anchors. */
+export function penOps(draft: PenDraft, closed: boolean, name: string, paint: CanvasDefaults["vector"], id = newId()): { id: string; ops: Op[] } | null {
   if (draft.anchors.length < 2) return null;
   const segs = anchorsToPath(draft.anchors, closed);
   const b = pathBounds(segs);
@@ -47,7 +47,7 @@ export function penOps(draft: PenDraft, closed: boolean, existingPaths: number, 
   const node: Record<string, unknown> = {
     type: "path",
     id,
-    name: `Vetor ${existingPaths + 1}`,
+    name,
     x,
     y,
     width: Math.max(1, Math.ceil(b.x + b.width) - x),

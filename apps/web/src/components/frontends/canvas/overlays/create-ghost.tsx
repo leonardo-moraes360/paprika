@@ -20,7 +20,7 @@ export function CreateGhost() {
   if (!draft) return null;
   const { tool, x, y, width, height, origin, clicked } = draft;
   const doc = rt.doc();
-  const node = ghostNode(tool, width, height);
+  const node = ghostNode(tool, width, height, rt.defaults());
   const ghostDoc = ghostDocument(doc, node);
   const css = nodeStyle(ghostDoc, node, { asRoot: true }) as CSSProperties;
   const shape = node.type === "shape" ? shapeAttrs(ghostDoc, node) : null;

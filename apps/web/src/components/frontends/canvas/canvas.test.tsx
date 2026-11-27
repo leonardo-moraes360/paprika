@@ -1,7 +1,7 @@
 import { canvasBounds, type Document } from "@paprika/core";
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { everyKindDocument, stubLayout } from "@/test/canvas-fixtures";
+import { everyKindDocument, stubLayout, testDefaults } from "@/test/canvas-fixtures";
 import { Canvas, createCanvasFeed } from "./index";
 import type { CanvasFeed } from "./types";
 
@@ -23,7 +23,7 @@ function mount(doc: Document = everyKindDocument(), extra: Partial<Parameters<ty
   const onSelect = vi.fn((ids: readonly string[]) => feed.update({ selection: ids }));
   const onHover = vi.fn((id: string | null) => feed.update({ hoveredId: id }));
   const onZoomChange = vi.fn();
-  const view = render(<Canvas feed={feed} onSelect={onSelect} onHover={onHover} onZoomChange={onZoomChange} />);
+  const view = render(<Canvas feed={feed} defaults={testDefaults} onSelect={onSelect} onHover={onHover} onZoomChange={onZoomChange} />);
   const viewport = view.getByTestId("viewport");
   const world = view.getByTestId("canvas-world");
   const overlays = view.getByTestId("canvas-overlays");

@@ -46,6 +46,8 @@ export const canvasEn = {
     parallelogram: "Parallelogram",
     cloud: "Cloud",
     note: "Note",
+    vector: "Vector",
+    connector: "Arrow",
   },
   select: {
     size: "Selection size",
@@ -141,6 +143,8 @@ export const canvasPtBR: typeof canvasEn = {
     parallelogram: "Paralelogramo",
     cloud: "Nuvem",
     note: "Nota",
+    vector: "Vetor",
+    connector: "Seta",
   },
   select: {
     size: "Tamanho da seleção",

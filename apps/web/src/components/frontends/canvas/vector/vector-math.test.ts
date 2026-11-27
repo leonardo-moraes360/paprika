@@ -38,9 +38,9 @@ describe("pen", () => {
     expect(withoutDoublePress([a[0]!, a[1]!], 1)).toHaveLength(2);
   });
 
-  it("makes the node the old canvas made: Vetor N, a 2 px stroke, a fill only when closed, the box at the integer corner", () => {
+  it("makes the node the old canvas made: the name it is given, a 2 px stroke, a fill only when closed, the box at the integer corner", () => {
     const draft = { parentId: "page", origin: { x: 0, y: 0 }, anchors: [penAnchor({ x: 10.4, y: 20.6 }), penAnchor({ x: 60, y: 20.6 }), penAnchor({ x: 60, y: 80.2 })] };
-    const open = penOps(draft, false, 2, paint, "p1")!;
+    const open = penOps(draft, false, "Vetor 3", paint, "p1")!;
     expect(open.id).toBe("p1");
     const node = (open.ops[0] as { node: Record<string, unknown>; parentId: string }).node;
     expect(open.ops[0]).toMatchObject({ op: "create", parentId: "page" });
@@ -49,12 +49,12 @@ describe("pen", () => {
     expect(node.width).toBe(50);
     expect(node.height).toBe(61);
     expect(node.d).toBe("M0.4 0.6 L50 0.6 L50 60.2");
-    const closed = penOps(draft, true, 0, paint, "p2")!;
+    const closed = penOps(draft, true, "Vetor 1", paint, "p2")!;
     expect((closed.ops[0] as { node: Record<string, unknown> }).node).toMatchObject({ name: "Vetor 1", fill: "fill-value" });
   });
 
   it("makes nothing under two anchors", () => {
-    expect(penOps({ parentId: null, origin: { x: 0, y: 0 }, anchors: [penAnchor({ x: 1, y: 1 })] }, false, 0, paint)).toBeNull();
+    expect(penOps({ parentId: null, origin: { x: 0, y: 0 }, anchors: [penAnchor({ x: 1, y: 1 })] }, false, "Vetor 1", paint)).toBeNull();
   });
 });
 

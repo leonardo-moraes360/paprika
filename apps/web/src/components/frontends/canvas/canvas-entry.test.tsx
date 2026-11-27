@@ -1,7 +1,7 @@
 import { type Document } from "@paprika/core";
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { everyKindDocument, stubLayout } from "@/test/canvas-fixtures";
+import { everyKindDocument, stubLayout, testDefaults } from "@/test/canvas-fixtures";
 import { Canvas, createCanvasFeed, createCollabStore, type CanvasAgent, type CanvasPin } from "./index";
 
 let restore: () => void;
@@ -26,7 +26,7 @@ function mount(extra: Partial<Parameters<typeof createCanvasFeed>[0]> = {}, prop
   const collab = createCollabStore();
   const onSelect = vi.fn((ids: readonly string[]) => feed.update({ selection: ids }));
   const handlers = { onPinPoint: vi.fn(), onPinSelect: vi.fn(), onSample: vi.fn(), onInput: vi.fn() };
-  const view = render(<Canvas feed={feed} collab={collab} onSelect={onSelect} {...handlers} {...props} />);
+  const view = render(<Canvas feed={feed} collab={collab} defaults={testDefaults} onSelect={onSelect} {...handlers} {...props} />);
   const viewport = view.getByTestId("viewport");
   const world = view.getByTestId("canvas-world");
   const overlays = view.getByTestId("canvas-overlays");

@@ -36,7 +36,7 @@ export const connectorCreate: Gesture = {
         if (!parentId) return;
         const id = newId();
         const count = Object.values(rt.doc().nodes).filter((n) => n.type === "connector").length + 1;
-        void rt.apply([{ op: "create", node: { type: "connector", id, name: `Seta ${count}`, from, to, route: "elbow" } as never, parentId }], rt.text(ARROW_LABEL)).then((ok) => {
+        void rt.apply([{ op: "create", node: { type: "connector", id, name: `${rt.text("names.connector")} ${count}`, from, to, route: "elbow" } as never, parentId }], rt.text(ARROW_LABEL)).then((ok) => {
           if (ok) rt.select([id]);
         });
         rt.toolDone();

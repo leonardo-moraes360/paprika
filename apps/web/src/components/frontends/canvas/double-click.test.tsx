@@ -1,7 +1,7 @@
 import type { Op } from "@paprika/core";
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { everyKindDocument, stubLayout } from "@/test/canvas-fixtures";
+import { everyKindDocument, stubLayout, testDefaults } from "@/test/canvas-fixtures";
 import { Canvas, createCanvasFeed } from "./index";
 
 /**
@@ -23,7 +23,7 @@ function mount(selection: string[] = [], tool: "select" | "rect" = "select") {
   const feed = createCanvasFeed({ doc: everyKindDocument(), pageId: "page", selection, tool });
   const onSelect = vi.fn((ids: readonly string[]) => feed.update({ selection: ids }));
   const onApply = vi.fn((_ops: Op[], _label: string) => Promise.resolve(true));
-  const view = render(<Canvas feed={feed} onSelect={onSelect} onApply={onApply} />);
+  const view = render(<Canvas feed={feed} defaults={testDefaults} onSelect={onSelect} onApply={onApply} />);
   const world = view.getByTestId("canvas-world");
   const node = (id: string) => world.querySelector<HTMLElement>(`[data-paprika-id="${id}"]`) as HTMLElement;
   /** Which of the things a double click can open is on screen now. */

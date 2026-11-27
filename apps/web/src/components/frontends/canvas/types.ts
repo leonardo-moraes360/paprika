@@ -94,12 +94,24 @@ export type CanvasProps = {
   onConvertToPath?: (ids: readonly string[]) => void;
   /** The layers menu asked to centre the content of these layers. */
   onCenterContent?: (ids: readonly string[]) => void;
-  /** The paint a new vector gets (a document colour is data, so the owner supplies it): the stroke, and the fill of a closed one. */
-  vectorDefaults?: VectorDefaults;
+  /** What the nodes the canvas creates carry (see `CanvasDefaults`). */
+  defaults: CanvasDefaults;
   className?: string;
 };
 
-export type VectorDefaults = { stroke: string; fill: string };
+/**
+ * What a node a gesture creates carries that the document would not choose by itself: the fill of a frame, a rectangle and an
+ * ellipse, the ink of a text and of a diagram shape, the paint of a pen path. They are DOCUMENT data (a colour written into the
+ * file, whatever the theme of this interface), so the owner supplies them and the frontend has no colour, font or sample text of its own.
+ */
+export type CanvasDefaults = {
+  vector: { stroke: string; fill: string };
+  frame: { fill: string };
+  rect: { fill: string };
+  ellipse: { fill: string };
+  text: { content: string; color: string; fontFamily: string; fontSize: number; fontWeight: number; lineHeight: number; letterSpacing: number; textAlign: "left" | "center" | "right" };
+  shape: { color: string; fontFamily: string; fontSize: number; fontWeight: number; lineHeight: number };
+};
 
 /** What a gesture may show while it runs: a node moves, grows or turns on screen before any op exists. */
 export type PreviewPatch = {

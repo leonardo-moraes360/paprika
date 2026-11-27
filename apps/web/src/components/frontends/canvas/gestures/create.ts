@@ -45,7 +45,7 @@ export const create: Gesture = {
         clear();
         const id = newId();
         const name = `${rt.text(nameKey(tool))} ${nextNumber(rt.doc(), tool)}`;
-        const node = creationNode(tool, { id, name, x: box.x, y: box.y, width: box.width, height: box.height });
+        const node = creationNode(tool, { id, name, x: box.x, y: box.y, width: box.width, height: box.height }, rt.defaults());
         const label = rt.text("history.create", { name: rt.text(nameKey(tool)).toLowerCase() });
         rt.toolDone();
         void rt.apply([{ op: "create", node: node as never, parentId } as Op], label).then((ok) => {

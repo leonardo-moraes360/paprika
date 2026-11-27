@@ -1,7 +1,7 @@
 import { applyOps, type Document, type Op } from "@paprika/core";
 import { act, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { everyKindDocument, stubLayout } from "@/test/canvas-fixtures";
+import { everyKindDocument, stubLayout, testDefaults } from "@/test/canvas-fixtures";
 import { Canvas, createCanvasFeed } from "./index";
 import { creationNode, DRAFT_DEFAULTS, draftBox, ghostNode, isDraftTool, nextNumber } from "./labels";
 import { editRange, linkOk, marks, paintEditable, readEditable, sameText } from "./rich-text";
@@ -24,7 +24,7 @@ function mount(input: Partial<CanvasInput> = {}, doc: Document = everyKindDocume
   const onSelect = vi.fn((ids: readonly string[]) => feed.update({ selection: ids }));
   const onApply = vi.fn(async (_ops: Op[], _label: string) => answer);
   const onToolDone = vi.fn(() => feed.update({ tool: "select" }));
-  const view = render(<Canvas feed={feed} onSelect={onSelect} onApply={onApply} onToolDone={onToolDone} />);
+  const view = render(<Canvas feed={feed} defaults={testDefaults} onSelect={onSelect} onApply={onApply} onToolDone={onToolDone} />);
   const viewport = view.getByTestId("viewport");
   const world = view.getByTestId("canvas-world");
   const overlays = view.getByTestId("canvas-overlays");
@@ -70,14 +70,14 @@ describe("names, sizes and nodes of a creation", () => {
 
   it("sends only what differs from the core's defaults, with the old fills", () => {
     const base = { id: "n", name: "N", x: 1, y: 2, width: 3, height: 4 };
-    expect(creationNode("frame", base)).toMatchObject({ type: "frame", fill: "#ffffff" });
-    expect(creationNode("rect", base)).toMatchObject({ type: "rect", fill: "#d9d4cf" });
-    expect(creationNode("ellipse", base)).toMatchObject({ type: "ellipse", fill: "#d9d4cf" });
-    expect(creationNode("text", base)).toMatchObject({ type: "text", text: "Texto", height: "hug" });
-    expect(creationNode("shape", base)).toMatchObject({ type: "shape", shape: "rect" });
-    expect(creationNode("note", base)).toMatchObject({ type: "shape", shape: "note" });
-    expect(creationNode("cloud", base)).not.toHaveProperty("fill");
-    expect(ghostNode("note", 160, 160)).toMatchObject({ type: "shape", shape: "note", width: 160 });
+    expect(creationNode("frame", base, testDefaults)).toMatchObject({ type: "frame", fill: "#ffffff" });
+    expect(creationNode("rect", base, testDefaults)).toMatchObject({ type: "rect", fill: "#d9d4cf" });
+    expect(creationNode("ellipse", base, testDefaults)).toMatchObject({ type: "ellipse", fill: "#d9d4cf" });
+    expect(creationNode("text", base, testDefaults)).toMatchObject({ type: "text", text: "Texto", height: "hug" });
+    expect(creationNode("shape", base, testDefaults)).toMatchObject({ type: "shape", shape: "rect" });
+    expect(creationNode("note", base, testDefaults)).toMatchObject({ type: "shape", shape: "note" });
+    expect(creationNode("cloud", base, testDefaults)).not.toHaveProperty("fill");
+    expect(ghostNode("note", 160, 160, testDefaults)).toMatchObject({ type: "shape", shape: "note", width: 160 });
   });
 });
 

@@ -2,7 +2,7 @@ import { applyOps, createDocument, type Document, type Op } from "@paprika/core"
 import { act, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Canvas, createCanvasFeed } from "@/components/frontends/canvas";
-import { stubLayout } from "@/test/canvas-fixtures";
+import { stubLayout, testDefaults } from "@/test/canvas-fixtures";
 
 /**
  * Vectors and handles with a page of 5 000 nodes (plan, section 4): editing a path, dragging a connector end, a gradient handle
@@ -65,7 +65,7 @@ function mount(selection: string[], tool: "select" | "pen" = "select") {
   const doc = bigDocument();
   const feed = createCanvasFeed({ doc, pageId: "page", tool });
   const onApply = vi.fn(async () => true);
-  const view = render(<Canvas feed={feed} onSelect={(ids) => feed.update({ selection: ids })} onApply={onApply} onToolDone={() => feed.update({ tool: "select" })} onError={() => {}} vectorDefaults={{ stroke: "ink", fill: "paper" }} />);
+  const view = render(<Canvas feed={feed} onSelect={(ids) => feed.update({ selection: ids })} onApply={onApply} onToolDone={() => feed.update({ tool: "select" })} onError={() => {}} defaults={{ ...testDefaults, vector: { stroke: "ink", fill: "paper" } }} />);
   frames(2);
   if (selection.length) act(() => feed.update({ selection }));
   const scoped = within(view.container);

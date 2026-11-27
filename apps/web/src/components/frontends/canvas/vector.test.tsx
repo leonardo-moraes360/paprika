@@ -1,7 +1,7 @@
 import { applyOps, createDocument, type Document, type Op } from "@paprika/core";
 import { act, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { stubLayout } from "@/test/canvas-fixtures";
+import { stubLayout, testDefaults } from "@/test/canvas-fixtures";
 import { gestures } from "./gestures";
 import { Canvas, createCanvasFeed } from "./index";
 
@@ -70,7 +70,7 @@ function mount(options: { tool?: Parameters<typeof createCanvasFeed>[0] extends 
   const onApply = vi.fn<(ops: Op[], label: string) => Promise<boolean>>(options.apply ?? (async () => true));
   const onToolDone = vi.fn(() => feed.update({ tool: "select" }));
   const onError = vi.fn();
-  const view = render(<Canvas feed={feed} onSelect={onSelect} onApply={onApply} onToolDone={onToolDone} onError={onError} vectorDefaults={paint} />);
+  const view = render(<Canvas feed={feed} onSelect={onSelect} onApply={onApply} onToolDone={onToolDone} onError={onError} defaults={{ ...testDefaults, vector: paint }} />);
   frames(2);
   // The selection comes after the canvas is up, as a click does (the overlays measure the nodes that are there by then).
   if (options.selection?.length) act(() => feed.update({ selection: options.selection }));
@@ -120,7 +120,7 @@ describe("the pen", () => {
     expect(label).toBe("draw vector");
     const op = ops[0] as { op: string; parentId: string; node: Record<string, unknown> };
     expect(op).toMatchObject({ op: "create", parentId: "page" });
-    expect(op.node).toMatchObject({ type: "path", name: "Vetor 2", x: 1000, y: 1000, stroke: { color: "ink-colour", width: 2 }, fill: "paper-colour" });
+    expect(op.node).toMatchObject({ type: "path", name: "Vector 2", x: 1000, y: 1000, stroke: { color: "ink-colour", width: 2 }, fill: "paper-colour" });
     expect(String(op.node.d)).toMatch(/^M0 0 L100 0 C100 0 .* Z$/);
     expect(m.container.querySelector('[data-testid="pen-overlay"]')).toBeNull();
   });
@@ -441,7 +441,7 @@ describe("connectors", () => {
     expect(m.onApply).toHaveBeenCalledTimes(1);
     const [ops, label] = m.onApply.mock.calls[0]!;
     expect(label).toBe("create arrow");
-    expect(ops![0]).toMatchObject({ op: "create", parentId: "page", node: { type: "connector", name: "Seta 3", from: { nodeId: "sa" }, to: { nodeId: "sb" }, route: "elbow" } });
+    expect(ops![0]).toMatchObject({ op: "create", parentId: "page", node: { type: "connector", name: "Arrow 3", from: { nodeId: "sa" }, to: { nodeId: "sb" }, route: "elbow" } });
     expect(m.onToolDone).toHaveBeenCalledTimes(1);
     expect(m.container.querySelector('[data-testid="link-draft"]')).toBeNull();
   });
