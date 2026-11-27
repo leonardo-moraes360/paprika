@@ -239,6 +239,9 @@ describe("dropping files", () => {
     const { viewport } = mount();
     fireEvent.dragEnter(viewport, { dataTransfer: dataTransfer([]) });
     expect(viewport).toHaveAttribute("data-file-over");
+    // `outline-none` sets the outline style to none and `outline-2` only the width: the style has to come back with the highlight, or nothing shows (checked in the browser)
+    expect(viewport.className).toContain("data-[file-over]:outline-solid");
+    expect(viewport.className).toContain("data-[file-over]:outline-select-brand");
     fireEvent.dragLeave(viewport, { dataTransfer: dataTransfer([]) });
     expect(viewport).not.toHaveAttribute("data-file-over");
   });
@@ -275,7 +278,7 @@ describe("agents on the canvas", () => {
     const boxes = overlays.querySelectorAll<HTMLElement>("[data-agent-box]");
     expect(boxes).toHaveLength(3);
     expect(boxes[2]?.style.display).toBe("none");
-    expect(overlays.querySelector("[data-testid='agent-cursor']")).toHaveTextContent("claude · editing");
+    expect(overlays.querySelector("[data-testid='agent-cursor']")).toHaveTextContent("claude · editing Title");
     expect(overlays.querySelector("[data-testid='agent-frame-state']")).toHaveTextContent("claude update_nodes");
   });
 
@@ -334,6 +337,22 @@ describe("the build replay", () => {
     expect(node(world, "plain")).toHaveAttribute("data-build", "current");
     act(() => collab.set({ build: [] }));
     expect(node(world, "plain")).not.toHaveAttribute("data-build");
+  });
+
+  it("draws the outline in the layer of the overlays, in the colour of the agent's token, over the node and holding its width at any zoom", () => {
+    const { collab, overlays, world } = mount();
+    act(() => collab.set({ build: [{ id: "box", tone: "agent-2" }] }));
+    const outline = overlays.querySelector<HTMLElement>("[data-build-outline='box']") as HTMLElement;
+    expect(outline).not.toBeNull();
+    expect(outline.style.display).toBe("block");
+    expect(outline.style.left).toBe("600px");
+    expect(outline.style.boxShadow).toContain("var(--color-agent-2)");
+    expect(outline.style.boxShadow).toContain("calc(1.5px / var(--view-zoom, 1))");
+    // not on the node: the world is a light scheme and would give a dark app the light colour
+    expect(node(world, "box").style.outline).toBe("");
+    expect(world.className).not.toContain("data-build");
+    act(() => collab.set({ build: [] }));
+    expect(overlays.querySelector("[data-build-outline]")).toBeNull();
   });
 });
 

@@ -37,6 +37,11 @@ export function fitView(bounds: Box, viewport: { width: number; height: number }
   return { zoom, x: (viewport.width - bounds.width * zoom) / 2 - bounds.x * zoom, y: (viewport.height - bounds.height * zoom) / 2 - bounds.y * zoom };
 }
 
+/** The camera of a page with nothing on it: the stand-in box of `canvasBounds` (800 by 600) centred at 100 %, not shrunk to fit the room around it. */
+export function emptyView(viewport: { width: number; height: number }): View {
+  return { zoom: 1, x: (viewport.width - 800) / 2, y: (viewport.height - 600) / 2 };
+}
+
 /** The camera that centres `box`, shrinking the zoom only as far as needed for it to fit (an agent or a pin to look at). */
 export function focusView(box: Box, viewport: { width: number; height: number }, v: View): View {
   const zoom = Math.max(MIN_ZOOM, Math.min(v.zoom, (viewport.width - FIT_MARGIN) / Math.max(box.width, 1), (viewport.height - FIT_MARGIN) / Math.max(box.height, 1)));

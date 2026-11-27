@@ -3,7 +3,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { TextArea } from "@/components/ui/text-area";
 import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
-import { confirmKey, editorOutline } from "./editor-chrome";
+import { confirmKey, editorOutlineClass, editorOutlineVars } from "./editor-chrome";
+import { useDocVersion } from "./use-doc-version";
 import { useNode } from "./use-node";
 
 type ShapeNode = Extract<Node, { type: "shape" }>;
@@ -31,6 +32,8 @@ function ShapeSurface({ node }: { node: ShapeNode }) {
   /** The text the document had last: what the field started from, or what another client wrote since. A change is measured against it. */
   const base = useRef(initial.text);
 
+  const version = useDocVersion();
+  // The editor follows the shape: another client may move or resize it while it is open.
   useLayoutEffect(() => {
     const box = rt.measure(initial.id);
     const el = shell.current;
@@ -41,6 +44,9 @@ function ShapeSurface({ node }: { node: ShapeNode }) {
       el.style.height = `${box.height}px`;
       el.style.transform = box.rotation ? `rotate(${box.rotation}deg)` : "";
     }
+  }, [rt, initial, version]);
+
+  useLayoutEffect(() => {
     field.current?.focus();
     field.current?.select();
   }, [rt, initial]);
@@ -68,7 +74,7 @@ function ShapeSurface({ node }: { node: ShapeNode }) {
 
   // The shape's box carries its typography and lays its text out (centred or not); the editor repeats it and paints nothing else.
   const css = { ...nodeStyle(rt.doc(), initial) } as CSSProperties;
-  const style: CSSProperties = { ...css, position: "absolute", visibility: "visible", pointerEvents: "none", background: "none", border: "none", boxShadow: "none", outline: "none", filter: "none" };
+  const style: CSSProperties = { ...css, position: "absolute", visibility: "visible", pointerEvents: "none", background: "none", border: "none", boxShadow: "none", outline: "none", filter: "none", ...editorOutlineVars };
 
   return (
     <div ref={shell} data-testid="shape-text-editor-shell" style={style}>
@@ -79,7 +85,7 @@ function ShapeSurface({ node }: { node: ShapeNode }) {
           aria-label={rt.text("editors.shapeText")}
           defaultValue={initial.text}
           rows={Math.max(1, initial.text.split("\n").length)}
-          className={`pointer-events-auto min-h-0 border-0 bg-transparent has-[:focus-visible]:border-0 has-[:focus-visible]:outline-0 outline-1 ${editorOutline}`}
+          className={`pointer-events-auto min-h-0 border-0 bg-transparent has-[:focus-visible]:border-0 has-[:focus-visible]:outline-0 outline-0 ${editorOutlineClass}`}
           inputClassName="field-sizing-content min-h-0 w-full resize-none overflow-hidden p-0 text-inherit [font:inherit] [letter-spacing:inherit] [line-height:inherit] [text-align:inherit]"
           onPointerDown={(e) => e.stopPropagation()}
           onDoubleClick={(e) => e.stopPropagation()}

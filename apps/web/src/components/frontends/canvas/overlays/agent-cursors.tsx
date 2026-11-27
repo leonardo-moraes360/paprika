@@ -7,12 +7,13 @@ import { useCollab, type CanvasAgent } from "../collab";
 import { coveredBox } from "../geometry";
 import { useCanvasRuntime } from "../runtime";
 import type { Box } from "../types";
+import { ring } from "./stroke";
 import { useDocVersion } from "./use-doc-version";
 
 /** The outlines of one agent's nodes drawn at most; an agent that touches thousands of nodes is shown by the first of them. */
 export const MAX_OUTLINES = 60;
 
-const toneBorder: Record<AgentColor, string> = { "agent-1": "border-agent-1", "agent-2": "border-agent-2", "agent-3": "border-agent-3", "agent-4": "border-agent-4" };
+const toneVar: Record<AgentColor, string> = { "agent-1": "var(--color-agent-1)", "agent-2": "var(--color-agent-2)", "agent-3": "var(--color-agent-3)", "agent-4": "var(--color-agent-4)" };
 const cornerGap = 12;
 
 /** The frame an agent is working in: the root frame above a node (or the outermost frame when none is a root). */
@@ -62,7 +63,7 @@ const noPan = { "--view-x": "0px", "--view-y": "0px" } as React.CSSProperties;
 const scaled = { transformOrigin: "0 0", scale: "calc(1 / var(--view-zoom))" } as const;
 
 /** One agent: a box around each node it touches, its cursor at the corner of them, a tag above, and the frame it is writing in. Placed by the parent. */
-const AgentMark = memo(function AgentMark({ agent, refs, working }: { agent: CanvasAgent; refs: (id: string) => Refs; working: string }) {
+const AgentMark = memo(function AgentMark({ agent, refs, working, target }: { agent: CanvasAgent; refs: (id: string) => Refs; working: string; target: string }) {
   const mine = refs(agent.id);
   const writing = agent.activity === "writing" && !agent.idle;
   const nodes = agent.nodes.length > MAX_OUTLINES ? agent.nodes.slice(0, MAX_OUTLINES) : agent.nodes;
@@ -71,7 +72,7 @@ const AgentMark = memo(function AgentMark({ agent, refs, working }: { agent: Can
     <div data-testid="agent-cursor" data-agent={agent.id} data-activity={agent.activity} data-idle={agent.idle ? "" : undefined} className={`transition-opacity duration-600 ease-[ease] ${agent.idle ? "opacity-45" : ""}`}>
       {writing ? (
         <div data-testid="agent-working" ref={(el) => void (mine.frame = el)} className="absolute hidden">
-          <div aria-hidden="true" className={`absolute inset-0 rounded-xs ${toneBorder[agent.tone]}`} style={{ borderWidth: "calc(2px / var(--view-zoom))" }} />
+          <div aria-hidden="true" className="absolute inset-0 rounded-xs" style={ring(2, toneVar[agent.tone])} />
           <span
             className={`absolute top-0 left-1/2 rounded-md px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap ${toneSurface[agent.tone]}`}
             style={{ transformOrigin: "50% 100%", transform: "translate(-50%, -100%) scale(calc(1 / var(--view-zoom)))" }}
@@ -88,8 +89,8 @@ const AgentMark = memo(function AgentMark({ agent, refs, working }: { agent: Can
           }}
           aria-hidden="true"
           data-agent-box={id}
-          className={`absolute box-border hidden rounded-xs transition-[left,top,width,height] duration-450 ease-out motion-reduce:transition-none ${toneBorder[agent.tone]}`}
-          style={{ borderWidth: "calc(1.5px / var(--view-zoom))" }}
+          className="absolute box-border hidden rounded-xs transition-[left,top,width,height] duration-450 ease-out motion-reduce:transition-none"
+          style={ring(1.5, toneVar[agent.tone])}
         />
       ))}
       {!agent.idle ? (
@@ -101,11 +102,17 @@ const AgentMark = memo(function AgentMark({ agent, refs, working }: { agent: Can
         </div>
       ) : null}
       <div ref={(el) => void (mine.cursor = el)} className="absolute top-0 left-0 hidden transition-[translate] duration-550 ease-out motion-reduce:transition-none" style={scaled}>
-        <Cursor tone={agent.tone} label={`${agent.name} · ${agent.verb}`} />
+        <Cursor tone={agent.tone} label={target ? `${agent.name} · ${agent.verb} ${target}` : `${agent.name} · ${agent.verb}`} />
       </div>
     </div>
   );
 });
+
+/** The name of what an agent is working on (the first node it touches), for the label of its cursor. */
+const targetName = (doc: Document, agent: CanvasAgent) => {
+  const node = agent.nodes.length > 0 ? doc.nodes[agent.nodes[0]!] : undefined;
+  return node && node.type !== "page" ? node.name : "";
+};
 
 const show = (el: HTMLElement | null, on: boolean) => {
   if (el) el.style.display = on ? "block" : "none";
@@ -207,7 +214,7 @@ export function AgentCursors() {
   return (
     <div data-testid="agent-layer" aria-hidden="true" style={noPan}>
       {agents.map((agent) => (
-        <AgentMark key={agent.id} agent={agent} refs={refs} working={working} />
+        <AgentMark key={agent.id} agent={agent} refs={refs} working={working} target={targetName(rt.doc(), agent)} />
       ))}
     </div>
   );

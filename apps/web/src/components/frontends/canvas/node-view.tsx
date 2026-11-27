@@ -13,6 +13,7 @@ import {
   type Node,
 } from "@paprika/core";
 import { createContext, memo, useCallback, useContext, useLayoutEffect, useSyncExternalStore, type CSSProperties } from "react";
+import { LINK_CLASS } from "./rich-text";
 import { hasContentPatch, routedConnector, withPatch } from "./preview-node";
 import { createNodeSlices, EDITING, HOVERED, PAINTED, SELECTED, useCanvasStore } from "./region";
 import type { RenderStore } from "./render-index";
@@ -35,7 +36,7 @@ function TextRuns({ doc, node }: { doc: Document; node: TextNode }) {
         const style = textRunCSS(doc, node, piece.run) as CSSProperties;
         if (piece.run.href) {
           return (
-            <a key={i} href={piece.run.href} style={style} onClick={(e) => e.preventDefault()}>
+            <a key={i} href={piece.run.href} className={LINK_CLASS} style={style} onClick={(e) => e.preventDefault()}>
               {piece.text}
             </a>
           );
@@ -50,6 +51,9 @@ function TextRuns({ doc, node }: { doc: Document; node: TextNode }) {
   );
 }
 
+
+/** The border `nodeStyle` writes: `<width> <style> <colour>` (the colour may hold spaces). */
+const BORDER = /^(\S+) (solid|dashed|dotted|double) (.+)$/;
 
 /**
  * One node of the document as the DOM draws it (`nodeStyle` is the single source of its CSS, shared with the export and the
@@ -81,9 +85,18 @@ export const NodeView = memo(function NodeViewOf({ id }: { id: string }) {
   const css = { ...nodeStyle(doc, node) } as CSSProperties;
   // The WASM layer paints this node's fill, border and shadow: the DOM keeps the box (a border keeps its width, so auto layout does not move) and drops the paint.
   const painted = (flags & PAINTED) !== 0;
+  if (typeof css.border === "string") {
+    // The shorthand is written as its three longhands: a `borderColor` that comes and goes next to a `border` would, when it goes, take the colour of the border with it.
+    const edge = BORDER.exec(css.border);
+    if (edge) {
+      delete css.border;
+      css.borderWidth = edge[1];
+      css.borderStyle = edge[2];
+      css.borderColor = painted ? "transparent" : edge[3];
+    }
+  }
   if (painted) {
     if (css.background) css.background = "transparent";
-    if (css.border) css.borderColor = "transparent";
     delete css.boxShadow;
     delete css.filter;
   }

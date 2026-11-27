@@ -127,7 +127,7 @@ export const canvasPtBR: typeof canvasEn = {
     attachStart: "prender início",
     attachEnd: "prender fim",
     bendArrow: "curvar seta",
-    gradient: "gradient",
+    gradient: "gradiente",
     gap: "gap",
     padding: "padding",
   },

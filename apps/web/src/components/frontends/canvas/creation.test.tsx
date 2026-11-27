@@ -143,6 +143,22 @@ describe("drawing a node with a creation tool", () => {
     expect(t.onToolDone).not.toHaveBeenCalled();
   });
 
+  it("the ghost goes when the tool changes in the middle of the drag, and the release makes nothing", async () => {
+    const t = mount({ tool: "rect" });
+    fireEvent.pointerDown(t.viewport, { button: 0, ...t.at(700, 450), pointerId: 1 });
+    fireEvent.pointerMove(window, { ...t.at(800, 520), pointerId: 1 });
+    expect(t.getByTestId("draft-ghost")).toBeInTheDocument();
+    act(() => t.feed.update({ tool: "select" }));
+    expect(t.queryByTestId("draft-ghost")).toBeNull();
+    expect(t.queryByTestId("create-drag")).toBeNull();
+    fireEvent.pointerMove(window, { ...t.at(850, 540), pointerId: 1 });
+    fireEvent.pointerUp(window, { ...t.at(850, 540), pointerId: 1 });
+    await flush();
+    expect(t.queryByTestId("draft-ghost")).toBeNull();
+    expect(t.onApply).not.toHaveBeenCalled();
+    expect(t.onToolDone).not.toHaveBeenCalled();
+  });
+
   it("selects and opens nothing when the server did not take the node", async () => {
     const t = mount({ tool: "cloud" }, everyKindDocument(), false);
     fireEvent.pointerDown(t.viewport, { button: 0, ...t.at(700, 450), pointerId: 1 });
@@ -407,6 +423,47 @@ describe("an editor and a change from another client", () => {
     fireEvent.keyDown(typed, { key: "Escape" });
     await flush();
     expect(ops(t.onApply)[0]).toMatchObject({ id: "box", props: { text: "Mine" } });
+  });
+
+  it("the editor of a text, of a shape and of an arrow's label follows the node when another client moves it, typing kept", async () => {
+    const free = applyOps(everyKindDocument(), [{ op: "create", parentId: "page", node: { type: "text", id: "free", name: "Free", x: 700, y: 200, width: 120, text: "Loose" } } as unknown as Op]).doc;
+    const moved = (doc: Document, id: string, dx: number) => ({ ...doc, nodes: { ...doc.nodes, [id]: { ...doc.nodes[id], x: (doc.nodes[id] as { x: number }).x + dx } } }) as Document;
+    // a text
+    const t = mount({}, free);
+    fireEvent.doubleClick(node(t.world, "free"));
+    const surface = t.getByRole("textbox", { name: "Text" });
+    const shell = t.getByTestId("text-editor");
+    expect(shell.style.left).toBe("700px");
+    fireEvent.input(surface, { target: { textContent: "Loose typed" } });
+    act(() => t.feed.update({ doc: moved(free, "free", 50) }));
+    await flush();
+    expect(shell.style.left).toBe("750px");
+    expect(surface.textContent).toBe("Loose typed");
+    t.unmount();
+    // a shape
+    const s = mount();
+    fireEvent.doubleClick(node(s.world, "box"));
+    const area = s.getByTestId("shape-text-editor") as HTMLTextAreaElement;
+    fireEvent.change(area, { target: { value: "Mine" } });
+    const frame = s.getByTestId("shape-text-editor-shell");
+    expect(frame.style.left).toBe("600px");
+    act(() => s.feed.update({ doc: moved(everyKindDocument(), "box", 40) }));
+    await flush();
+    expect(frame.style.left).toBe("640px");
+    expect(area.value).toBe("Mine");
+    s.unmount();
+    // an arrow's label: the arrow follows the shape it is attached to
+    const c = mount();
+    fireEvent.doubleClick(node(c.world, "arrow"));
+    const field = c.getByTestId("connector-label-editor") as HTMLInputElement;
+    const label = field.closest<HTMLElement>('[data-slot="field"]')!.parentElement as HTMLElement;
+    const before = label.style.left;
+    fireEvent.change(field, { target: { value: "mine" } });
+    const after = applyOps(everyKindDocument(), [{ op: "update", id: "box", props: { x: 800 } } as unknown as Op]).doc;
+    act(() => c.feed.update({ doc: after }));
+    await flush();
+    expect(label.style.left).not.toBe(before);
+    expect(field.value).toBe("mine");
   });
 
   it("an arrow's label, untouched, shows the remote label; typed on, it keeps the typing", async () => {

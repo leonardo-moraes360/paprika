@@ -212,6 +212,30 @@ describe("the handover from the DOM", () => {
 });
 
 describe("going back and forth", () => {
+  it("a node with a border keeps the colour of that border after WASM paints it and DOM takes it back (no `borderColor` is left behind a `border`)", async () => {
+    const doc = applyOps(everyKindDocument(), [{ op: "update", id: "btn", props: { stroke: { color: "#ff0000", width: 6 } } } as Op]).doc;
+    const { world, feed, errors } = mount({ doc, renderer: "dom" });
+    await elapse();
+    const colour = () => node(world, "btn").style.borderColor;
+    const before = colour();
+    expect(before).toMatch(/rgb\(255, 0, 0\)|#ff0000/);
+    const warn = vi.spyOn(console, "error").mockImplementation(() => {});
+    for (let round = 0; round < 2; round++) {
+      feed.update({ renderer: "wasm" });
+      await elapse();
+      expect(colour()).toBe("transparent");
+      feed.update({ renderer: "dom" });
+      await elapse();
+      expect(colour()).toBe(before);
+      expect(node(world, "btn").style.borderWidth).toBe("6px");
+      expect(node(world, "btn").style.borderStyle).toBe("solid");
+    }
+    // React warns when a style property is removed while its shorthand is set: that was the sign of the bug.
+    expect(warn.mock.calls.filter((c) => String(c[0]).includes("Removing a style property"))).toHaveLength(0);
+    warn.mockRestore();
+    expect(errors).toEqual([]);
+  });
+
   it("DOM gives every node its paint back at once, and WASM again does not make a new renderer", async () => {
     const { world, viewport, feed } = mount();
     await elapse();

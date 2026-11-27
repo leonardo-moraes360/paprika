@@ -5,8 +5,10 @@ import { useCanvasRuntime } from "../runtime";
 import type { NodeBox } from "../types";
 import { placeBox } from "./place";
 import { useDocVersion } from "./use-doc-version";
+import { dashedRing, ring } from "./stroke";
 
-const stroke = (width: number) => ({ borderWidth: `calc(${width}px / var(--view-zoom))` });
+const SOLID = ring(1.5, "var(--color-select-brand)");
+const DASHED = dashedRing(1.5, "var(--color-select-brand)");
 
 /**
  * The outline of the selection: one box per selected node and, with several, the dashed box around all of them. Boxes are
@@ -46,11 +48,11 @@ export function SelectionOutline() {
             else nodes.current.delete(id);
           }}
           data-selection-box={id}
-          className="pointer-events-none absolute hidden border-select-brand"
-          style={{ ...stroke(1.5), transformOrigin: "center" }}
+          className="pointer-events-none absolute hidden"
+          style={{ ...SOLID, transformOrigin: "center" }}
         />
       ))}
-      <div ref={group} data-selection-group="" className="pointer-events-none absolute hidden border-select-brand" style={{ ...stroke(1.5), borderStyle: "dashed" }} />
+      <div ref={group} data-selection-group="" className="pointer-events-none absolute hidden" style={DASHED} />
     </div>
   );
 }
