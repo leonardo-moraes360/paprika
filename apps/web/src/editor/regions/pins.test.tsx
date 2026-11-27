@@ -130,6 +130,35 @@ describe("Pins region", () => {
     expect(body.region).toEqual({ x: expect.any(Number), y: expect.any(Number), width: 20, height: 20 });
     await waitFor(() => expect(view.handle.current!.state.tool).toBe("select"));
     expect(view.handle.current!.state.pinId).toBe("new");
+    // The new pin was selected before the refetch brought it, and stays selected once it is in the list.
+    await waitFor(() => expect(view.calls.filter((c) => c.method === "GET" && c.url.startsWith("/api/pins")).length).toBeGreaterThan(1));
+    expect(view.handle.current!.state.pinId).toBe("new");
+  });
+
+  it("spells the send key as the platform does (Ctrl Enter here), from the hotkeys library", async () => {
+    await setup([], { tool: "pin", selection: ["n3"] });
+    const form = await screen.findByTestId("new-pin-form");
+    const keys = [...form.querySelectorAll("kbd")].map((key) => key.textContent);
+    expect(keys[0]).toBe("Ctrl");
+    expect(keys).toHaveLength(2);
+    expect(keys[1]).toMatch(/enter|↵/i);
+  });
+
+  it("forgets the selected pin when an agent deletes it, so the store does not point at nothing", async () => {
+    const view = await setup(pins);
+    await open(view);
+    await userEvent.setup().click(await screen.findByText("Bigger button"));
+    expect(view.handle.current!.state.pinId).toBe("x2");
+    fakeHttp({ "GET /api/pins": () => jsonResponse({ pins: pins.filter((p) => p.id !== "x2") }) });
+    view.rig.push({ type: "pins", rev: 10 });
+    await waitFor(() => expect(view.handle.current!.state.pinId).toBeNull());
+    expect(screen.queryByTestId("pin-card")).toBeNull();
+  });
+
+  it("keeps a selected pin the list has not brought yet (the list is loading), instead of forgetting it", async () => {
+    const view = await setup(pins, { pinId: "x2" });
+    await screen.findByText("pins:2");
+    expect(view.handle.current!.state.pinId).toBe("x2");
   });
 
   it("has no form without a selected node, and cancelling goes back to the select tool", async () => {
