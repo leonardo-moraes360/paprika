@@ -35,6 +35,12 @@ const row = (name: string) => screen.getByRole("button", { name }).closest("[rol
 const renameInput = () => screen.getByRole("textbox", { name: "Page name" });
 
 describe("PagesPanel", () => {
+  it("keeps 14 px free on the right of the list for the scroll bar, with the 2 px gap between rows", () => {
+    setup();
+    const list = screen.getByRole("list", { name: "Pages" });
+    expect(list).toHaveClass("pe-3.5", "gap-0.5");
+  });
+
   it("lists the pages under a Pages heading and marks the active one", () => {
     setup();
     expect(screen.getByRole("heading", { level: 2, name: "Pages" })).toBeInTheDocument();
@@ -346,7 +352,7 @@ describe("PagesPanel", () => {
       </div>,
     );
     const list = screen.getByRole("list");
-    expect(list).toHaveClass("ps-2", "pe-1");
+    expect(list).toHaveClass("ps-2", "pe-3.5");
     expect(list.className).not.toMatch(/(^|\s)(pl|pr)-/);
     expect(screen.getByRole("button", { name: "Cover" }).closest("[role=listitem]")).toHaveClass("ps-3", "pe-2");
   });

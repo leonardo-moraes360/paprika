@@ -60,7 +60,15 @@ function LayersBody() {
   useCorrectSelection();
   const rows = useLayerRows(pageId, selection, touched);
 
-  const onSelect = useCallback((ids: string[], mode: LayerSelectMode) => editor.select(resolveLayerSelection(store.state.selection, ids, mode)), [editor, store]);
+  const onSelect = useCallback(
+    (ids: string[], mode: LayerSelectMode) => {
+      const next = resolveLayerSelection(store.state.selection, ids, mode);
+      const same = next.length === store.state.selection.length && next.every((id, i) => id === store.state.selection[i]);
+      editor.select(next);
+      return !same;
+    },
+    [editor, store],
+  );
   const onRename = useCallback((id: string, name: string) => void apply([{ op: "update", id, props: { name } }], t("app.shell.labels.renameLayer")), [apply, t]);
   const onMove = useCallback(
     (move: LayerMove) => {
