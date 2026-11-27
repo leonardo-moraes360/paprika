@@ -1,7 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { api, jsonRequest } from "../api";
-import { useLiveEvent } from "../live";
+import { useLive, useLiveEvent } from "../live";
 
 export type PinRegion = { x: number; y: number; width: number; height: number };
 export type ServerPinStatus = "open" | "claimed" | "resolved";
@@ -55,6 +55,13 @@ export function usePinsLiveSync(workspaceId: string) {
   useLiveEvent((event) => {
     if (event.type === "pins") void client.invalidateQueries({ queryKey: pinsKey(workspaceId) });
   });
+  // Revisions announced while the socket was down are lost, and a list that failed meanwhile keeps its error: ask again when the socket comes back.
+  const connected = useLive((s) => s.connected);
+  const wasConnected = useRef(connected);
+  useEffect(() => {
+    if (connected && !wasConnected.current) void client.invalidateQueries({ queryKey: pinsKey(workspaceId) });
+    wasConnected.current = connected;
+  }, [connected, client, workspaceId]);
 }
 
 export type PinActions = {

@@ -89,6 +89,16 @@ describe("Import region", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
+  it("refuses a picture over 3.5 MB and sends nothing", async () => {
+    const view = await setup();
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    await user.upload(view.input, new File([new Uint8Array(3_500_001)], "big.png", { type: "image/png" }));
+    const place = placeButton(view.dialog);
+    if (!(place as HTMLButtonElement).disabled) await user.click(place);
+    await waitFor(() => expect(within(view.dialog).getByText(/Larger than 3\.5/)).toBeInTheDocument());
+    expect(sent(view)).toHaveLength(0);
+  });
+
   it("keeps the files that work when another fails, and says which failed", async () => {
     const view = await setup();
     const user = userEvent.setup({ pointerEventsCheck: 0 });

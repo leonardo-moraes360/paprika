@@ -20,6 +20,11 @@ describe("toPinEntry", () => {
     expect(toPinEntry(base, tones)).toEqual({ id: "x1", number: 1, status: "open", text: "Make it bigger", author: { name: "user", you: true }, createdAt: 10, target: { kind: "area", width: 100, height: 40 }, replies: [] });
   });
 
+  it("gives the single reply to whoever resolved the pin, before whoever claimed it", () => {
+    const entry = toPinEntry({ ...base, status: "resolved", reply: "Done", claimedBy: "agent:codex", resolvedBy: "agent:claude", updatedAt: 99 }, tones);
+    expect(entry.replies[0]!.author.name).toBe("claude");
+  });
+
   it("shows an agent author and claimant by name and tone", () => {
     const entry = toPinEntry({ ...base, author: "agent:codex", status: "claimed", claimedBy: "agent:claude" }, tones);
     expect(entry.author.name).toBe("codex");

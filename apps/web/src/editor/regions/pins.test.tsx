@@ -119,6 +119,7 @@ describe("Pins region", () => {
     const form = await screen.findByTestId("new-pin-form");
     expect(within(form).getByText("Target: Rect 3")).toBeInTheDocument();
     expect(within(form).queryByRole("checkbox")).toBeNull();
+    expect(within(form).getByText("0/2000")).toBeInTheDocument();
     const user = userEvent.setup();
     await user.type(within(form).getByRole("textbox"), "Make it blue");
     await user.click(within(form).getByRole("button", { name: "Send" }));

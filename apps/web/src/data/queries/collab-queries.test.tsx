@@ -62,6 +62,21 @@ describe("pins queries", () => {
     expect(calls.length).toBe(before + 1);
   });
 
+  it("refetches the list when the socket comes back after a drop", async () => {
+    let served = 0;
+    const calls = fakeServer({ "GET /api/pins": () => json({ pins: Array.from({ length: ++served }, (_, i) => pin({ id: `p${i}` })) }) });
+    const rig = createLiveRig({ delays: [0] });
+    const socket = await rig.connect();
+    const { Wrapper } = wrapper(rig);
+    const hook = renderHook(() => { usePinsLiveSync("w1"); return usePins("w1"); }, { wrapper: Wrapper });
+    await waitFor(() => expect(hook.result.current.data).toBeDefined());
+    const before = calls.length;
+    act(() => socket.drop());
+    await waitFor(() => expect(rig.sockets.last).not.toBe(socket));
+    act(() => rig.sockets.last.open());
+    await waitFor(() => expect(calls.length).toBe(before + 1));
+  });
+
   it("creates, answers, resolves, reopens and deletes through the server routes, refetching after each", async () => {
     const calls = fakeServer({
       "GET /api/pins": () => json({ pins: [] }),

@@ -46,6 +46,7 @@ describe("EditorBoundary", () => {
     vi.stubGlobal("location", { ...window.location, reload });
     await setup(true);
     expect(screen.getByRole("heading", { name: /canvas stopped responding/i })).toBeInTheDocument();
+    expect(issueTarget.repository).toBe("leonardo-moraes360/paprika");
     const report = screen.getByRole("link", { name: /report on github/i });
     expect(report.getAttribute("href")).toContain(`https://github.com/${issueTarget.repository}/issues/new`);
     expect(decodeURIComponent((report.getAttribute("href") ?? "").replace(/\+/g, " "))).toContain("Paprika web app · renderer dom");
