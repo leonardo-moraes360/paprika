@@ -1,5 +1,5 @@
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { Plus } from "lucide-react";
+import { Archive } from "lucide-react";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
@@ -10,7 +10,6 @@ import { errorMessageOr } from "@/lib/use-async-action";
 import { NoticeCard } from "@/components/ui/notice-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
-import { useNow } from "@/lib/use-now";
 import { cn } from "@/lib/utils";
 import { CreateForm } from "./create-form";
 import { DeleteDialog } from "./delete-dialog";
@@ -83,7 +82,6 @@ function OverviewView({
   const staleFocus = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => () => clearTimeout(staleFocus.current), []);
-  const now = useNow(nowProp, Date.now, 30_000);
   const headingId = useId();
 
   const changeView = (next: OverviewView) => {
@@ -184,6 +182,8 @@ function OverviewView({
   const lead = archivedView ? t("frontends.overview.leadArchived", { count }) : t("frontends.overview.leadWorkspaces", { count });
   const searching = query.trim() !== "";
   const showList = !loading && count > 0;
+  // With nothing to list the line is only noise ("0 workspaces. Click to open; F2 renames."): the empty state says it.
+  const supportText = loading ? t("frontends.overview.states.loading") : count === 0 ? null : lead;
 
   const emptyTitle = searching
     ? t("frontends.overview.states.noResults")
@@ -195,7 +195,6 @@ function OverviewView({
 
   const newButton = (
     <Button ref={createButton} onClick={actions.openCreate} className="h-9">
-      <Plus aria-hidden="true" />
       {t("frontends.overview.newWorkspace")}
     </Button>
   );
@@ -230,7 +229,7 @@ function OverviewView({
               <h1 id={headingId} className="truncate text-[28px] leading-tight font-bold tracking-tight">
                 {heading}
               </h1>
-              <p className="max-w-xl text-sm leading-normal text-muted">{loading ? t("frontends.overview.states.loading") : error !== null && count === 0 ? null : lead}</p>
+              {supportText ? <p className="max-w-xl text-base leading-[1.5] text-muted">{supportText}</p> : null}
             </div>
             {creating ? (
               <CreateForm
@@ -284,7 +283,7 @@ function OverviewView({
                 workspace={workspace}
                 projects={projects}
                 preview={renderPreview?.(workspace)}
-                now={now}
+                now={nowProp}
                 buttons={buttons}
                 onOpen={onOpen}
                 onRename={renameCard}
@@ -299,11 +298,17 @@ function OverviewView({
             ))}
           </ul>
         ) : null}
-        {!loading && count === 0 && error === null ? (
+        {!loading && count === 0 && error === null && archivedView && !searching ? (
+          <p role="status" className="flex items-center gap-2.5 rounded-lg bg-surface px-3.5 py-2.5 text-base text-muted">
+            <Archive aria-hidden="true" className="size-4 shrink-0" />
+            {emptyTitle}
+          </p>
+        ) : null}
+        {!loading && count === 0 && error === null && !(archivedView && !searching) ? (
           <EmptyState
             illustration={<EmptyIllustration kind={searching ? "no-results" : "first-use"} />}
             title={emptyTitle}
-            action={!searching && !archivedView && !creating ? <Button onClick={actions.openCreate}><Plus aria-hidden="true" />{t("frontends.overview.newWorkspace")}</Button> : undefined}
+            action={!searching && !archivedView && !creating ? <Button onClick={actions.openCreate}>{t("frontends.overview.newWorkspace")}</Button> : undefined}
           />
         ) : null}
         <input

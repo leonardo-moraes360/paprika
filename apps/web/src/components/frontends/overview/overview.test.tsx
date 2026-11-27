@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { renderToString } from "react-dom/server";
@@ -370,7 +370,41 @@ describe("Overview", () => {
       setup({ workspaces: workspaces.slice(0, 2) });
       await user.click(screen.getByRole("button", { name: /^Archived/ }));
       expect(screen.getByRole("heading", { level: 1, name: "Archived" })).toBeInTheDocument();
-      expect(screen.getByText("No archived workspaces.")).toBeInTheDocument();
+      // The in-line strip of the design, not the first-use illustration.
+      expect(screen.getByRole("status")).toHaveTextContent("No archived workspaces.");
+      expect(document.querySelector("svg[data-kind=first-use]")).not.toBeInTheDocument();
+      expect(screen.queryByText(/F2 renames/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/^0 /)).not.toBeInTheDocument();
+    });
+
+    it("offers no support line (no count, no click/F2 hint) when the list is empty or has no results", async () => {
+      const user = userEvent.setup();
+      setup({ workspaces: [] });
+      expect(screen.queryByText(/F2 renames/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/^0 /)).not.toBeInTheDocument();
+      cleanup();
+      setup();
+      expect(screen.getByText(/F2 renames/)).toBeInTheDocument();
+      await user.type(screen.getByRole("searchbox", { name: "Search workspaces" }), "zzz");
+      expect(screen.queryByText(/F2 renames/)).not.toBeInTheDocument();
+    });
+
+    it("has a plain \"New workspace\" button (no icon) and a secondary Cancel in the form", async () => {
+      const user = userEvent.setup();
+      setup();
+      const button = screen.getByRole("button", { name: "New workspace" });
+      expect(button.querySelector("svg.lucide-plus")).toBeNull();
+      await user.click(button);
+      expect(screen.getByRole("button", { name: "Cancel" })).toHaveClass("border");
+    });
+
+    it("keeps the card menu free of icons", async () => {
+      const user = userEvent.setup();
+      setup();
+      await openMenu(user, "w1");
+      const menu = await screen.findByRole("menu");
+      expect(within(menu).getAllByRole("menuitem").length).toBeGreaterThan(3);
+      for (const item of within(menu).getAllByRole("menuitem")) expect(item.querySelector("svg")).toBeNull();
     });
 
     it("filters by the search field and shows no results", async () => {
