@@ -345,6 +345,6 @@ describe("Toolbar", () => {
       </div>,
     );
     expect(root()).toHaveAttribute("data-dock", "left");
-    expect(root().className).toContain("left-4");
+    expect(root().className).toContain("left-10");
   });
 });

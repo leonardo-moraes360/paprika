@@ -24,8 +24,8 @@ export function dockFromPoint(x: number, y: number, box: Box): ToolbarDock {
 export const dockPlacement: Record<ToolbarDock, string> = {
   top: "top-4 left-1/2 -translate-x-1/2",
   bottom: "bottom-4 left-1/2 -translate-x-1/2",
-  left: "left-4 top-1/2 -translate-y-1/2",
-  right: "right-4 top-1/2 -translate-y-1/2",
+  left: "left-10 top-1/2 -translate-y-1/2",
+  right: "right-10 top-1/2 -translate-y-1/2",
 };
 
 export const dockSide: Record<ToolbarDock, "top" | "right" | "bottom" | "left"> = {
