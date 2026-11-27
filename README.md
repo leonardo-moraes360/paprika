@@ -9,6 +9,12 @@
 
 <p align="center"><em>Throw in a little spice</em>
 
+<div align="center">
+
+[![M8ven Score](https://m8ven.ai/badge/mcp/leonardo-moraes360-paprika-9m2u9f)](https://m8ven.ai/mcp/leonardo-moraes360-paprika-9m2u9f?s=readme)
+
+</div>
+
 <p align="center"><img src="docs/en-US/assets/paprika-window.png" alt="Paprika canvas open on the brand proposals: layers on the left, canvas in the middle, document tokens on the right" width="900"></p>
 
 # Paprika
