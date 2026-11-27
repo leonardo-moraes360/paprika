@@ -1,6 +1,7 @@
-import { keepPreviousData, queryOptions, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { api, workspacePath } from "../api";
+import { useLiveClient } from "../live/hooks";
 
 /** `GET /api/workspaces/:id/history` (`HistoryPanelView` and `PanelStep` in `server/internal/server/store.go`). */
 export type PanelStep = {
@@ -19,25 +20,45 @@ export type PanelView = { version: number; steps: PanelStep[]; canUndo: boolean;
 /** The history refetches this long after the document version stopped changing (an agent writing is one fetch, not hundreds). */
 export const HISTORY_SETTLE_MS = 300;
 
-export const historyQuery = (workspaceId: string, settled: number) =>
+export const historyKey = (workspaceId: string) => ["history", workspaceId] as const;
+
+export const historyQuery = (workspaceId: string) =>
   queryOptions({
-    queryKey: ["history", workspaceId, settled] as const,
+    queryKey: historyKey(workspaceId),
     queryFn: ({ signal }) => api<PanelView>(`${workspacePath(workspaceId)}/history`, { signal }),
-    placeholderData: keepPreviousData,
   });
 
-/** `value` as it was `ms` after it last changed. */
-export function useSettled<T>(value: T, ms: number): T {
-  const [settled, setSettled] = useState(value);
+/**
+ * Refetches the workspace's history once, `HISTORY_SETTLE_MS` after its document version stopped changing (an agent writing is one
+ * fetch, not hundreds); the steps already shown stay until the answer comes. It subscribes to the live store itself and keeps no
+ * state, so a stream of deltas renders nothing here.
+ */
+function useHistoryFollow(workspaceId: string) {
+  const live = useLiveClient();
+  const queries = useQueryClient();
   useEffect(() => {
-    const timer = setTimeout(() => setSettled(value), ms);
-    return () => clearTimeout(timer);
-  }, [value, ms]);
-  return settled;
+    const versionOf = () => (live.store.state.doc?.id === workspaceId ? live.store.state.version : null);
+    let seen = versionOf();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const stop = live.store.subscribe(() => {
+      const next = versionOf();
+      if (next === seen) return;
+      const first = seen === null;
+      seen = next;
+      // The first document of this workspace is what the query is about to fetch anyway.
+      if (next === null || first) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => void queries.invalidateQueries({ queryKey: historyKey(workspaceId) }), HISTORY_SETTLE_MS);
+    });
+    return () => {
+      stop.unsubscribe();
+      clearTimeout(timer);
+    };
+  }, [live, queries, workspaceId]);
 }
 
-/** The steps of a workspace; while `version` keeps changing the last data stays on screen and one refetch follows the last change. */
-export function useHistory(workspaceId: string, version: number) {
-  const settled = useSettled(version, HISTORY_SETTLE_MS);
-  return useQuery(historyQuery(workspaceId, settled));
+/** The steps of a workspace, kept current while it is mounted. */
+export function useHistory(workspaceId: string) {
+  useHistoryFollow(workspaceId);
+  return useQuery(historyQuery(workspaceId));
 }

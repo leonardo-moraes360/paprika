@@ -13,7 +13,10 @@ import { useHistoryActions } from "../use-history-actions";
 
 const historyShortcut = ["Ctrl", "H"] as const;
 
-/** The panel itself, mounted only while it is open: it reads the document version and the roster, the closed editor does not. */
+/**
+ * The panel itself, mounted only while it is open. It reads the workspace id and the roster, never the document version:
+ * `useHistory` follows the version through the store without rendering, so a stream of deltas does not re-render the panel.
+ */
 function HistoryOpen() {
   const { t } = useTranslation();
   const client = useLiveClient();
@@ -21,9 +24,8 @@ function HistoryOpen() {
   const store = useEditorStore();
   const history = useHistoryActions();
   const workspaceId = useLive((s) => s.doc?.id ?? "");
-  const version = useLive((s) => s.version);
   const tones = useAgentTones();
-  const query = useHistory(workspaceId, version);
+  const query = useHistory(workspaceId);
   const steps = useMemo(() => toHistorySteps(query.data?.steps, tones), [query.data, tones]);
   useAssignTones(useMemo(() => stepActors(query.data?.steps), [query.data]));
 

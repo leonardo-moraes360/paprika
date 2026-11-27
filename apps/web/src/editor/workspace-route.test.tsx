@@ -1,9 +1,17 @@
 import { act, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { dismissToasts } from "@/lib/notify";
-import { docMessage, makeDocument, renderEditorRig, serveDocument } from "@/test/live-harness";
+import { deltaMessage, docMessage, makeDocument, renderEditorRig, serveDocument } from "@/test/live-harness";
+
+beforeAll(() => {
+  // jsdom has no layout: the virtual list of the history panel needs a viewport to show rows.
+  for (const key of ["clientHeight", "offsetHeight"]) Object.defineProperty(HTMLElement.prototype, key, { configurable: true, get: () => 400 });
+  for (const key of ["clientWidth", "offsetWidth"]) Object.defineProperty(HTMLElement.prototype, key, { configurable: true, get: () => 360 });
+});
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   dismissToasts();
   document.title = "";
 });
@@ -74,6 +82,26 @@ describe("/w/$workspaceId", () => {
     const view = await renderEditorRig({ workspaceId: "w-1" });
     act(() => view.socket.drop());
     expect(view.router.state.location.pathname).toBe("/w/w-1");
+    view.unmount();
+  });
+
+  it("a stream of deltas does not render the open history panel again (it follows the version without reading it)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ version: 1, steps: [{ id: 1, actor: "user", label: "first edit", at: 1, ops: 1, undone: false, nodeIds: [] }], canUndo: true, canRedo: false }), { status: 200, headers: { "content-type": "application/json" } })),
+    );
+    const user = userEvent.setup();
+    const view = await renderEditorRig({ workspaceId: "w-1" });
+    const doc = makeDocument(10, { id: "w-1" });
+    serveDocument(view.rig, doc);
+    await screen.findByRole("banner");
+    await user.keyboard("{Control>}h{/Control}");
+    await screen.findByText("first edit");
+    await act(async () => void (await new Promise((resolve) => setTimeout(resolve, 20))));
+    view.log.reset();
+    for (let version = 2; version < 30; version += 1) view.rig.deliver(deltaMessage(doc, version, { name: `N${version}` }));
+    expect(view.rig.client.store.state.version).toBe(29);
+    expect(view.log.commits("history")).toBe(0);
     view.unmount();
   });
 });
