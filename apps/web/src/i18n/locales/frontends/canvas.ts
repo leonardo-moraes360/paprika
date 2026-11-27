@@ -80,6 +80,7 @@ export const canvasEn = {
     linkField: "Link address",
     linkPlaceholder: "https://… or /path",
     linkInvalid: "Use http(s), mailto, / or #",
+    linkNeedsText: "Select some text, or put the caret on a link, to apply a link",
   },
   editors: {
     shapeText: "Shape text",
@@ -181,6 +182,7 @@ export const canvasPtBR: typeof canvasEn = {
     linkField: "Endereço do link",
     linkPlaceholder: "https://… ou /caminho",
     linkInvalid: "Use http(s), mailto, / ou #",
+    linkNeedsText: "Selecione um texto, ou ponha o cursor num link, para aplicar um link",
   },
   editors: {
     shapeText: "Texto da forma",

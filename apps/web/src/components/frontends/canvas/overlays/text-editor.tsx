@@ -47,6 +47,9 @@ function TextSurface({ node }: { node: TextNode }) {
   const [color, setColor] = useState(hexOf(node.color));
   const [href, setHref] = useState("");
   const [linked, setLinked] = useState<string | null>(null);
+  const wasLinked = useRef(false);
+  // Whether Apply link has something to act on: a selection, or a caret on a link. Kept from the last time the selection was in the text.
+  const [hasTarget, setHasTarget] = useState(false);
   const [tried, setTried] = useState(false);
 
   const version = useDocVersion();
@@ -114,12 +117,20 @@ function TextSurface({ node }: { node: TextNode }) {
       const at = selectionOffsets(el);
       if (!at) return;
       const current = readEditable(el);
+      // The last selection inside the text, whether the mouse or the keys made it: with the focus in the link field it is what Apply link acts on.
+      saved.current = at;
       const run = linkAt(current.runs, at.start, at.end);
       setLinked(run?.href ?? null);
+      setHasTarget(at.start !== at.end || Boolean(run));
       if (run?.href) {
         setHref(run.href);
         setTried(false);
+      } else if (wasLinked.current) {
+        // Leaving a link leaves its address behind: the next Apply would put it on another text.
+        setHref("");
+        setTried(false);
       }
+      wasLinked.current = Boolean(run?.href);
     };
     document.addEventListener("selectionchange", follow);
     return () => document.removeEventListener("selectionchange", follow);
@@ -160,6 +171,14 @@ function TextSurface({ node }: { node: TextNode }) {
     }
     setTried(false);
     change(marks.link(href.trim()), true);
+  };
+
+  const unlink = () => {
+    change(marks.unlink, true);
+    wasLinked.current = false;
+    setLinked(null);
+    setHref("");
+    setTried(false);
   };
 
   const showError = tried && !linkOk(href.trim());
@@ -234,26 +253,42 @@ function TextSurface({ node }: { node: TextNode }) {
           <TextField
             aria-label={text("linkField")}
             aria-invalid={showError || undefined}
-            aria-describedby={showError ? "text-link-error" : undefined}
+            aria-describedby={showError ? "text-link-error" : hasTarget ? undefined : "text-link-hint"}
             className={`h-7 w-32 px-1.5 text-sm ${showError ? "border-red-ink" : ""} focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-select`}
             value={href}
             placeholder={text("linkPlaceholder")}
             onChange={(e) => setHref(e.target.value)}
             onKeyDown={(e) => {
+              if (confirmKey(e)) {
+                e.preventDefault();
+                finish(true);
+                return;
+              }
               if (e.key !== "Enter") return;
               e.preventDefault();
               if (href.trim() !== "") apply();
             }}
           />
-          <ToolbarButton aria-label={text("applyLink")} disabled={href.trim() === ""} onClick={apply}>
+          <ToolbarButton
+            aria-label={text("applyLink")}
+            aria-describedby={hasTarget ? undefined : "text-link-hint"}
+            title={hasTarget ? undefined : text("linkNeedsText")}
+            disabled={href.trim() === "" || !hasTarget}
+            onClick={apply}
+          >
             <Link2 aria-hidden="true" />
           </ToolbarButton>
           {linked !== null ? (
-            <ToolbarButton aria-label={text("removeLink")} onClick={() => change(marks.unlink, true)}>
+            <ToolbarButton aria-label={text("removeLink")} onClick={unlink}>
               <Unlink aria-hidden="true" />
             </ToolbarButton>
           ) : null}
         </Toolbar>
+        {hasTarget ? null : (
+          <span id="text-link-hint" className="sr-only">
+            {text("linkNeedsText")}
+          </span>
+        )}
         {showError ? (
           <p id="text-link-error" role="alert" className="mt-1 rounded-sm bg-surface px-1.5 py-1 text-xs font-medium text-red-ink">
             {text("linkInvalid")}
