@@ -18,6 +18,7 @@ import {
   type SelectionResult,
 } from "@/adapters/selection-ops";
 import { resolvePageId } from "@/adapters/pages";
+import { selectionErrorNote } from "@/adapters/selection-errors";
 import { useLiveClient } from "@/data/live";
 import { showStatusToast } from "@/lib/notify";
 import { useEditorStore } from "./editor-store";
@@ -42,7 +43,9 @@ export function useSelectionActions() {
     const run = async (result: SelectionResult): Promise<boolean> => {
       if (!result) return false;
       if ("error" in result) {
-        showStatusToast({ status: "danger", title: t("app.shell.actionFailedTitle"), description: result.error });
+        // The core's sentence is English: the toast says it in the language of the app, and keeps the core's text only for a refusal it does not know.
+        const { key, values } = selectionErrorNote(result.error);
+        showStatusToast({ status: "danger", title: t("app.shell.actionFailedTitle"), description: (t as (key: string, options: object) => string)(`app.shell.selectionErrors.${key}`, values) });
         return false;
       }
       const ok = await apply(result.ops, t(`app.shell.labels.${result.label}`));

@@ -1,3 +1,4 @@
+import { useFormatForDisplay } from "@tanstack/react-hotkeys";
 import { layout, type Document } from "@paprika/core";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
@@ -11,8 +12,6 @@ import { useEditor, useEditorActions } from "../editor-store";
 
 const NO_PINS: readonly ServerPin[] = [];
 const shortcut = ["Shift", "I"] as const;
-const mac = typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.platform);
-const submitShortcut = [mac ? "\u2318" : "Ctrl", "Enter"] as const;
 
 /** What the header's pins chip needs: how many pins are not resolved, and a click that opens the panel. Safe to call from the header: it reads the same cached query as the panel. */
 export function usePinsHeader() {
@@ -49,8 +48,12 @@ function nodeRegion(doc: Document, nodeId: string): PinRegion {
 
 /** The new-pin form for the selected node (the tool `pin` is on). Pointing at an area needs the canvas and waits for it. */
 function NewPin({ docId }: { docId: string }) {
+  const { t } = useTranslation();
   const pins = usePins(docId).data ?? NO_PINS;
   const client = useLiveClient();
+  const format = useFormatForDisplay();
+  // The platform's own spelling of the send key (`Ctrl Enter`, `⌘ Enter`), like the properties panel's hints.
+  const submitShortcut = useMemo(() => format("Mod+Enter", { parts: true }), [format]);
   const { setTool, setPin } = useEditorActions();
   const nodeId = useEditor((s) => s.selection[s.selection.length - 1] ?? null);
   const name = useLive((s) => (nodeId ? (s.doc?.nodes[nodeId]?.name ?? null) : null));
@@ -61,12 +64,12 @@ function NewPin({ docId }: { docId: string }) {
   const onSubmit = useCallback(
     async (input: NewPinInput) => {
       const doc = client.store.state.doc;
-      if (!doc || !nodeId || !doc.nodes[nodeId]) throw new Error("The selected node is gone.");
+      if (!doc || !nodeId || !doc.nodes[nodeId]) throw new Error(t("app.collab.pins.nodeGone"));
       const pin = await actions.create({ workspaceId: docId, pageId: pageOf(doc, nodeId), nodeId, region: nodeRegion(doc, nodeId), text: input.text });
       setTool("select");
       setPin(pin.id);
     },
-    [actions, client, docId, nodeId, setPin, setTool],
+    [actions, client, docId, nodeId, setPin, setTool, t],
   );
   if (!nodeId || !exists) return null;
   const target: PinTarget = { kind: "node", name: name || nodeId };
@@ -120,6 +123,29 @@ function PinsPanels({ docId }: { docId: string }) {
 }
 
 /**
+ * Forgets the selected pin when it leaves the list (an agent or another editor deleted it), so `pinId` does not point at
+ * nothing. Only a pin that was in the list once is forgotten: one just created is selected before the refetch brings it.
+ */
+function useForgetDeletedPin(docId: string) {
+  const query = usePins(docId);
+  const { setPin } = useEditorActions();
+  const selectedId = useEditor((s) => s.pinId);
+  const seen = useRef<string | null>(null);
+  const listed = query.data?.some((pin) => pin.id === selectedId) ?? false;
+  useEffect(() => {
+    if (!selectedId) {
+      seen.current = null;
+      return;
+    }
+    if (listed) seen.current = selectedId;
+    else if (query.isSuccess && seen.current === selectedId) {
+      seen.current = null;
+      setPin(null);
+    }
+  }, [selectedId, listed, query.isSuccess, setPin]);
+}
+
+/**
  * Pins: the panel opens by the editor flag (`dialogs.pins`), the card shows the selected pin, and the new-pin form
  * (tool `pin`) points at the selected node. Pointing at an area waits for the canvas. The server announces a pins
  * revision over the socket and the list is refetched here, so a pin an agent claims or answers shows up by itself.
@@ -129,6 +155,7 @@ export function Pins() {
   const open = useEditor((s) => s.dialogs.pins);
   const pinning = useEditor((s) => s.tool === "pin");
   usePinsLiveSync(docId);
+  useForgetDeletedPin(docId);
   if (!docId) return null;
   return (
     <>

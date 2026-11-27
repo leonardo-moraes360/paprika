@@ -52,7 +52,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     if (isGatewayStatus(response.status)) throw new ApiError("network", noServer(), response.status, path);
     throw new ApiError("http", typeof message === "string" && message ? message : response.statusText || `HTTP ${response.status}`, response.status, path);
   }
-  if (body === null) throw new ApiError("invalid-response", `Invalid response from ${path}`, response.status, path);
+  if (body === null) throw new ApiError("invalid-response", i18n.t("app.connection.invalidResponse", { path }), response.status, path);
   return body as T;
 }
 
@@ -61,15 +61,21 @@ export const jsonRequest = (method: "POST" | "PUT" | "PATCH" | "DELETE", body?: 
   ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }),
 });
 
-/** `GET /api/team`: only exists with `paprika serve --team`. Anything that is not a JSON 2xx answer means "no team" (`null`). */
-export async function fetchTeamStatus(signal?: AbortSignal): Promise<Record<string, unknown> | null> {
+/**
+ * `GET /api/team`: only exists with `paprika serve --team`. `null` means "there is no team mode": a 404, or an answer that is
+ * not JSON (the server falls back to the SPA shell). A JSON error (the sidecar answered, say 400 or 503) or a failure to
+ * reach the server says nothing about team mode, so it is `undefined` ("not known yet": the team tab stays until the
+ * socket brings a `team` message).
+ */
+export async function fetchTeamStatus(signal?: AbortSignal): Promise<Record<string, unknown> | null | undefined> {
   try {
     const response = await fetch("/api/team", { signal });
-    if (!response.ok || !isJson(response)) return null;
+    if (response.status === 404 || !isJson(response)) return null;
+    if (!response.ok) return undefined;
     const body: unknown = await response.json();
     return body && typeof body === "object" ? (body as Record<string, unknown>) : null;
   } catch {
-    return null;
+    return undefined;
   }
 }
 

@@ -1,7 +1,7 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Team as TeamFrontend } from "@/components/frontends/team";
 import { headerTeam, toInvitePreview, toTeamInvite, toTeamStatus } from "@/adapters/team";
-import { useLive } from "@/data/live";
+import { useLive, type LiveState } from "@/data/live";
 import { teamCommands } from "@/data/queries/team";
 import { useEditorActions } from "../editor-store";
 
@@ -11,7 +11,16 @@ const sameChip = (a: { name: string; online: number } | null, b: { name: string;
 export function useTeamHeader() {
   const { setRightTab } = useEditorActions();
   // The chip shows the name and the online count: a status that changes neither (a heartbeat, a doc list) does not re-render the header.
-  const team = useLive((s) => headerTeam(toTeamStatus(s.team, { docId: "" })), sameChip);
+  // The selector runs on every store update (every delta): the chip is made again only when the raw status is another object.
+  const last = useRef<{ raw: LiveState["team"]; chip: ReturnType<typeof headerTeam> } | null>(null);
+  const select = useCallback((s: LiveState) => {
+    const cached = last.current;
+    if (cached && cached.raw === s.team) return cached.chip;
+    const chip = headerTeam(toTeamStatus(s.team, { docId: "" }));
+    last.current = { raw: s.team, chip };
+    return chip;
+  }, []);
+  const team = useLive(select, sameChip);
   const onTeamClick = useCallback(() => setRightTab("team"), [setRightTab]);
   return { team, onTeamClick };
 }

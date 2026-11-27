@@ -33,7 +33,7 @@ describe("api", () => {
 
   it("treats a 200 that is not JSON (the SPA fallback) as an invalid response", async () => {
     vi.stubGlobal("fetch", vi.fn(() => reply("<!doctype html>", { status: 200, headers: { "content-type": "text/html" } })));
-    await expect(api("/api/team")).rejects.toMatchObject({ code: "invalid-response", path: "/api/team" });
+    await expect(api("/api/team")).rejects.toMatchObject({ code: "invalid-response", path: "/api/team", message: "Invalid response from /api/team" });
   });
 
   it("wraps a network failure and lets an abort through untouched", async () => {
@@ -53,13 +53,22 @@ describe("api", () => {
 });
 
 describe("fetchTeamStatus", () => {
-  it("is null when the server has no team mode (HTML fallback), on an error status and on a network failure", async () => {
+  it("is null when there is no team mode: a 404, or an HTML fallback", async () => {
     vi.stubGlobal("fetch", vi.fn(() => reply("<!doctype html>", { status: 200, headers: { "content-type": "text/html; charset=utf-8" } })));
     await expect(fetchTeamStatus()).resolves.toBeNull();
-    vi.stubGlobal("fetch", vi.fn(() => json({ error: "no team" }, 503)));
+    vi.stubGlobal("fetch", vi.fn(() => reply("not found", { status: 404 })));
     await expect(fetchTeamStatus()).resolves.toBeNull();
+    vi.stubGlobal("fetch", vi.fn(() => json({ error: "no such route" }, 404)));
+    await expect(fetchTeamStatus()).resolves.toBeNull();
+  });
+
+  it("is undefined (not known) for a JSON error of the sidecar and for a network failure, so the team tab does not disappear", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => json({ error: "bad request" }, 400)));
+    await expect(fetchTeamStatus()).resolves.toBeUndefined();
+    vi.stubGlobal("fetch", vi.fn(() => json({ error: "sidecar down" }, 503)));
+    await expect(fetchTeamStatus()).resolves.toBeUndefined();
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new Error("down"))));
-    await expect(fetchTeamStatus()).resolves.toBeNull();
+    await expect(fetchTeamStatus()).resolves.toBeUndefined();
   });
 
   it("is the status object when the sidecar answers JSON", async () => {

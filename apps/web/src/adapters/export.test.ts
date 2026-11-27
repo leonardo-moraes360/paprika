@@ -1,6 +1,7 @@
 import type { Document } from "@paprika/core";
 import { describe, expect, it } from "vitest";
-import { activePageId, codeRootId, exportCode, exportFileName, exportRootId, exportSize, hasExportSelection, selectedExportId } from "./export";
+import { makeDocument } from "@/test/live-harness";
+import { activePageId, codeRootId, exportCode, exportFileName, exportRootId, exportSize, exportSvgText, hasExportSelection, selectedExportId } from "./export";
 
 const doc = {
   id: "d",
@@ -66,5 +67,21 @@ describe("code", () => {
     const code = exportCode(doc, "f1", false);
     expect(code).toContain("export function CardPro()");
     expect(exportCode(doc, "f1", true)).toContain("tokensCss");
+  });
+});
+
+describe("exportSvgText", () => {
+  const real = makeDocument(20);
+
+  it("makes the SVG of a node or of the first page with the core, with no server", () => {
+    const frameSvg = exportSvgText(real, "frame-0-0");
+    expect(frameSvg).toMatch(/^<svg /);
+    expect(frameSvg).toContain('data-paprika-id="frame-0-0"');
+    expect(exportSvgText(real, "page-0")).toContain('data-paprika-id="frame-0-0"');
+    expect(exportSvgText(real, null)).toContain('data-paprika-id="frame-0-0"');
+  });
+
+  it("throws the core's refusal for a node that is not there", () => {
+    expect(() => exportSvgText(real, "ghost")).toThrow(/does not exist/);
   });
 });

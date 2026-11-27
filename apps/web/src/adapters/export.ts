@@ -1,11 +1,11 @@
-import { canvasBounds, exportReact, rootBounds, type Document } from "@paprika/core";
+import { canvasBounds, exportReact, exportSVG, rootBounds, type Document } from "@paprika/core";
 import type { ExportCodeFormat, ExportImageFormat, ExportSize } from "@/components/frontends/export-dialog";
 
 export type ExportScope = "selection" | "page";
 
 export const exportScales: readonly number[] = [1, 2, 3, 4];
 
-/** Only what the server can produce: PNG (`/api/screenshot`) and SVG (`/api/svg`), and React from `@paprika/core`. */
+/** PNG (`/api/screenshot`, the server draws it), SVG and React (both made here with `@paprika/core`). */
 export const exportImageFormats: readonly ExportImageFormat[] = [
   { value: "png", label: "PNG" },
   { value: "svg", label: "SVG", vector: true },
@@ -64,4 +64,9 @@ export function codeRootId(doc: Document, selection: readonly string[], pageId: 
 
 export function exportCode(doc: Document, rootId: string, tokens: boolean): string {
   return exportReact(doc, rootId, { cssVariables: tokens });
+}
+
+/** The SVG of a node or page, made here with the same `exportSVG` the server runs for `/api/svg` (so the workspace the server has open is not touched). */
+export function exportSvgText(doc: Document, rootId: string | null): string {
+  return exportSVG(doc, rootId ? { rootId } : {}).svg;
 }

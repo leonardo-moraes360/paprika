@@ -1,28 +1,22 @@
-import { api, ApiError, isGatewayStatus, noServer, workspacePath } from "../api";
+import i18n from "i18next";
+import { api, ApiError, isGatewayStatus, noServer } from "../api";
 
 /**
- * Image export. `/api/svg` and `/api/screenshot` render the ACTIVE workspace of the server, and a `view` over the
- * socket does not make a workspace active, so the workspace in view is made active first when it is not.
+ * Image export never changes the workspace the server has open (that one is shared with every other editor and with
+ * the MCP agents). SVG is made in the client (`exportSVG` of `@paprika/core`, see `adapters/export.ts`). The PNG
+ * is the only thing asked of the server, and `/api/screenshot` draws the ACTIVE workspace, so it is asked only when the
+ * workspace in view is that one (`/api/health` says which it is).
  */
-async function ensureActive(workspaceId: string, signal?: AbortSignal) {
-  const list = await api<{ active?: string }>("/api/workspaces", { signal });
-  if (list.active !== workspaceId) await api(`${workspacePath(workspaceId)}/open`, { method: "POST", signal });
+async function ensureViewIsActive(workspaceId: string, signal?: AbortSignal) {
+  const health = await api<{ docId?: string }>("/api/health", { signal });
+  if (health.docId !== workspaceId) throw new ApiError("http", i18n.t("app.collab.export.pngInactive"), 409, "/api/screenshot");
 }
 
 const rootQuery = (rootId: string | null) => (rootId ? `root=${encodeURIComponent(rootId)}` : "");
 
-export type SvgExport = { svg: string; width: number; height: number; warnings: string[] };
-
-export async function fetchSvg(workspaceId: string, rootId: string | null, signal?: AbortSignal): Promise<SvgExport> {
-  await ensureActive(workspaceId, signal);
-  const body = await api<Partial<SvgExport>>(`/api/svg${rootId ? `?${rootQuery(rootId)}` : ""}`, { signal });
-  if (!body.svg) throw new ApiError("invalid-response", "The server returned no SVG.", 200, "/api/svg");
-  return { svg: body.svg, width: body.width ?? 0, height: body.height ?? 0, warnings: body.warnings ?? [] };
-}
-
 /** `GET /api/screenshot`: a PNG, or `{error}` (for example "screenshot unavailable on this server"). */
 export async function fetchPng(workspaceId: string, rootId: string | null, scale: number, signal?: AbortSignal): Promise<Blob> {
-  await ensureActive(workspaceId, signal);
+  await ensureViewIsActive(workspaceId, signal);
   const query = [rootQuery(rootId), `scale=${encodeURIComponent(String(scale))}`].filter(Boolean).join("&");
   let response: Response;
   try {
