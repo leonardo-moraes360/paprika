@@ -5,7 +5,9 @@ import { api, ApiError, isGatewayStatus, noServer } from "../api";
  * Image export never changes the workspace the server has open (that one is shared with every other editor and with
  * the MCP agents). SVG is made in the client (`exportSVG` of `@paprika/core`, see `adapters/export.ts`). The PNG
  * is the only thing asked of the server, and `/api/screenshot` draws the ACTIVE workspace, so it is asked only when the
- * workspace in view is that one (`/api/health` says which it is).
+ * workspace in view is that one (`/api/health` says which it is). The two requests are not atomic (the server has no
+ * `?workspaceId=` for the screenshot), so `/api/health` is read again once the PNG is in and the image is dropped if the
+ * active workspace changed meanwhile.
  */
 async function ensureViewIsActive(workspaceId: string, signal?: AbortSignal) {
   const health = await api<{ docId?: string }>("/api/health", { signal });
@@ -35,5 +37,7 @@ export async function fetchPng(workspaceId: string, rootId: string | null, scale
     }
     throw new ApiError("http", message, response.status, "/api/screenshot");
   }
-  return response.blob();
+  const blob = await response.blob();
+  await ensureViewIsActive(workspaceId, signal);
+  return blob;
 }

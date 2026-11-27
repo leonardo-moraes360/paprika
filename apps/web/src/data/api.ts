@@ -64,8 +64,8 @@ export const jsonRequest = (method: "POST" | "PUT" | "PATCH" | "DELETE", body?: 
 /**
  * `GET /api/team`: only exists with `paprika serve --team`. `null` means "there is no team mode": a 404, or an answer that is
  * not JSON (the server falls back to the SPA shell). A JSON error (the sidecar answered, say 400 or 503) or a failure to
- * reach the server says nothing about team mode, so it is `undefined` ("not known yet": the team tab stays until the
- * socket brings a `team` message).
+ * reach the server says nothing about team mode, so it is `undefined` ("not known yet": the live store keeps `team`
+ * as it is, and the team tab, which shows only for a non-null `team`, does not appear until the socket brings a `team` message).
  */
 export async function fetchTeamStatus(signal?: AbortSignal): Promise<Record<string, unknown> | null | undefined> {
   try {
