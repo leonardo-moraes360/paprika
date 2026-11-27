@@ -9,7 +9,7 @@ import { pinLocale } from "./locale.js";
 import { startServer, type ExternalServer } from "../harness.js";
 
 export const repoRoot = resolve(import.meta.dirname, "../../../..");
-export const webDist = join(repoRoot, "web-legacy/dist");
+export const webDist = join(repoRoot, "apps/web/dist/client");
 
 export type CanvasSession = {
   dir: string;
@@ -27,9 +27,9 @@ export async function openSeededCanvas(prefix: string): Promise<CanvasSession> {
   const browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await pinLocale(page, "pt-BR");
-  await page.goto(external.url);
-  await page.locator(".workspace-card.is-active").click();
-  await page.waitForSelector('[data-paprika-id="login"]');
+  const { active } = (await (await fetch(`${external.url}/api/workspaces`)).json()) as { active: string };
+  await page.goto(`${external.url}/w/${encodeURIComponent(active)}`);
+  await page.waitForSelector('[data-testid="viewport"] [data-paprika-id="login"]');
   return { dir, external, url: external.url, browser, page };
 }
 
