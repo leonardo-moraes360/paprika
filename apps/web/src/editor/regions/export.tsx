@@ -1,14 +1,14 @@
 import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ExportDialog, type ExportRequest } from "@/components/frontends/export-dialog";
-import { activePageId, codeRootId, exportCode, exportCodeFormats, exportFileName, exportImageFormats, exportRootId, exportScales, exportSize, hasExportSelection } from "@/adapters/export";
+import { activePageId, codeRootId, exportCode, exportCodeFormats, exportFileName, exportImageFormats, exportRootId, exportScales, exportSize, exportSvgText, hasExportSelection } from "@/adapters/export";
 import { useLiveClient } from "@/data/live";
-import { fetchPng, fetchSvg } from "@/data/queries/export";
+import { fetchPng } from "@/data/queries/export";
 import { useEditor, useEditorActions, useEditorStore } from "../editor-store";
 
 /**
  * The dialog is made while it is open, from what the editor holds at that moment (the selection, the page and the
- * document), so a delta never re-renders it. Image export asks the server (SVG, PNG); code is `exportReact` of `@paprika/core`.
+ * document), so a delta never re-renders it. SVG and code are made here with `@paprika/core`; the PNG is the server's screenshot and only when the workspace in view is the one the server has open (export never opens a workspace).
  */
 function ExportContainer() {
   const { t } = useTranslation();
@@ -39,7 +39,7 @@ function ExportContainer() {
         return exportCode(current, root, request.tokens);
       }
       const root = exportRootId(current, request.scope, selection, pageId);
-      if (request.format === "svg") return (await fetchSvg(current.id, root)).svg;
+      if (request.format === "svg") return exportSvgText(current, root);
       return fetchPng(current.id, root, request.scale);
     },
     [client, selection, pageId, t],

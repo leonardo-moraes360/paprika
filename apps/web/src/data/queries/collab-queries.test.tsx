@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLiveRig, type LiveRig } from "@/test/live-harness";
 import { LiveProvider } from "../live";
-import { fetchPng, fetchSvg } from "./export";
+import { fetchPng } from "./export";
 import { pinsKey, useOpenPinCount, usePinActions, usePins, usePinsLiveSync, type ServerPin } from "./pins";
 import { teamCommands } from "./team";
 
@@ -155,38 +155,26 @@ describe("team commands", () => {
 });
 
 describe("image export", () => {
-  it("makes the workspace in view the active one before asking for it, and not when it already is", async () => {
-    const calls = fakeServer({
-      "GET /api/workspaces": () => json({ active: "other" }),
-      "POST /api/workspaces/w1/open": () => json({ workspace: {}, version: 1 }),
-      "GET /api/svg": () => json({ svg: "<svg/>", width: 10, height: 5, warnings: ["w"] }),
-    });
-    expect(await fetchSvg("w1", "f1")).toEqual({ svg: "<svg/>", width: 10, height: 5, warnings: ["w"] });
-    expect(calls.map((call) => `${call.method} ${call.url}`)).toEqual(["GET /api/workspaces", "POST /api/workspaces/w1/open", "GET /api/svg?root=f1"]);
-    const again = fakeServer({ "GET /api/workspaces": () => json({ active: "w1" }), "GET /api/svg": () => json({ svg: "<svg/>" }) });
-    await fetchSvg("w1", null);
-    expect(again.map((call) => call.url)).toEqual(["/api/workspaces", "/api/svg"]);
-  });
-
-  it("refuses an answer with no svg", async () => {
-    fakeServer({ "GET /api/workspaces": () => json({ active: "w1" }), "GET /api/svg": () => json({}) });
-    await expect(fetchSvg("w1", null)).rejects.toMatchObject({ code: "invalid-response" });
+  it("asks for the PNG only when the workspace in view is the one the server has open, and never opens one", async () => {
+    const calls = fakeServer({ "GET /api/health": () => json({ ok: true, docId: "other" }) });
+    await expect(fetchPng("w1", "f1", 1)).rejects.toMatchObject({ code: "http", status: 409, message: expect.stringContaining("PNG needs this workspace") });
+    expect(calls.map((call) => `${call.method} ${call.url}`)).toEqual(["GET /api/health"]);
   });
 
   it("returns the PNG as a blob, with the root and scale in the query", async () => {
-    const calls = fakeServer({ "GET /api/workspaces": () => json({ active: "w1" }), "GET /api/screenshot": () => reply(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } }) });
+    const calls = fakeServer({ "GET /api/health": () => json({ docId: "w1" }), "GET /api/screenshot": () => reply(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } }) });
     const blob = await fetchPng("w1", "f 1", 2);
     expect(blob.size).toBe(4);
-    expect(calls[1]!.url).toBe("/api/screenshot?root=f%201&scale=2");
+    expect(calls.map((call) => call.url)).toEqual(["/api/health", "/api/screenshot?root=f%201&scale=2"]);
   });
 
   it("shows the server's error when it cannot take the screenshot", async () => {
-    fakeServer({ "GET /api/workspaces": () => json({ active: "w1" }), "GET /api/screenshot": () => json({ error: "screenshot unavailable: Chromium not found" }, 500) });
+    fakeServer({ "GET /api/health": () => json({ docId: "w1" }), "GET /api/screenshot": () => json({ error: "screenshot unavailable: Chromium not found" }, 500) });
     await expect(fetchPng("w1", null, 1)).rejects.toMatchObject({ code: "http", status: 500, message: "screenshot unavailable: Chromium not found" });
   });
 
   it("does not take a 200 that is not a PNG for one", async () => {
-    fakeServer({ "GET /api/workspaces": () => json({ active: "w1" }), "GET /api/screenshot": () => reply("<html>", { headers: { "content-type": "text/html" } }) });
+    fakeServer({ "GET /api/health": () => json({ docId: "w1" }), "GET /api/screenshot": () => reply("<html>", { headers: { "content-type": "text/html" } }) });
     await expect(fetchPng("w1", null, 1)).rejects.toMatchObject({ code: "http" });
   });
 });
