@@ -298,7 +298,7 @@ describe("the text editor", () => {
     const t = mount();
     open(t);
     const bar = t.getByRole("toolbar", { name: "Text format" });
-    for (const name of ["Bold", "Italic", "Size", "Color", "Link", "Apply link"]) expect(within(bar).getByLabelText(name)).toBeInTheDocument();
+    for (const name of ["Bold", "Italic", "Size", "Color", "Link address", "Apply link"]) expect(within(bar).getByLabelText(name)).toBeInTheDocument();
   });
 
   it("applies bold to the saved selection with the runs the old canvas wrote", async () => {
