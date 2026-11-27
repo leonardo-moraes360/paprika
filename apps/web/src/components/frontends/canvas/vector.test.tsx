@@ -458,6 +458,12 @@ describe("connectors", () => {
     const m = mount({ tool: "connector" });
     under("sa");
     drag(m.viewport, m.at(650, 430), m.at(654, 432));
+    // a different node under the end, but the pointer moved under 6 px
+    const id = press(m.viewport, m.at(650, 430));
+    under("sb");
+    move(id, m.at(653, 432));
+    release(id, m.at(653, 432));
+    under("sa");
     drag(m.viewport, m.at(650, 430), m.at(700, 450));
     await flush();
     expect(m.onApply).not.toHaveBeenCalled();
