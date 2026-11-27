@@ -3,7 +3,7 @@
 // (cor herdada + sublinhado) em dois temas (escuro e claro) e grava PNGs e a tabela de contraste.
 //
 // Uso (todos os argumentos são obrigatórios, exceto --out e --contrast):
-//   node design/ui-app/pages/links.mjs --url http://127.0.0.1:5401/mcp \
+//   node docs/en-US/design/draw-links.mjs --url http://127.0.0.1:5401/mcp \
 //     --workspace "Links · proposta (nov/2026)" [--out <pasta dos PNGs>] [--contrast <arquivo.md>]
 //
 // Escreve só no workspace nomeado (criado se não existir); nunca troca o workspace ativo.

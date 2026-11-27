@@ -1185,7 +1185,7 @@ Task: an agent drew the new landing page (English and Portuguese, desktop and mo
 
 ## 2026-11-27: "Links no texto" board (link rule proposal, dark and light)
 
-Task: draw the link-in-text proposal (inherited colour + underline) in a new workspace with `design/ui-app/pages/links.mjs`, two 1600 px frames, on a fresh local `paprika serve` (port 5401).
+Task: draw the link-in-text proposal (inherited colour + underline) in a new workspace with `docs/en-US/design/draw-links.mjs`, two 1600 px frames, on a fresh local `paprika serve` (port 5401).
 
 | # | Needed | What happened | Proposal | Pri. |
 |---|--------|---------------|----------|------|

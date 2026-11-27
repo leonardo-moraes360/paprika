@@ -1188,7 +1188,7 @@ Tarefa: um agente desenhou a landing page nova (inglês e português, desktop e 
 
 ## 2026-11-27: prancha "Links no texto" (proposta de regra de link, escuro e claro)
 
-Tarefa: desenhar a proposta de link no texto (cor herdada + sublinhado) num workspace novo com `design/ui-app/pages/links.mjs`, dois frames de 1600 px, num `paprika serve` local novo (porta 5401).
+Tarefa: desenhar a proposta de link no texto (cor herdada + sublinhado) num workspace novo com `docs/en-US/design/draw-links.mjs`, dois frames de 1600 px, num `paprika serve` local novo (porta 5401).
 
 | # | Precisava | O que aconteceu | Proposta | Pri. |
 |---|-----------|-----------------|----------|------|
