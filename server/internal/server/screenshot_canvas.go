@@ -81,7 +81,7 @@ func (c *Chrome) ScreenshotWASM(ctx context.Context, workspaceID string, doc *co
 	base := c.canvas
 	c.mu.Unlock()
 	if base == "" {
-		return nil, 0, 0, errors.New(`renderer "wasm" needs the canvas web app, which this server is not serving (run "paprika serve" with the web build, web-legacy/dist). Use renderer "dom" for the DOM screenshot`)
+		return nil, 0, 0, errors.New(`renderer "wasm" needs the canvas web app, which this server is not serving (run "paprika serve" with a web build: apps/web/dist/client, or web-legacy/dist). Use renderer "dom" for the DOM screenshot`)
 	}
 	id := rootID
 	if id == "" {
@@ -140,7 +140,7 @@ func (c *Chrome) ScreenshotWASM(ctx context.Context, workspaceID string, doc *co
 	}
 	switch state[0] {
 	case "unavailable":
-		return nil, 0, 0, errors.New(`renderer "wasm" is unavailable: this build has no WASM renderer bundle (web-legacy/src/wasm, built by "pnpm build" with Rust and wasm-bindgen-cli installed). Use renderer "dom"`)
+		return nil, 0, 0, errors.New(`renderer "wasm" is unavailable: this build has no WASM renderer bundle (apps/web/src/wasm or web-legacy/src/wasm, built by "pnpm build" with Rust and wasm-bindgen-cli installed). Use renderer "dom"`)
 	case "error":
 		return nil, 0, 0, fmt.Errorf(`renderer "wasm" failed to start: %s`, strings.TrimSpace(state[1]))
 	case "timeout":

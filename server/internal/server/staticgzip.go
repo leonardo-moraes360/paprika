@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
+	"encoding/hex"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,7 @@ const (
 	immutableCache = "public, max-age=31536000, immutable"
 	gzipMinBytes   = 1024
 	gzipCacheMax   = 64
+	embeddedCache  = "public, max-age=604800"
 )
 
 var compressibleTypes = []string{"text/", "application/javascript", "application/json", "application/wasm", "image/svg+xml"}
@@ -104,4 +106,28 @@ func gzippedIf(ok bool, file string, data []byte) []byte {
 		return nil
 	}
 	return gzipped(file, data)
+}
+
+// sendEmbedded serves content compiled into the binary (fonts and their CSS). The URLs carry no hash, so the cache
+// is a week with an ETag: a browser that revalidates gets a 304, and a new binary with other bytes changes the tag.
+func sendEmbedded(w http.ResponseWriter, r *http.Request, data []byte, ct string) {
+	sum := sha256.Sum256(data)
+	tag := `"` + hex.EncodeToString(sum[:8]) + `"`
+	h := w.Header()
+	h.Set("content-type", ct)
+	h.Set("cache-control", embeddedCache)
+	h.Set("etag", tag)
+	h.Set("x-content-type-options", "nosniff")
+	if match := r.Header.Get("If-None-Match"); match != "" {
+		for part := range strings.SplitSeq(match, ",") {
+			if p := strings.TrimSpace(part); p == tag || p == "*" {
+				w.WriteHeader(http.StatusNotModified)
+				return
+			}
+		}
+	}
+	w.WriteHeader(http.StatusOK)
+	if r.Method != http.MethodHead {
+		w.Write(data)
+	}
 }

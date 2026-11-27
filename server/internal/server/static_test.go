@@ -111,3 +111,72 @@ func TestServeStaticCachesHashedAssetsAndGzips(t *testing.T) {
 		}
 	}
 }
+
+func writeWeb(t *testing.T, files map[string]string) string {
+	t.Helper()
+	web := t.TempDir()
+	for p, s := range files {
+		full := filepath.Join(web, filepath.FromSlash(p))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(s), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return web
+}
+
+func TestServeStaticShellEntry(t *testing.T) {
+	web := writeWeb(t, map[string]string{"_shell.html": "<!doctype html>SHELL", "assets/main-Ab12.js": "JS"})
+	for _, target := range []string{"/", "/w/abc", "/assets", "/missing"} {
+		rec := httptest.NewRecorder()
+		serveStatic(rec, httptest.NewRequest("GET", target, nil), web)
+		if rec.Code != 200 || rec.Body.String() != "<!doctype html>SHELL" || !strings.HasPrefix(rec.Header().Get("content-type"), "text/html") || rec.Header().Get("cache-control") != "no-store" {
+			t.Errorf("%s: %d %q %v", target, rec.Code, rec.Body.String(), rec.Header())
+		}
+	}
+	rec := httptest.NewRecorder()
+	serveStatic(rec, httptest.NewRequest("GET", "/assets/main-Ab12.js", nil), web)
+	if rec.Body.String() != "JS" || rec.Header().Get("cache-control") != immutableCache {
+		t.Fatalf("hashed asset: %q %v", rec.Body.String(), rec.Header())
+	}
+}
+
+func TestServeStaticShellWinsOverIndex(t *testing.T) {
+	web := writeWeb(t, map[string]string{"_shell.html": "SHELL", "index.html": "INDEX"})
+	rec := httptest.NewRecorder()
+	serveStatic(rec, httptest.NewRequest("GET", "/w/abc", nil), web)
+	if rec.Body.String() != "SHELL" {
+		t.Fatalf("got %q, want the shell", rec.Body.String())
+	}
+}
+
+func TestServeStaticIndexEntryStillServed(t *testing.T) {
+	web := writeWeb(t, map[string]string{"index.html": "INDEX"})
+	rec := httptest.NewRecorder()
+	serveStatic(rec, httptest.NewRequest("GET", "/w/abc", nil), web)
+	if rec.Body.String() != "INDEX" || !strings.HasPrefix(rec.Header().Get("content-type"), "text/html") {
+		t.Fatalf("got %q %v", rec.Body.String(), rec.Header())
+	}
+}
+
+func TestWebEntry(t *testing.T) {
+	cases := []struct {
+		files map[string]string
+		want  string
+	}{
+		{map[string]string{"_shell.html": "x"}, "_shell.html"},
+		{map[string]string{"index.html": "x"}, "index.html"},
+		{map[string]string{"_shell.html": "x", "index.html": "x"}, "_shell.html"},
+		{map[string]string{"other.html": "x"}, ""},
+	}
+	for _, c := range cases {
+		if got := WebEntry(writeWeb(t, c.files)); got != c.want {
+			t.Errorf("%v: got %q, want %q", c.files, got, c.want)
+		}
+	}
+	if WebEntry(filepath.Join(t.TempDir(), "nope")) != "" {
+		t.Error("missing dir has no entry")
+	}
+}

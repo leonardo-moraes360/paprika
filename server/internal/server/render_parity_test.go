@@ -131,3 +131,34 @@ func TestInterFontRoutes(t *testing.T) {
 		t.Fatalf("unknown font: %d", code)
 	}
 }
+
+func TestInterFontsAreCachedWithETag(t *testing.T) {
+	s, _ := openTemp(t)
+	srv, err := StartHTTP(s, HTTPOptions{Host: "127.0.0.1", Port: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	for _, p := range []string{"/fonts/Inter-Regular.ttf", "/fonts/inter.css"} {
+		resp, err := http.Get(srv.URL + p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		tag := resp.Header.Get("etag")
+		if tag == "" || resp.Header.Get("cache-control") != embeddedCache {
+			t.Fatalf("%s: etag %q cache-control %q", p, tag, resp.Header.Get("cache-control"))
+		}
+		req, _ := http.NewRequest("GET", srv.URL+p, nil)
+		req.Header.Set("If-None-Match", tag)
+		resp, err = http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != 304 || len(body) != 0 {
+			t.Fatalf("%s revalidation: %d, %d bytes", p, resp.StatusCode, len(body))
+		}
+	}
+}

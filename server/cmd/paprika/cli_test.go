@@ -347,3 +347,33 @@ func TestBoolFlagHelpAndExplicitValue(t *testing.T) {
 		t.Fatalf("--team=false: on=%v err=%v", *on, err)
 	}
 }
+
+func TestWebRootAcceptsShellAndPrefersIt(t *testing.T) {
+	mk := func(entry string) string {
+		d := t.TempDir()
+		if err := os.WriteFile(filepath.Join(d, entry), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	shell, index := mk("_shell.html"), mk("index.html")
+	t.Setenv("PAPRIKA_WEB_ROOT", "")
+	if got := webRoot(shell); got != shell {
+		t.Errorf("shell flag: %q", got)
+	}
+	if got := webRoot(index); got != index {
+		t.Errorf("index flag: %q", got)
+	}
+	t.Setenv("PAPRIKA_WEB_ROOT", index)
+	if got := webRoot(""); got != index {
+		t.Errorf("env: %q", got)
+	}
+	if got := webRoot(shell); got != shell {
+		t.Errorf("flag beats env: %q", got)
+	}
+	empty := t.TempDir()
+	t.Setenv("PAPRIKA_WEB_ROOT", empty)
+	if got := webRoot(empty); got == empty {
+		t.Errorf("a folder without an entry must not be chosen")
+	}
+}
