@@ -42,7 +42,7 @@ const sep = (index: 0 | 1) => separators()[index] as HTMLElement;
 const leftHandle = () => screen.getByRole("button", { name: /layers panel/ });
 const rightHandle = () => screen.getByRole("button", { name: /properties panel/ });
 const panel = (side: "left" | "center" | "right") => document.getElementById(`editor-layout-${side}`) as HTMLElement;
-const stored = () => window.localStorage.getItem("paprika.ui-sdk-resizable:editor");
+const stored = () => window.localStorage.getItem("paprika.ui-sdk-resizable:layout");
 
 describe("EditorLayout", () => {
   it("renders the three slots with named regions and separators", async () => {
@@ -179,12 +179,12 @@ describe("EditorLayout", () => {
     it("follows the value from the owner and never persists", async () => {
       const { rerender } = await setup({ value: base, storageKey: "editor" });
       const initial = Number(sep(0).getAttribute("aria-valuenow"));
-      rerender(<EditorLayout left={<p>L</p>} center={<p>C</p>} right={<p>R</p>} value={{ ...base, left: 400 }} storageKey="editor" />);
+      rerender(<EditorLayout left={<p>L</p>} center={<p>C</p>} right={<p>R</p>} value={{ ...base, left: 400 }} storageKey="layout" />);
       await act(async () => {
         await Promise.resolve();
       });
       expect(Number(sep(0).getAttribute("aria-valuenow"))).toBeGreaterThan(initial);
-      rerender(<EditorLayout left={<p>L</p>} center={<p>C</p>} right={<p>R</p>} value={{ ...base, leftCollapsed: true }} storageKey="editor" />);
+      rerender(<EditorLayout left={<p>L</p>} center={<p>C</p>} right={<p>R</p>} value={{ ...base, leftCollapsed: true }} storageKey="layout" />);
       await act(async () => {
         await Promise.resolve();
       });

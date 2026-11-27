@@ -72,7 +72,12 @@ export function useLayerMenu(rt: CanvasRuntime, props: RefObject<CanvasProps>): 
     else if (key === "convert" && payload.convert) {
       props.current?.onConvertToPath?.([payload.convert]);
       rt.select([payload.convert]);
-    } else if (key === "center" && payload.center) props.current?.onCenterContent?.(payload.center.ids);
+    }
+  };
+  // A checkbox item reports through `onCheckedChange`, not through the menu's `onAction`.
+  const onCenter = () => {
+    const payload = controller.getPayload();
+    if (payload?.center) props.current?.onCenterContent?.(payload.center.ids);
   };
   const element = (
     <Menu controller={controller} pendingAnnouncement={t("common.working")} onAction={onAction}>
@@ -94,7 +99,7 @@ export function useLayerMenu(rt: CanvasRuntime, props: RefObject<CanvasProps>): 
               })}
               {payload.center || payload.convert ? <MenuSeparator /> : null}
               {payload.center ? (
-                <MenuCheckboxItem value="center" checked={!payload.center.centered} aria-keyshortcuts={CENTER_KEY} data-testid="center-content">
+                <MenuCheckboxItem value="center" checked={!payload.center.centered} onCheckedChange={onCenter} closeOnSelect aria-keyshortcuts={CENTER_KEY} data-testid="center-content">
                   <span className="flex items-center justify-between gap-3">
                     <span className="min-w-0 truncate">{t("frontends.canvas.select.menu.center")}</span>
                     <span aria-hidden="true" className="flex shrink-0 gap-1">

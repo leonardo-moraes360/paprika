@@ -1,5 +1,5 @@
 import { applyOps, type Document, type Op } from "@paprika/core";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -438,6 +438,18 @@ describe("the layers menu", () => {
     expect([...center.querySelectorAll("kbd")].map((k) => k.textContent)).toHaveLength(2);
     await user().click(within(menu).getByRole("menuitem", { name: "Convert to path" }));
     expect(onConvertToPath).toHaveBeenCalledWith(["dot"]);
+  });
+
+  it("clicking centre content in the menu centres the layers it was opened on, once", async () => {
+    const { world, onCenterContent, viewport } = mount();
+    under = [node(world, "home")];
+    fireEvent.contextMenu(viewport, { clientX: 10, clientY: 10 });
+    const menu = await screen.findByRole("menu");
+    await user().click(within(menu).getByRole("menuitemcheckbox", { name: /Center content/ }));
+    expect(onCenterContent).toHaveBeenCalledTimes(1);
+    expect(onCenterContent).toHaveBeenCalledWith(["home"]);
+    // a command, not a setting: the menu closes, so the editor's keys (Ctrl+Z) reach the page again
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
   });
 
   it("does nothing over empty space or with another tool", () => {

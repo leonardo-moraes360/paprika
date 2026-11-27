@@ -77,7 +77,8 @@ export async function revealLayer(page: Page, id: string) {
 export async function dismissToasts(page: Page) {
   const toasts = page.locator('[data-slot="toast"]');
   for (let i = 0; i < 10 && (await toasts.count()) > 0; i++) {
-    await toasts.first().getByRole("button").first().click({ timeout: 2000 }).catch(() => undefined);
+    // o botão de fechar, não o primeiro botão: a ação do toast ("Refazer", "Ver histórico") refaz um passo ou abre o painel
+    await toasts.first().getByRole("button", { name: "Fechar notificação" }).click({ timeout: 2000 }).catch(() => undefined);
   }
   await expect.poll(() => toasts.count()).toBe(0);
 }
