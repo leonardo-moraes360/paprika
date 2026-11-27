@@ -1,4 +1,4 @@
-import { newId } from "@paprika/core";
+import { newId, type Op } from "@paprika/core";
 import type { Gesture } from "../types";
 import { endAt } from "../vector/links";
 import { pageOf } from "../vector/page";
@@ -32,11 +32,11 @@ export const connectorCreate: Gesture = {
         if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < MIN_PX) return;
         const to = endAt(rt, ev.clientX, ev.clientY);
         if (to.nodeId && to.nodeId === from.nodeId) return;
+        // A document with no pages keeps its nodes at the root: the arrow goes there (`null`), as a rectangle drawn on it does.
         const parentId = pageOf(rt);
-        if (!parentId) return;
         const id = newId();
         const count = Object.values(rt.doc().nodes).filter((n) => n.type === "connector").length + 1;
-        void rt.apply([{ op: "create", node: { type: "connector", id, name: `${rt.text("names.connector")} ${count}`, from, to, route: "elbow" } as never, parentId }], rt.text(ARROW_LABEL)).then((ok) => {
+        void rt.apply([{ op: "create", node: { type: "connector", id, name: `${rt.text("names.connector")} ${count}`, from, to, route: "elbow" } as never, parentId } as Op], rt.text(ARROW_LABEL)).then((ok) => {
           if (ok) rt.select([id]);
         });
         rt.toolDone();

@@ -128,3 +128,19 @@ describe("a double click does one thing", () => {
     expect(m.onApply).not.toHaveBeenCalled();
   });
 });
+
+describe("a press on the canvas", () => {
+  it("is not left to the browser, which would select text under the pointer (a word, a range) and then cancel a drag that starts inside it", () => {
+    const m = mount(["squiggle"]);
+    // fireEvent returns false when the event was default-prevented
+    expect(fireEvent.mouseDown(m.node("squiggle"), { button: 0, detail: 1 })).toBe(false);
+    expect(fireEvent.mouseDown(m.node("squiggle"), { button: 0, detail: 2 })).toBe(false);
+  });
+
+  it("leaves a text editor its word selection", () => {
+    const m = mount();
+    fireEvent.doubleClick(m.node("plain"));
+    const editor = m.getByTestId("text-editor").querySelector("[contenteditable]") ?? m.getByTestId("text-editor");
+    expect(fireEvent.mouseDown(editor, { button: 0, detail: 2 })).toBe(true);
+  });
+});

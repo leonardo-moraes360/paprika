@@ -271,8 +271,12 @@ function CanvasBody(props: CanvasProps) {
                 }
           }
           onMouseDown={(event) => {
-            // The middle button would start the browser's autoscroll.
-            if (event.button === 1) event.preventDefault();
+            // The middle button would start the browser's autoscroll. A press anywhere but in a text field or an editor would also
+            // start the browser's text selection over the overlays (a double click selects a word, a drag selects a range), and
+            // a pointer that then drags a handle inside that selection is cancelled by the browser's own drag of it. The focus
+            // goes to the viewport by hand (`onPointerDown`); the fields and editors keep their own selection.
+            const text = event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable]") !== null;
+            if (event.button === 1 || (event.button === 0 && !text)) event.preventDefault();
           }}
           onPointerDown={(event) => {
             viewportRef.current?.focus({ preventScroll: true });

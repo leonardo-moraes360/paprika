@@ -64,8 +64,8 @@ afterEach(() => {
 const frames = (n = 1) => act(() => void vi.advanceTimersByTime(17 * n));
 const flush = () => act(async () => void (await vi.advanceTimersByTimeAsync(20)));
 
-function mount(options: { tool?: Parameters<typeof createCanvasFeed>[0] extends infer P ? (P extends { tool?: infer T } ? T : never) : never; selection?: string[]; apply?: (ops: Op[], label: string) => Promise<boolean>; doc?: Document } = {}) {
-  const feed = createCanvasFeed({ doc: options.doc ?? vectorDocument(), pageId: "page", tool: options.tool ?? "select" });
+function mount(options: { tool?: Parameters<typeof createCanvasFeed>[0] extends infer P ? (P extends { tool?: infer T } ? T : never) : never; selection?: string[]; apply?: (ops: Op[], label: string) => Promise<boolean>; doc?: Document; flat?: boolean } = {}) {
+  const feed = createCanvasFeed({ doc: options.doc ?? vectorDocument(), pageId: options.flat ? null : "page", tool: options.tool ?? "select" });
   const onSelect = vi.fn((ids: readonly string[]) => feed.update({ selection: ids }));
   const onApply = vi.fn<(ops: Op[], label: string) => Promise<boolean>>(options.apply ?? (async () => true));
   const onToolDone = vi.fn(() => feed.update({ tool: "select" }));
@@ -444,6 +444,22 @@ describe("connectors", () => {
     expect(ops![0]).toMatchObject({ op: "create", parentId: "page", node: { type: "connector", name: "Arrow 3", from: { nodeId: "sa" }, to: { nodeId: "sb" }, route: "elbow" } });
     expect(m.onToolDone).toHaveBeenCalledTimes(1);
     expect(m.container.querySelector('[data-testid="link-draft"]')).toBeNull();
+  });
+
+  it("in a document with no pages (nodes at the root) the arrow is still made, at the root", async () => {
+    const flat = applyOps(createDocument("Flat", "doc-flat"), [
+      { op: "create", node: { type: "rect", id: "sa", name: "A", x: 0, y: 0, width: 100, height: 60, fill: "#c43d27" } },
+      { op: "create", node: { type: "rect", id: "sb", name: "B", x: 300, y: 0, width: 100, height: 60, fill: "#3d7bc4" } },
+    ] as unknown as Op[]).doc;
+    const m = mount({ tool: "connector", doc: flat, flat: true });
+    under("sa");
+    const id = press(m.viewport, m.at(50, 30));
+    under("sb");
+    move(id, m.at(330, 30));
+    release(id, m.at(350, 30));
+    await flush();
+    expect(m.onApply).toHaveBeenCalledTimes(1);
+    expect(m.onApply.mock.calls[0]![0][0]).toMatchObject({ op: "create", parentId: null, node: { type: "connector", from: { nodeId: "sa" }, to: { nodeId: "sb" } } });
   });
 
   it("ends on empty canvas are points, rounded; a connector and the page are not targets", async () => {
