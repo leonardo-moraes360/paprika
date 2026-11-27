@@ -336,8 +336,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
     }
   });
 
-  // PAP-E2E: depois de recarregar, o botão de mostrar devolve a largura padrão (248), não a última que o painel tinha (o antigo guardava a última)
-  it.fails("um painel recolhido, depois de recarregar, volta à última largura ao mostrar", async () => {
+  it("um painel recolhido, depois de recarregar, volta à última largura ao mostrar", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await pinLocale(p, "pt-BR");
     try {
