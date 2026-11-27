@@ -44,6 +44,8 @@ describe("a request when the connection drops", () => {
     expect(error).toBeInstanceOf(LiveInterruptedError);
     expect(isInterruptedError(error)).toBe(true);
     expect(isOfflineError(error)).toBe(true);
+    // Its own message, so a screen that only holds the text of the rejection still tells it from plain "offline".
+    expect((error as Error).message).toBe("interrupted");
     socket.stop();
   });
 
@@ -54,6 +56,7 @@ describe("a request when the connection drops", () => {
     const error = await socket.request({ type: "ops", ops: [], label: "x" }).catch((reason: unknown) => reason);
     expect(error).toBeInstanceOf(LiveOfflineError);
     expect(isInterruptedError(error)).toBe(false);
+    expect((error as Error).message).toBe("offline");
     socket.stop();
   });
 });
