@@ -24,6 +24,14 @@ export type OverviewProfile = {
   initials: string;
 };
 
+export type OverviewTheme = "system" | "light" | "dark";
+
+export type OverviewLanguage = {
+  value: string;
+  label: string;
+  short?: string;
+};
+
 export type OverviewView = { kind: "workspaces" } | { kind: "archived" } | { kind: "project"; id: string };
 
 export type ActionResult = void | Promise<unknown>;
@@ -54,5 +62,11 @@ export type OverviewProps = {
   onSubmitProject?: (name: string) => ActionResult;
   onOpenImport?: () => void;
   onOpenProfile?: () => void;
+  /** Theme and language controls in the footer of the sidebar (each pair appears only with its value and callback); the owner applies and persists them. */
+  theme?: OverviewTheme;
+  onThemeChange?: (theme: OverviewTheme) => void;
+  language?: string;
+  languages?: readonly OverviewLanguage[];
+  onLanguageChange?: (language: string) => void;
   className?: string;
 };

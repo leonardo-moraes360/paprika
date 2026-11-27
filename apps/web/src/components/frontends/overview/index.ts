@@ -1,3 +1,3 @@
 export { Overview } from "./overview";
 export { filterWorkspaces, relativeTime } from "./model";
-export type { ActionResult, OverviewProfile, OverviewProps, OverviewView, ProjectEntry, WorkspaceEntry } from "./types";
+export type { ActionResult, OverviewLanguage, OverviewProfile, OverviewProps, OverviewTheme, OverviewView, ProjectEntry, WorkspaceEntry } from "./types";

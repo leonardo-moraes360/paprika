@@ -59,6 +59,11 @@ function OverviewView({
   onSubmitProject,
   onOpenImport,
   onOpenProfile,
+  theme,
+  onThemeChange,
+  language,
+  languages,
+  onLanguageChange,
   className,
 }: OverviewProps) {
   const { t } = useTranslation();
@@ -215,6 +220,11 @@ function OverviewView({
         onSubmitProject={onSubmitProject ? (name) => run("project", () => onSubmitProject(name)) : undefined}
         onOpenImport={onOpenImport}
         onOpenProfile={onOpenProfile}
+        theme={theme}
+        onThemeChange={onThemeChange}
+        language={language}
+        languages={languages}
+        onLanguageChange={onLanguageChange}
       />
       <main aria-labelledby={headingId} aria-busy={loading || undefined} className="flex min-w-0 flex-1 flex-col gap-6 overflow-auto px-10 py-7">
         <div className="flex flex-col gap-3">
