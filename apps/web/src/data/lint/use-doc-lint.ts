@@ -20,6 +20,11 @@ export function useDocLint(enabled = true): LintSummary | undefined {
   const transport = useContext(TransportContext);
   const [lint] = useState(() => new DocLint(transport));
   useEffect(() => () => lint.dispose(), [lint]);
+  // What the lint has sent so far, readable from the page (the E2E counts the posts, resets and patched nodes of an incoming write).
+  useEffect(() => {
+    Object.defineProperty(window, "__paprikaLint", { get: () => ({ ...lint.stats }), configurable: true });
+    return () => void Reflect.deleteProperty(window, "__paprikaLint");
+  }, [lint]);
   // Fed only while the result is read (`enabled`): with something selected a burst of edits costs the lint nothing. When it
   // comes back on, the document as it is now goes in, and `DocLint` sends a patch against what the worker holds (or a reset when much changed).
   useEffect(() => {

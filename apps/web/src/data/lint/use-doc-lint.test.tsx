@@ -48,4 +48,22 @@ describe("useDocLint feeding", () => {
     expect(posted[1]?.type).toBe("patch");
     view.unmount();
   });
+
+  it("shows what it has sent on window.__paprikaLint, and takes it away on unmount", async () => {
+    const transport: TransportFactory = () => ({ post: () => {}, close: () => {} });
+    const rig = createLiveRig();
+    const view = render(
+      <LiveProvider client={rig.client}>
+        <DocLintTransportProvider transport={transport}>
+          <Probe enabled />
+        </DocLintTransportProvider>
+      </LiveProvider>,
+    );
+    await rig.connect();
+    rig.deliver(docMessage(makeDocument(50), 1));
+    act(() => void vi.advanceTimersByTime(2000));
+    expect((window as unknown as { __paprikaLint: unknown }).__paprikaLint).toEqual({ posts: 1, resets: 1, patchedNodes: 0 });
+    view.unmount();
+    expect("__paprikaLint" in window).toBe(false);
+  });
 });
