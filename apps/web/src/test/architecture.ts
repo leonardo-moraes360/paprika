@@ -123,9 +123,17 @@ export const networkRules: Rule[] = [
   { id: "service worker", view: "code", pattern: /(?<![\w$])navigator\s*\.\s*serviceWorker(?![\w$])/ },
   { id: "importScripts", view: "code", pattern: word("importScripts") },
   { id: "sendBeacon", view: "code", pattern: /(?<![\w$])sendBeacon(?![\w$])/ },
+  // A bracket access names the API in a string, so the code view (strings blanked) misses it: `navigator["sendBeacon" as never](u)`.
+  { id: "bracket network API", view: "text", pattern: /\[\s*(["'`])(?:sendBeacon|WebSocket|XMLHttpRequest|EventSource|WebTransport|RTCPeerConnection|Worker|SharedWorker|importScripts)\1/ },
   { id: "script element", view: "text", pattern: /createElement\(\s*(["'`])script\1/ },
   { id: "api(", view: "code", pattern: word("api(?=\\s*\\()") },
 ];
+
+/**
+ * A path under `/api` written in a string (an image `src`, an `<a href>`, a `new Image()` that loads it) is a request made
+ * outside `data/`, whatever the element. It does not apply to tests, which name the URLs their fake server answers.
+ */
+const apiPath: Rule = { id: "api path", view: "text", pattern: /(["'`])\/api(?![\w-])/ };
 
 const hexColor: Rule = {
   id: "hex color",
@@ -157,21 +165,124 @@ export function createsStoreAtModuleScope(scanned: Scanned) {
   return createsAtModuleScope(scanned, /(?<![\w$.])(?:createStore\s*[(<]|new\s+Store\b)/g);
 }
 
-/** True when `pattern` matches in code that runs at import time (outside any function, arrow or braces of a block). */
-export function createsAtModuleScope({ code }: Scanned, pattern: RegExp) {
-  let depth = 0;
-  let statementStart = 0;
-  const hits = new Set<number>();
-  for (const match of code.matchAll(pattern)) hits.add(match.index);
+type Range = [start: number, end: number];
+
+type Frame = { kind: "paren" | "bracket" | "object" | "body" | "arrow"; open: number; fnStart: number };
+
+const isWordChar = (char: string | undefined) => char !== undefined && /[\w$]/.test(char);
+
+/** What the code does at import time, from one pass over the brackets of the `code` view of a file. */
+function walk(code: string): { deferred: Range[]; depthAt: Uint16Array } {
+  const deferred: Range[] = [];
+  const depthAt = new Uint16Array(code.length + 1);
+  const stack: Frame[] = [];
+  const skipBack = (from: number) => {
+    let i = from;
+    while (i >= 0 && /\s/.test(code[i] as string)) i -= 1;
+    return i;
+  };
+  const skipForward = (from: number) => {
+    let i = from;
+    while (i < code.length && /\s/.test(code[i] as string)) i += 1;
+    return i;
+  };
+  /** Where the function that ends at `=>` begins: its parameter list or single parameter, and a leading `async`. */
+  const arrowStart = (arrow: number) => {
+    let i = skipBack(arrow - 1);
+    if (code[i] === ")") {
+      let depth = 0;
+      for (; i >= 0; i -= 1) {
+        if (code[i] === ")") depth += 1;
+        else if (code[i] === "(" && (depth -= 1) === 0) break;
+      }
+    } else while (i >= 0 && isWordChar(code[i])) i -= 1;
+    let start = i < 0 ? 0 : code[i] === "(" ? i : i + 1;
+    const before = skipBack(start - 1);
+    if (before >= 4 && code.slice(before - 4, before + 1) === "async" && !isWordChar(code[before - 5])) start = before - 4;
+    return start;
+  };
+  /** A function expression that is called where it stands: `(…)()`, `(function () {…}())` or `function () {…}()`. */
+  const calledAtOnce = (frame: Frame, end: number, parent: Frame | undefined) => {
+    const after = skipForward(end);
+    if (code[after] === "(") return true;
+    if (code[after] !== ")") return false;
+    const wrapped = parent?.kind === "paren" && parent.open === skipBack(frame.fnStart - 1);
+    return wrapped && code[skipForward(after + 1)] === "(";
+  };
+  const close = (frame: Frame, end: number) => {
+    // An arrow's body ends where it is closed; a `{}` function body ends at the brace, an object literal runs at once.
+    if (frame.kind !== "body" && frame.kind !== "arrow") return;
+    if (!calledAtOnce(frame, end, stack[stack.length - 1])) deferred.push([frame.open, end]);
+  };
+  const endArrows = (end: number, includeBoundary: boolean) => {
+    while (stack.length > 0 && (stack[stack.length - 1] as Frame).kind === "arrow") {
+      const frame = stack.pop() as Frame;
+      close(frame, includeBoundary ? end + 1 : end);
+    }
+  };
+  let nextBody: number | null = null;
+  let functionKeyword = -1;
+  let functionDepth = 0;
   for (let i = 0; i < code.length; i += 1) {
-    const char = code[i];
-    if (char === "{") depth += 1;
-    else if (char === "}") {
-      depth = Math.max(0, depth - 1);
-      if (depth === 0) statementStart = i + 1;
-    } else if (char === ";" && depth === 0) statementStart = i + 1;
-    if (hits.has(i) && depth === 0 && !/=>|\bfunction\b/.test(code.slice(statementStart, i))) return true;
+    depthAt[i] = stack.length;
+    const char = code[i] as string;
+    if (char === "=" && code[i + 1] === ">") {
+      const start = arrowStart(i);
+      const first = skipForward(i + 2);
+      if (code[first] === "{") nextBody = start;
+      else stack.push({ kind: "arrow", open: i + 2, fnStart: start });
+      i += 1;
+    } else if (char === "f" && code.startsWith("function", i) && !isWordChar(code[i - 1]) && !isWordChar(code[i + 8])) {
+      functionKeyword = i;
+      functionDepth = stack.length;
+      const before = skipBack(i - 1);
+      if (before >= 4 && code.slice(before - 4, before + 1) === "async" && !isWordChar(code[before - 5])) functionKeyword = before - 4;
+    } else if (char === "{") {
+      const before = skipBack(i - 1);
+      const head = code.slice(Math.max(0, i - 200), i);
+      const word = /([\w$]+)\s*$/.exec(head)?.[1];
+      if (nextBody !== null) {
+        stack.push({ kind: "body", open: i, fnStart: nextBody });
+        nextBody = null;
+      } else if (code[before] === ")" || /\)\s*:\s*[^{}();=]*$/.test(head) || (functionKeyword >= 0 && stack.length === functionDepth)) {
+        stack.push({ kind: "body", open: i, fnStart: functionKeyword >= 0 ? functionKeyword : -1 });
+        functionKeyword = -1;
+      } else if ((word && /^(?:else|try|finally|do|static)$/.test(word)) || /\bclass\b[^{;=()]*$/.test(head)) stack.push({ kind: "body", open: i, fnStart: -1 });
+      else stack.push({ kind: "object", open: i, fnStart: -1 });
+    } else if (char === "(") stack.push({ kind: "paren", open: i, fnStart: -1 });
+    else if (char === "[") stack.push({ kind: "bracket", open: i, fnStart: -1 });
+    else if (char === ")" || char === "]" || char === "}") {
+      endArrows(i, false);
+      const frame = stack.pop();
+      if (frame) close(frame, i + 1);
+    } else if (char === "," || char === ";") endArrows(i, false);
+    else if (char === "\n") {
+      // An arrow with no braces ends at the end of its line when the next line starts a new statement (ASI).
+      const top = stack[stack.length - 1];
+      if (top?.kind === "arrow" && code.slice(top.open, i).trim() !== "" && /[A-Za-z_$@]/.test(code[skipForward(i)] ?? "") && !/^(?:instanceof|in|of|as|satisfies)\b/.test(code.slice(skipForward(i), skipForward(i) + 12))) endArrows(i, false);
+    }
   }
+  depthAt[code.length] = stack.length;
+  for (const frame of stack.splice(0)) if (frame.kind === "arrow" || frame.kind === "body") deferred.push([frame.open, code.length]);
+  return { deferred, depthAt };
+}
+
+/** True when `pattern` matches in code that runs at import time: outside any function body, class, block or arrow, whatever object or array literal it sits in; a function that is called where it stands counts too. */
+export function createsAtModuleScope({ code }: Scanned, pattern: RegExp) {
+  const { deferred } = walk(code);
+  for (const match of code.matchAll(pattern)) {
+    const at = match.index as number;
+    // The name of a function being declared (`function createPerfLog() {`) is not a call.
+    if (/\bfunction\s*\*?\s*$/.test(code.slice(Math.max(0, at - 20), at))) continue;
+    if (!deferred.some(([start, end]) => at >= start && at < end)) return true;
+  }
+  return false;
+}
+
+/** The `let` and `var` declarations at the top level of a file: state that outlives a call and depends on the previous one. */
+export function mutableModuleState({ code }: Scanned): boolean {
+  const { depthAt } = walk(code);
+  for (const match of code.matchAll(/(?<![\w$.])(?:let|var)\s+[\w${[]/g)) if (depthAt[match.index as number] === 0) return true;
   return false;
 }
 
@@ -212,6 +323,8 @@ const frontendPackages = [
 const testPackages = [/^@testing-library\/(?:react|user-event|dom|jest-dom)$/, /^vitest$/, /^react-dom(?:\/server|\/test-utils)?$/, /^react\/jsx-runtime$/];
 
 const allowedLib = new Set(["utils", "persist", "use-persisted-state", "numeric-input", "token-parsing", "use-now", "use-async-action", "copy-text", "relative-time", "history-model", "issue-url"]);
+/** The lib modules an adapter may follow: only the ones that are pure (no storage, no timers, no clipboard, no hooks). */
+const adapterLib = new Set(["utils", "numeric-input", "token-parsing", "relative-time", "history-model", "issue-url"]);
 const libPackages = [/^react$/, /^clsx$/, /^tailwind-merge$/];
 
 const isTest = (path: string) => /\.test\.tsx?$/.test(path);
@@ -220,17 +333,18 @@ export type TestException = Record<string, string[]>;
 
 function networkViolations(scanned: Scanned, path: string, exceptions: TestException) {
   const skip = exceptions[path] ?? [];
-  return applyRules(scanned, networkRules).filter((id) => !skip.includes(id));
+  const rules = isTest(path) ? networkRules : [...networkRules, apiPath];
+  return applyRules(scanned, rules).filter((id) => !skip.includes(id));
 }
 
-function libViolations(env: Environment, file: string, trail: string[], seen: Set<string>, exceptions: TestException): string[] {
+function libViolations(env: Environment, file: string, trail: string[], seen: Set<string>, exceptions: TestException, extraRules: Rule[] = []): string[] {
   if (seen.has(file)) return [];
   seen.add(file);
   const source = env.read(file);
   if (source === null) return [`${trail.join(" -> ")}: missing module`];
   const scanned = scan(source);
   const here = [...trail];
-  const out = networkViolations(scanned, file, exceptions).map((id) => `${here.join(" -> ")}: ${id}`);
+  const out = [...networkViolations(scanned, file, exceptions), ...applyRules(scanned, extraRules)].map((id) => `${here.join(" -> ")}: ${id}`);
   for (const spec of specifiers(scanned)) {
     if (spec.value.startsWith("<non-literal")) {
       out.push(`${here.join(" -> ")}: dynamic import with a computed specifier`);
@@ -246,7 +360,7 @@ function libViolations(env: Environment, file: string, trail: string[], seen: Se
       continue;
     }
     const next = resolveModule(env, join(env.srcDir, target.path));
-    out.push(...libViolations(env, next, [...here, target.path], seen, exceptions));
+    out.push(...libViolations(env, next, [...here, target.path], seen, exceptions, extraRules));
   }
   return out;
 }
@@ -394,6 +508,9 @@ export function typedSpecifiers(scanned: Scanned): TypedSpecifier[] {
   return out;
 }
 
+/** Rule id of the adapter check for a `let` or `var` at the top level (an exception names it, with the finding that removes it). */
+export const mutableState = { id: "mutable module state (let)" };
+
 const adapterPackages = [/^@paprika\/core$/];
 const adapterTypeOnlyPaths = [/^data\/live\/protocol$/, /^data\/queries\/[\w-]+$/, /^components\/frontends\/[\w-]+(?:\/[\w.-]+)?$/];
 
@@ -403,8 +520,10 @@ export function checkAdapterFile(env: Environment, file: string, source: string,
   const out: string[] = networkViolations(scanned, display, exceptions).map((id) => `${display}: ${id}`);
   if (!isTest(file)) {
     if (createsStoreAtModuleScope(scanned)) out.push(`${display}: store created at module scope`);
-    if (/(?<![\w$.])(?:useState|useEffect|useMemo|useRef|useCallback|useSelector|createContext)\s*[(<]/.test(scanned.code)) out.push(`${display}: React hook or context in an adapter`);
+    if (/(?<![\w$.])(?:use[A-Z]\w*|use|createContext)\s*[(<]/.test(scanned.code)) out.push(`${display}: React hook or context in an adapter`);
+    if (!(exceptions[display] ?? []).includes(mutableState.id) && mutableModuleState(scanned)) out.push(`${display}: ${mutableState.id}`);
   }
+  out.push(...applyRules(scanned, [storageAccess]).map((id) => `${display}: ${id}`));
   const seen = new Set<string>();
   for (const spec of typedSpecifiers(scanned)) {
     if (spec.value.startsWith("<non-literal")) {
@@ -423,8 +542,12 @@ export function checkAdapterFile(env: Environment, file: string, source: string,
       if (!spec.typeOnly && !isTest(file)) out.push(`${display}: value import from ${spec.value} (use import type)`);
       continue;
     }
+    if (path.startsWith("lib/") && adapterLib.has(path.slice(4))) {
+      out.push(...libViolations(env, resolveModule(env, join(env.srcDir, path)), [display, path], seen, exceptions, [storageAccess]));
+      continue;
+    }
     if (path.startsWith("lib/") && allowedLib.has(path.slice(4))) {
-      out.push(...libViolations(env, resolveModule(env, join(env.srcDir, path)), [display, path], seen, exceptions));
+      out.push(`${display}: lib module not allowed (${spec.value})`);
       continue;
     }
     out.push(`${display}: import ${spec.value}`);
