@@ -270,7 +270,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     rm -f /etc/apt/apt.conf.d/docker-clean \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
-      ca-certificates fontconfig-config fonts-liberation fonts-noto-color-emoji tini unzip \
+      ca-certificates fontconfig-config fonts-droid-fallback fonts-liberation fonts-noto-color-emoji \
+      fonts-noto-core tini unzip \
       libasound2t64 libatk-bridge2.0-0t64 libatk1.0-0t64 libatspi2.0-0t64 libdbus-1-3 libgbm1 \
       libglib2.0-0t64 libnspr4 libnss3 libx11-6 libxcb1 libxcomposite1 libxdamage1 libxext6 \
       libxfixes3 libxkbcommon0 libxrandr2
@@ -309,8 +310,14 @@ mkdir -p "$R/usr/lib64" && cp -a /usr/lib64/ld-linux-x86-64.so.2 "$R/usr/lib64/"
 ln -s usr/lib "$R/lib" && ln -s usr/lib64 "$R/lib64"
 mkdir -p "$R/etc/ld.so.conf.d" && printf '/usr/lib/x86_64-linux-gnu\n' > "$R/etc/ld.so.conf"
 ldconfig -r "$R"
-# fontconfig, fonts, trusted roots
-cp -a --parents /etc/fonts /usr/share/fontconfig /usr/share/fonts/truetype/liberation /usr/share/fonts/truetype/noto "$R/"
+# fontconfig, fonts, trusted roots. Scripts Chrome can draw: Latin, Greek, Cyrillic, Hebrew (Liberation),
+# emoji, CJK (Droid Sans Fallback, 4 MB) and Arabic, Devanagari, Thai (Noto Sans, Regular and Bold).
+# Not the rest of fonts-noto-core (42 MB), which is installed only to take these six files from it.
+cp -a --parents /etc/fonts /usr/share/fontconfig /usr/share/fonts/truetype/liberation /usr/share/fonts/truetype/droid \
+  /usr/share/fonts/truetype/noto/NotoColorEmoji.ttf \
+  /usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf /usr/share/fonts/truetype/noto/NotoSansArabic-Bold.ttf \
+  /usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf /usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf \
+  /usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf /usr/share/fonts/truetype/noto/NotoSansThai-Bold.ttf "$R/"
 mkdir -p "$R/etc/ssl/certs" && cp /etc/ssl/certs/ca-certificates.crt "$R/etc/ssl/certs/"
 # the files of the image's own account database and name service switch
 printf 'root:x:0:0:root:/root:/sbin/nologin\npaprika:x:65532:65532:paprika:/tmp:/sbin/nologin\n' > "$R/etc/passwd"

@@ -146,6 +146,29 @@ if [[ "$screenshot" = "1" ]]; then
   grep -q 'image:image/png' <<<"$kind" || fail "render_screenshot returned $kind: $(head -c 400 <<<"$shot")"
   bytes=$(json 'Buffer.from(r.result.content.find(c=>c.type==="image").data,"base64").length' <<<"$shot")
   echo "ok   /mcp render_screenshot (PNG, $bytes bytes)"
+
+  # Chrome draws a glyph that no installed font has as a "no glyph" box, so a missing font does not
+  # leave the PNG blank. Each script is rendered twice, as text and as the same number of U+0378
+  # (unassigned: no font has it, so it is always that box); equal PNGs mean no font drew the text.
+  # An empty frame is the control that the first render shows any ink at all.
+  frame() { # name, text ("" for an empty frame): the id of a white frame with black text
+    local children=""
+    [[ -n "$2" ]] && children=",\"children\":[{\"type\":\"text\",\"name\":\"T\",\"text\":\"$2\",\"x\":16,\"y\":16,\"fontSize\":40,\"color\":\"#000000\"}]"
+    local made
+    made=$(tool 10 create_nodes "{\"nodes\":[{\"type\":\"frame\",\"name\":\"$1\",\"x\":400,\"y\":0,\"width\":400,\"height\":90,\"fill\":\"#ffffff\"$children}]}")
+    json 'r.result.structuredContent.ids?.[0] ?? r.result.structuredContent.created?.[0] ?? ""' <<<"$made"
+  }
+  png() { tool 11 render_screenshot "{\"rootId\":\"$1\"}" | json 'r.result.content.find(c=>c.type==="image")?.data ?? ""'; }
+  blank=$(png "$(frame "Script blank" "")")
+  [[ -n "$blank" ]] || fail "render_screenshot of an empty frame returned no image"
+  # label:text:the same shape in U+0378 (one per character; Devanagari and Thai do not combine without a font)
+  for script in "Latin:Hello:͸͸͸͸͸" "CJK:日本語 中文:͸͸͸ ͸͸" "Arabic:عربي:͸͸͸͸" "Devanagari:हिन्दी:͸͸͸͸͸͸" "Thai:ไทย:͸͸͸"; do
+    IFS=: read -r label text tofu <<<"$script"
+    inked=$(png "$(frame "Script $label" "$text")")
+    [[ -n "$inked" && "$inked" != "$blank" ]] || fail "render_screenshot drew nothing for $label text"
+    [[ "$inked" != "$(png "$(frame "Script $label tofu" "$tofu")")" ]] || fail "render_screenshot drew $label text as missing-glyph boxes: the image has no font for it"
+  done
+  echo "ok   render_screenshot draws Latin, CJK, Arabic, Devanagari and Thai text"
 fi
 
 start
