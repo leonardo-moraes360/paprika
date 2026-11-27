@@ -1,16 +1,20 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Canvas } from "@/components/frontends/canvas";
+import { Canvas, type CanvasPinPoint } from "@/components/frontends/canvas";
 import { useLiveClient } from "@/data/live";
 import { showStatusToast } from "@/lib/notify";
 import { createEditorFeed } from "../canvas-feed";
+import { useCanvasCollab } from "../canvas-collab";
+import { useCanvasInputHandler } from "../canvas-input";
+import { readCaptureParams } from "../capture";
 import { useEditorStore } from "../editor-store";
 import { useApplyOps } from "../use-apply";
 
 /**
  * The canvas of the editor. It reads NOTHING through React state: the document and the editor's selection, hover, tool, page
  * and zoom reach the canvas as a feed it subscribes to itself, so this component renders once and a delta, a click or a zoom
- * commits only the nodes and overlays that show it. Its callbacks are stable.
+ * commits only the nodes and overlays that show it. Presence (agent cursors, the build replay) comes in a second feed kept
+ * outside React; the pins come from the same query as the pins panel through a component that renders nothing. Its callbacks are stable.
  */
 export function CanvasRegion() {
   const { t } = useTranslation();
@@ -18,10 +22,71 @@ export function CanvasRegion() {
   const editor = useEditorStore();
   const apply = useApplyOps();
   const feed = useMemo(() => createEditorFeed(client.store, editor), [client, editor]);
+  const { collab, source } = useCanvasCollab();
+  const onInput = useCanvasInputHandler();
+  const capture = useMemo(readCaptureParams, []);
   const onSelect = useCallback((ids: readonly string[]) => editor.actions.select(ids), [editor]);
   const onHover = useCallback((id: string | null) => editor.actions.setHovered(id), [editor]);
   const onZoomChange = useCallback((zoom: number) => editor.actions.setZoom(zoom), [editor]);
   const onToolDone = useCallback(() => editor.actions.setTool("select"), [editor]);
   const onError = useCallback((message: string) => showStatusToast({ status: "danger", title: t("app.shell.actionFailedTitle"), description: message }), [t]);
-  return <Canvas feed={feed} onSelect={onSelect} onHover={onHover} onZoomChange={onZoomChange} onApply={apply} onToolDone={onToolDone} onError={onError} />;
+  const onPinPoint = useCallback(
+    (point: CanvasPinPoint) => {
+      editor.actions.setPinPoint(point);
+      if (point.nodeId) editor.actions.select([point.nodeId]);
+    },
+    [editor],
+  );
+  const onPinSelect = useCallback(
+    (id: string) => {
+      editor.actions.openDialog("pins");
+      editor.actions.setPin(id);
+    },
+    [editor],
+  );
+  const onSample = useCallback(
+    (color: string | null) => {
+      const pick = editor.state.sampler;
+      if (!color || !pick) return;
+      editor.actions.endSampling();
+      pick(color);
+    },
+    [editor],
+  );
+
+  // The screenshot asks for a page along with the node.
+  useEffect(() => {
+    if (capture?.page) editor.actions.setPage(capture.page);
+  }, [capture, editor]);
+  // The eyedropper has no other way out than a colour: Escape disarms it.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || editor.state.sampler === null) return;
+      event.preventDefault();
+      editor.actions.endSampling();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [editor]);
+
+  return (
+    <>
+      <Canvas
+        feed={feed}
+        collab={collab}
+        capture={capture?.id ?? null}
+        onSelect={onSelect}
+        onHover={onHover}
+        onZoomChange={onZoomChange}
+        onApply={apply}
+        onToolDone={onToolDone}
+        onError={onError}
+        onInput={onInput}
+        onPinPoint={onPinPoint}
+        onPinSelect={onPinSelect}
+        onSample={onSample}
+      />
+      {source}
+    </>
+  );
 }

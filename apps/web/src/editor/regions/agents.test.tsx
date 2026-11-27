@@ -43,6 +43,8 @@ describe("Agents region", () => {
     await userEvent.setup().click(within(roster).getAllByRole("button", { name: /claude/i })[0]!);
     expect(view.handle.current!.state.pageId).toBe("page-0");
     expect(view.handle.current!.state.selection).toEqual(["n3", "n4"]);
+    // and the canvas camera is asked to go to those nodes
+    expect(view.handle.current!.state.focusRequest).toMatchObject({ nodes: ["n3", "n4"] });
   });
 
   it("is hosted by the header through useAgentsHeader: the count only decides room, the roster brings its own trigger", async () => {

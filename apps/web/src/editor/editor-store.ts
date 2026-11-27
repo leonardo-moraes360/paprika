@@ -42,7 +42,16 @@ export type EditorState = {
   pinId: string | null;
   /** Tone of each agent client (`actor`), given on first sight and kept for the life of the editor (batch 4: roster, pins, workspace notice). */
   agentTones: Readonly<Record<string, AgentColor>>;
+  /** What the pin tool pointed at on the canvas (a node with its box, or an area), while the new-pin form is open. Cleared when the tool changes. */
+  pinPoint: PinPoint | null;
+  /** Where the canvas is asked to take the camera (an agent, a pin, nodes); every request is a new object with its own `seq`. */
+  focusRequest: FocusRequest | null;
+  /** The eyedropper armed over the canvas: the colour of the next click goes to this callback (the picker that asked for it). */
+  sampler: ((color: string) => void) | null;
 };
+
+export type PinPoint = { nodeId: string | null; region: { x: number; y: number; width: number; height: number } };
+export type FocusRequest = { seq: number; nodes?: readonly string[]; box?: { x: number; y: number; width: number; height: number } };
 
 export type EditorActions = {
   select: (ids: readonly string[]) => void;
@@ -64,6 +73,12 @@ export type EditorActions = {
   setPin: (id: string | null) => void;
   /** Gives a tone to each actor that has none yet, in order of arrival, cycling through the four tones. */
   assignAgentTones: (actors: readonly string[]) => void;
+  setPinPoint: (point: PinPoint | null) => void;
+  /** Takes the canvas camera to nodes (their boxes) or to a box. */
+  focus: (target: { nodes?: readonly string[]; box?: FocusRequest["box"] }) => void;
+  /** Arms the canvas eyedropper; `onColor` is called with the colour of the click, and the eyedropper disarms. */
+  beginSampling: (onColor: (color: string) => void) => void;
+  endSampling: () => void;
 };
 
 type AgentColor = AgentEntry["tone"];
@@ -86,6 +101,9 @@ export function initialEditorState(overrides: Partial<EditorState> = {}): Editor
     hoveredId: null,
     pinId: null,
     agentTones: {},
+    pinPoint: null,
+    focusRequest: null,
+    sampler: null,
     ...overrides,
   };
 }
@@ -103,7 +121,7 @@ export const EditorRegion = createRegion<EditorState, EditorActions>("Editor", (
     }),
   clearSelection: () => setState((s) => (s.selection.length === 0 ? s : { ...s, selection: [] })),
   setPage: (pageId) => setState((s) => (s.pageId === pageId ? s : { ...s, pageId, selection: [] })),
-  setTool: (tool) => setState((s) => (s.tool === tool ? s : { ...s, tool })),
+  setTool: (tool) => setState((s) => (s.tool === tool ? s : { ...s, tool, pinPoint: tool === "pin" ? s.pinPoint : null })),
   setZoom: (zoom) => setState((s) => (s.zoom === clampZoom(zoom) ? s : { ...s, zoom: clampZoom(zoom) })),
   zoomIn: () => setState((s) => (s.zoom >= MAX_ZOOM ? s : { ...s, zoom: clampZoom(s.zoom * ZOOM_STEP) })),
   zoomOut: () => setState((s) => (s.zoom <= MIN_ZOOM ? s : { ...s, zoom: clampZoom(s.zoom / ZOOM_STEP) })),
@@ -115,6 +133,10 @@ export const EditorRegion = createRegion<EditorState, EditorActions>("Editor", (
   toggleDialog: (dialog) => setState((s) => setDialog(s, dialog, !s.dialogs[dialog])),
   setHovered: (hoveredId) => setState((s) => (s.hoveredId === hoveredId ? s : { ...s, hoveredId })),
   setPin: (pinId) => setState((s) => (s.pinId === pinId ? s : { ...s, pinId })),
+  setPinPoint: (pinPoint) => setState((s) => (s.pinPoint === pinPoint ? s : { ...s, pinPoint })),
+  focus: (target) => setState((s) => ({ ...s, focusRequest: { ...target, seq: (s.focusRequest?.seq ?? 0) + 1 } })),
+  beginSampling: (onColor) => setState((s) => ({ ...s, sampler: onColor })),
+  endSampling: () => setState((s) => (s.sampler === null ? s : { ...s, sampler: null })),
   assignAgentTones: (actors) =>
     setState((s) => {
       const fresh = actors.filter((actor, i) => !(actor in s.agentTones) && actors.indexOf(actor) === i);

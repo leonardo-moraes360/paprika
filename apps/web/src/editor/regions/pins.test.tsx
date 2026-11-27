@@ -112,6 +112,7 @@ describe("Pins region", () => {
     await open(view);
     await userEvent.setup().click(await screen.findByRole("button", { name: "Show on canvas" }));
     expect(view.handle.current!.state.selection).toEqual(["n3"]);
+    expect(view.handle.current!.state.focusRequest).toMatchObject({ nodes: ["n3"] });
   });
 
   it("opens the new-pin form for the SELECTED NODE with the pin tool, and creates the pin on it with the node's box", async () => {
@@ -133,6 +134,43 @@ describe("Pins region", () => {
     // The new pin was selected before the refetch brought it, and stays selected once it is in the list.
     await waitFor(() => expect(view.calls.filter((c) => c.method === "GET" && c.url.startsWith("/api/pins")).length).toBeGreaterThan(1));
     expect(view.handle.current!.state.pinId).toBe("new");
+  });
+
+  it("a point the canvas made on an AREA opens the form for it and creates a pin without a node, on the page in view", async () => {
+    const view = await setup([], { tool: "pin", pinPoint: { nodeId: null, region: { x: 10, y: 20, width: 300, height: 120 } } });
+    const form = await screen.findByTestId("new-pin-form");
+    expect(within(form).getByText(/300 × 120/)).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.type(within(form).getByRole("textbox"), "Spacing here");
+    await user.click(within(form).getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(view.calls.some((c) => c.method === "POST" && c.url === "/api/pins")).toBe(true));
+    const body = view.calls.find((c) => c.method === "POST" && c.url === "/api/pins")!.body as Record<string, unknown>;
+    expect(body).toMatchObject({ pageId: "page-0", region: { x: 10, y: 20, width: 300, height: 120 }, text: "Spacing here" });
+    expect(body).not.toHaveProperty("nodeId");
+    await waitFor(() => expect(view.handle.current!.state.tool).toBe("select"));
+  });
+
+  it("a point on a node uses the node the canvas pointed at, even when another layer is selected", async () => {
+    await setup([], { tool: "pin", selection: ["n5"], pinPoint: { nodeId: "n3", region: { x: 1, y: 2, width: 3, height: 4 } } });
+    const form = await screen.findByTestId("new-pin-form");
+    expect(within(form).getByText("Target: Rect 3")).toBeInTheDocument();
+  });
+
+  it("leaving the pin tool forgets what it pointed at", async () => {
+    const view = await setup([], { tool: "pin", pinPoint: { nodeId: null, region: { x: 0, y: 0, width: 5, height: 5 } } });
+    await screen.findByTestId("new-pin-form");
+    act(() => view.handle.current!.actions.setTool("select"));
+    expect(view.handle.current!.state.pinPoint).toBeNull();
+  });
+
+  it("clicking a pin in the list takes the canvas camera to it: its node, or the box of an area, and its page first", async () => {
+    const view = await setup([pin({ id: "x1", n: 1, nodeId: "n3", pageId: "page-0" }), pin({ id: "x2", n: 2, text: "Area pin", region: { x: 40, y: 50, width: 0, height: 0 } })]);
+    await open(view);
+    const user = userEvent.setup();
+    await user.click(await screen.findByText("Title breaks"));
+    expect(view.handle.current!.state.focusRequest).toMatchObject({ seq: 1, nodes: ["n3"] });
+    await user.click(await screen.findByText("Area pin"));
+    expect(view.handle.current!.state.focusRequest).toMatchObject({ seq: 2, box: { x: 40, y: 50, width: 1, height: 1 } });
   });
 
   it("spells the send key as the platform does (Ctrl Enter here), from the hotkeys library", async () => {

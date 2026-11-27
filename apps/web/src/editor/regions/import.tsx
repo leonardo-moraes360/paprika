@@ -31,20 +31,20 @@ const naturalSize = (src: string) =>
     image.src = src;
   });
 
-type Outcome = { name: string; group: NodeInput[]; warnings: string[] } | { error: string };
+export type Outcome = { name: string; group: NodeInput[]; warnings: string[] } | { error: string };
 
 /** A converter note (English, from the core) in the language of the app; one the app does not know is shown as it came. */
-function noteText(t: TFunction, text: string): string {
+export function noteText(t: TFunction, text: string): string {
   const { key, values } = converterNote(text);
   // Each note has its own placeholders (the adapter fills exactly those); the typed keys cannot know which key comes out.
   return (t as (key: string, options: object) => string)(`app.collab.import.notes.${key}`, values);
 }
 
 /** Texts in a list of the language (“a, b and c”), not glued with a separator of ours. */
-const listOf = (language: string, items: readonly string[]) => new Intl.ListFormat(language, { style: "long", type: "conjunction" }).format(items);
+export const listOf = (language: string, items: readonly string[]) => new Intl.ListFormat(language, { style: "long", type: "conjunction" }).format(items);
 
 /** One line per item, as a list the toast can show. */
-const asList = (items: readonly string[]): ReactNode => (
+export const asList = (items: readonly string[]): ReactNode => (
   <ul className="list-disc ps-4">
     {items.map((item, index) => (
       <li key={index}>{item}</li>
@@ -53,7 +53,7 @@ const asList = (items: readonly string[]): ReactNode => (
 );
 
 /** One file to the nodes it makes, or the reason it cannot be placed (the old canvas's limits for pictures, `.fig`, PDF, and `.paprika.json` refused). */
-async function convert(t: TFunction, language: string, entry: ImportedFilePayload): Promise<Outcome> {
+export async function convert(t: TFunction, language: string, entry: ImportedFilePayload): Promise<Outcome> {
   const { file } = entry;
   const name = file.name || "file";
   const refusal = refusalFor(name);
