@@ -46,7 +46,7 @@ export function stubLayout(viewport = { width: 1000, height: 800 }) {
   const px = (value: string) => Number.parseFloat(value) || 0;
   const rect = (left: number, top: number, width: number, height: number): DOMRect => ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
   HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
-    if (this.dataset.testid === "canvas-viewport") return rect(0, 0, viewport.width, viewport.height);
+    if (this.dataset.testid === "viewport") return rect(0, 0, viewport.width, viewport.height);
     if (this.dataset.paprikaId !== undefined) {
       const world = this.closest<HTMLElement>("[data-canvas-world]");
       const m = /translate\(([-\d.e]+)px(?:,\s*([-\d.e]+)px)?\)\s*scale\(([-\d.e]+)\)/.exec(world?.style.transform ?? "");

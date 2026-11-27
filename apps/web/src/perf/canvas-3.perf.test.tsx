@@ -70,7 +70,7 @@ function mount(selection: string[], tool: "select" | "pen" = "select") {
   if (selection.length) act(() => feed.update({ selection }));
   const scoped = within(view.container);
   const world = scoped.getByTestId("canvas-world");
-  const viewport = scoped.getByTestId("canvas-viewport");
+  const viewport = scoped.getByTestId("viewport");
   const m = /translate\(([-\d.e]+)px(?:,\s*([-\d.e]+)px)?\)\s*scale\(([-\d.e]+)\)/.exec(world.style.transform) ?? [];
   const cam = { x: Number(m[1] ?? 0), y: Number(m[2] ?? 0), zoom: Number(m[3] ?? 1) };
   const at = (x: number, y: number) => ({ clientX: cam.x + x * cam.zoom, clientY: cam.y + y * cam.zoom });

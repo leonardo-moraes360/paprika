@@ -29,7 +29,7 @@ export function sameRoster(a: readonly AgentPresence[], b: readonly AgentPresenc
 
 /**
  * The roster: the frontend with its own trigger (active count on a clock of its own, so a tick re-renders only this
- * component). `onFocusAgent` has no canvas to fly to: it goes to the agent's page and selects the nodes it touches.
+ * component). `onFocusAgent` goes to the agent's page, selects the nodes it touches and flies the canvas camera to them.
  */
 export const AgentsRoster = memo(function AgentsRoster() {
   const agents = useLive((s) => s.agents, sameRoster);
@@ -37,7 +37,7 @@ export const AgentsRoster = memo(function AgentsRoster() {
   const tones = useAgentTones();
   const open = useEditor((s) => s.dialogs.agents);
   const client = useLiveClient();
-  const { openDialog, closeDialog, select, setPage } = useEditorActions();
+  const { openDialog, closeDialog, select, setPage, focus } = useEditorActions();
   useAssignTones(useMemo(() => presenceActors(agents), [agents]));
   const entries = useMemo(
     () =>
@@ -58,9 +58,12 @@ export const AgentsRoster = memo(function AgentsRoster() {
       const [page] = agentPages(doc, [presence]);
       if (page) setPage(page.pageId);
       const nodes = presence.nodes.filter((node) => doc.nodes[node]);
-      if (nodes.length > 0) select(nodes);
+      if (nodes.length > 0) {
+        select(nodes);
+        focus({ nodes });
+      }
     },
-    [client, select, setPage],
+    [client, focus, select, setPage],
   );
   const onOpenPage = useCallback((pageId: string) => setPage(pageId), [setPage]);
   return <AgentsFrontend agents={entries} open={open} onOpenChange={onOpenChange} onFocusAgent={onFocusAgent} onOpenPage={onOpenPage} />;

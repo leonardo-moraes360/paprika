@@ -24,7 +24,7 @@ function mount(doc: Document = everyKindDocument(), extra: Partial<Parameters<ty
   const onHover = vi.fn((id: string | null) => feed.update({ hoveredId: id }));
   const onZoomChange = vi.fn();
   const view = render(<Canvas feed={feed} onSelect={onSelect} onHover={onHover} onZoomChange={onZoomChange} />);
-  const viewport = view.getByTestId("canvas-viewport");
+  const viewport = view.getByTestId("viewport");
   const world = view.getByTestId("canvas-world");
   const overlays = view.getByTestId("canvas-overlays");
   return { ...view, feed, onSelect, onHover, onZoomChange, viewport, world, overlays };

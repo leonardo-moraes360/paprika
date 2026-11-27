@@ -76,7 +76,7 @@ const EDIT_SURFACE = '[role="region"][data-workspace],[role="tree"],[role="toolb
 
 /** Where Enter and Tab are ours: nothing focused, or the canvas itself. On a button, a field or a tree they keep their own meaning. */
 export function onCanvasSurface(target: Element | null): boolean {
-  return target === null || target === document.body || target === document.documentElement || target.closest("[data-canvas-viewport]") !== null;
+  return target === null || target === document.body || target === document.documentElement || target.closest("[data-viewport]") !== null;
 }
 
 export function targetOf(event: KeyboardEvent): Element | null {

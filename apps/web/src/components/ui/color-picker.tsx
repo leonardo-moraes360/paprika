@@ -50,6 +50,11 @@ export type ColorPickerProps = Omit<ComponentProps<typeof ColorPickerPrimitive>,
   saved?: ColorSwatchOption[];
   brand?: ColorSwatchOption[];
   onSaveColor?: (value: string) => void;
+  /**
+   * Reads a colour from somewhere the browser's own eyedropper cannot reach (the canvas, when the browser has no `EyeDropper`).
+   * The button shows only without the browser one; the owner arms the sampling and takes the colour.
+   */
+  onSampleScreen?: () => void;
 };
 
 const formats: ColorFormat[] = ["hex", "rgb", "rgba", "hsl", "oklch"];
@@ -72,6 +77,9 @@ const thumb = "top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full bor
 const swatchItem =
   "size-6 shrink-0 cursor-pointer rounded-[5px] border border-swatch-line outline-none data-selected:rounded-md data-selected:border-2 data-selected:border-fg data-selected:p-0.5 data-selected:bg-clip-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select forced-colors:data-selected:border-[Highlight]";
 
+/** The browser has the `EyeDropper` API (the SDK's own button then works and shows itself). */
+const hasEyeDropper = () => typeof window !== "undefined" && "EyeDropper" in window;
+
 const spaces = { hex: "hsv", rgb: "srgb", rgba: "srgb", hsl: "hsl", oklch: "oklch" } as const;
 
 export function ColorPicker({
@@ -82,6 +90,7 @@ export function ColorPicker({
   saved,
   brand,
   onSaveColor,
+  onSampleScreen,
   className,
   value,
   defaultValue,
@@ -155,6 +164,16 @@ export function ColorPicker({
         >
           <Pipette aria-hidden="true" />
         </ColorPickerEyeDropper>
+        {onSampleScreen && !hasEyeDropper() ? (
+          <button
+            type="button"
+            aria-label={labels.eyeDropper}
+            onClick={onSampleScreen}
+            className={`flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md border border-field bg-field-bg text-fg hover:bg-surface [&_svg]:size-4 ${focusRing}`}
+          >
+            <Pipette aria-hidden="true" />
+          </button>
+        ) : null}
         <ColorPickerSwatch aria-hidden="true" className="size-8 shrink-0 rounded-md border border-line bg-(--color-picker-color)" />
         {channels ? (
           <ColorPickerPrimitive

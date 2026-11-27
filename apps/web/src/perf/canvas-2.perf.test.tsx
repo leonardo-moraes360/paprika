@@ -38,7 +38,7 @@ async function open() {
   await elapse(300);
   view.log.reset();
   const world = screen.getByTestId("canvas-world");
-  const viewport = screen.getByTestId("canvas-viewport");
+  const viewport = screen.getByTestId("viewport");
   const renders = () => (world as unknown as { __paprikaNodeRenders: number }).__paprikaNodeRenders;
   const commits = () => Object.fromEntries(regions.map((id) => [id, view.log.commits(id)]));
   const sent = () => view.socket.sentOf("ops");
@@ -50,7 +50,7 @@ describe("creation on 5 000 nodes", () => {
     const view = await open();
     fireEvent.keyDown(document.body, { key: "r" });
     await elapse(20);
-    expect(screen.getByTestId("canvas-viewport").dataset.tool).toBe("rect");
+    expect(screen.getByTestId("viewport").dataset.tool).toBe("rect");
     view.log.reset();
     const rendersBefore = view.renders();
     fireEvent.pointerDown(view.viewport, { button: 0, clientX: 900, clientY: 100, pointerId: 1 });

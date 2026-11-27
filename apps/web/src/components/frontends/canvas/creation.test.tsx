@@ -25,7 +25,7 @@ function mount(input: Partial<CanvasInput> = {}, doc: Document = everyKindDocume
   const onApply = vi.fn(async (_ops: Op[], _label: string) => answer);
   const onToolDone = vi.fn(() => feed.update({ tool: "select" }));
   const view = render(<Canvas feed={feed} onSelect={onSelect} onApply={onApply} onToolDone={onToolDone} />);
-  const viewport = view.getByTestId("canvas-viewport");
+  const viewport = view.getByTestId("viewport");
   const world = view.getByTestId("canvas-world");
   const overlays = view.getByTestId("canvas-overlays");
   const camera = () => {

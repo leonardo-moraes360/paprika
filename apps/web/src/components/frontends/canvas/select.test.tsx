@@ -34,7 +34,7 @@ function mount(doc: Document = everyKindDocument(), extra: Partial<Parameters<ty
   const onConvertToPath = vi.fn();
   const onCenterContent = vi.fn();
   const view = render(<Canvas feed={feed} onSelect={onSelect} onHover={(id) => feed.update({ hoveredId: id })} onApply={onApply} onConvertToPath={onConvertToPath} onCenterContent={onCenterContent} />);
-  return { ...view, feed, onSelect, onApply, onConvertToPath, onCenterContent, viewport: view.getByTestId("canvas-viewport"), world: view.getByTestId("canvas-world"), overlays: view.getByTestId("canvas-overlays") };
+  return { ...view, feed, onSelect, onApply, onConvertToPath, onCenterContent, viewport: view.getByTestId("viewport"), world: view.getByTestId("canvas-world"), overlays: view.getByTestId("canvas-overlays") };
 }
 
 const node = (root: HTMLElement, id: string) => root.querySelector<HTMLElement>(`[data-paprika-id="${id}"]`) as HTMLElement;

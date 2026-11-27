@@ -1,5 +1,6 @@
 import type { ConnectorEnd, Document, Layout, Op } from "@paprika/core";
 import type { ComponentType } from "react";
+import type { CanvasCollabFeed } from "./collab";
 import type { CanvasRuntime } from "./runtime";
 
 export type { CanvasRuntime };
@@ -29,7 +30,17 @@ export type CanvasInput = {
   /** A counter: every bump asks the canvas to fit the page. */
   fitRequest: number;
   renderer: CanvasRenderer;
+  /** The eyedropper is armed: the next click on the canvas reads the colour under the pointer (see `gestures/eyedropper.ts`). */
+  sampling?: boolean;
+  /** Every new object asks the canvas to take the camera to something (an agent, a pin, nodes); see `CanvasFocusRequest`. */
+  focusRequest?: CanvasFocusRequest | null;
 };
+
+/**
+ * Asks the camera to go somewhere. `seq` makes each request new (the same target twice still moves the camera). `nodes`: the union of
+ * those nodes' boxes, read from the DOM once they are painted (after a page change the canvas waits for them); `box`: a box in world units.
+ */
+export type CanvasFocusRequest = { seq: number; nodes?: readonly string[]; box?: Box };
 
 /**
  * Where the canvas reads its input. Like `useSyncExternalStore`'s pair: `get` is the current value (the same object while
@@ -41,8 +52,35 @@ export type CanvasFeed = {
   subscribe: (listener: () => void) => () => void;
 };
 
+/** What an owner turns a paste or a dropped file into: the canvas only reads the event and says where it landed. */
+export type CanvasInputRequest = {
+  kind: "paste" | "drop";
+  /** Clipboard texts (paste only). */
+  plain: string;
+  html: string;
+  files: readonly File[];
+  /** The container the things go into (`null` is the page) and the point in ITS coordinates (world units for the page). */
+  parentId: string | null;
+  at: Pt;
+};
+
+/** A point of the pin tool: a node (`nodeId`, its box as `region`) or an area dragged (or a point, with a size of 0). */
+export type CanvasPinPoint = { nodeId: string | null; region: Box };
+
 export type CanvasProps = {
   feed: CanvasFeed;
+  /** Presence, pins and the build replay (see `collab.ts`). Without it the canvas shows none. */
+  collab?: CanvasCollabFeed;
+  /** `?capture=<id>`: the screenshot mode (zoom 1, the node at the origin, nothing but the page; see `canvas.tsx`). */
+  capture?: string | null;
+  /** A paste or a drop the canvas did not handle itself (an owner converts it and sends the ops). */
+  onInput?: (request: CanvasInputRequest) => void;
+  /** The pin tool pointed at a node or an area. */
+  onPinPoint?: (point: CanvasPinPoint) => void;
+  /** A pin badge was clicked. */
+  onPinSelect?: (id: string) => void;
+  /** The eyedropper read a colour (or found none: `null`). */
+  onSample?: (color: string | null) => void;
   /** Selection chosen by a gesture. The owner stores it; the canvas sees it back through the feed. */
   onSelect: (ids: readonly string[]) => void;
   onHover?: (id: string | null) => void;

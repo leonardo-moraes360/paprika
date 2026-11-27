@@ -10,6 +10,7 @@ import { useOpenPinCount, usePinActions, usePins, usePinsLiveSync, type PinRegio
 import { showStatusToast } from "@/lib/notify";
 import { useAgentTones, useAssignTones } from "../collab";
 import { useEditor, useEditorActions } from "../editor-store";
+import { useActivePageId } from "../use-active-page";
 
 const NO_PINS: readonly ServerPin[] = [];
 
@@ -44,26 +45,41 @@ function NewPin({ docId }: { docId: string }) {
   const format = useFormatForDisplay();
   // The platform's own spelling of the send key (`Ctrl Enter`, `⌘ Enter`), like the properties panel's hints.
   const submitShortcut = useMemo(() => format("Mod+Enter", { parts: true }).map((key) => (key === "↵" ? "Enter" : key)), [format]);
-  const { setTool, setPin } = useEditorActions();
-  const nodeId = useEditor((s) => s.selection[s.selection.length - 1] ?? null);
+  const { setTool, setPin, setPinPoint } = useEditorActions();
+  const point = useEditor((s) => s.pinPoint);
+  const pageId = useActivePageId();
+  // What the canvas pointed at; before it did, the selected layer (the layers panel can point too).
+  const selected = useEditor((s) => s.selection[s.selection.length - 1] ?? null);
+  const nodeId = point ? point.nodeId : selected;
+  const area = point && !point.nodeId ? point.region : null;
   const name = useLive((s) => (nodeId ? (s.doc?.nodes[nodeId]?.name ?? null) : null));
   const actions = usePinActions(docId);
   const exists = useLive((s) => (nodeId ? Boolean(s.doc?.nodes[nodeId]) : false));
   const number = useMemo(() => pins.reduce((max, pin) => Math.max(max, pin.n), 0) + 1, [pins]);
-  const onCancel = useCallback(() => setTool("select"), [setTool]);
+  const onCancel = useCallback(() => {
+    setPinPoint(null);
+    setTool("select");
+  }, [setPinPoint, setTool]);
   const onSubmit = useCallback(
     async (input: NewPinInput) => {
       const doc = client.store.state.doc;
+      if (area) {
+        // An area (or a spot) on the page in view: no node, the box the person drew.
+        const pin = await actions.create({ workspaceId: docId, pageId, nodeId: null, region: area, text: input.text });
+        setTool("select");
+        setPin(pin.id);
+        return;
+      }
       if (!doc || !nodeId || !doc.nodes[nodeId]) throw new Error(t("app.collab.pins.nodeGone"));
-      const pin = await actions.create({ workspaceId: docId, pageId: pageOfNode(doc, nodeId), nodeId, region: nodeRegion(doc, nodeId), text: input.text });
+      const pin = await actions.create({ workspaceId: docId, pageId: pageOfNode(doc, nodeId), nodeId, region: point?.region ?? nodeRegion(doc, nodeId), text: input.text });
       setTool("select");
       setPin(pin.id);
     },
-    [actions, client, docId, nodeId, setPin, setTool, t],
+    [actions, area, client, docId, nodeId, pageId, point, setPin, setTool, t],
   );
-  if (!nodeId || !exists) return null;
-  const target: PinTarget = { kind: "node", name: name || nodeId };
-  return <NewPinForm key={nodeId} number={number} target={target} maxLength={2000} showAttachRegion={false} showChangeHint={false} submitShortcut={submitShortcut} onSubmit={onSubmit} onCancel={onCancel} />;
+  if (!area && (!nodeId || !exists)) return null;
+  const target: PinTarget = area ? { kind: "area", width: area.width, height: area.height } : { kind: "node", name: name || (nodeId as string) };
+  return <NewPinForm key={area ? `${area.x},${area.y},${area.width},${area.height}` : nodeId} number={number} target={target} maxLength={2000} showAttachRegion={false} showChangeHint={false} submitShortcut={submitShortcut} onSubmit={onSubmit} onCancel={onCancel} />;
 }
 
 function PinsPanels({ docId }: { docId: string }) {
@@ -75,7 +91,7 @@ function PinsPanels({ docId }: { docId: string }) {
   const actions = usePinActions(docId);
   const client = useLiveClient();
   const tones = useAgentTones();
-  const { closeDialog, setPin, select, setPage } = useEditorActions();
+  const { closeDialog, setPin, select, setPage, focus } = useEditorActions();
   const selectedId = useEditor((s) => s.pinId);
   useAssignTones(useMemo(() => pinActors(pins), [pins]));
   const entries = useMemo(() => toPinEntries(pins, tones), [pins, tones]);
@@ -88,7 +104,25 @@ function PinsPanels({ docId }: { docId: string }) {
   }, [query.isError, query.error, t]);
 
   const onClose = useCallback(() => closeDialog("pins"), [closeDialog]);
-  const onSelectPin = useCallback((id: string) => setPin(id), [setPin]);
+  /** Takes the canvas to a pin: its page first when it is on another, then its node (or, for an area, the box it was drawn on). */
+  const flyTo = useCallback(
+    (id: string) => {
+      const pin = pins.find((candidate) => candidate.id === id);
+      const doc = client.store.state.doc;
+      if (!pin || !doc) return;
+      if (pin.pageId && doc.nodes[pin.pageId]) setPage(pin.pageId);
+      if (pin.nodeId && doc.nodes[pin.nodeId]) focus({ nodes: [pin.nodeId] });
+      else focus({ box: { x: pin.region.x, y: pin.region.y, width: Math.max(pin.region.width, 1), height: Math.max(pin.region.height, 1) } });
+    },
+    [client, focus, pins, setPage],
+  );
+  const onSelectPin = useCallback(
+    (id: string) => {
+      setPin(id);
+      flyTo(id);
+    },
+    [flyTo, setPin],
+  );
   const onCloseCard = useCallback(() => setPin(null), [setPin]);
   const pinId = selected?.id ?? "";
   const onReply = useCallback((text: string) => actions.reply(pinId, text), [actions, pinId]);
@@ -97,14 +131,15 @@ function PinsPanels({ docId }: { docId: string }) {
     await actions.remove(pinId);
     setPin(null);
   }, [actions, pinId, setPin]);
-  /** Without a canvas to fly to, "show" takes the page of the pin and selects its node. */
+  /** "Show" takes the page of the pin, selects its node and flies the camera to it. */
   const onShow = useCallback(() => {
     const pin = pins.find((candidate) => candidate.id === pinId);
     const doc = client.store.state.doc;
     if (!pin || !doc) return;
-    if (pin.pageId && doc.nodes[pin.pageId]) setPage(pin.pageId);
+    flyTo(pinId);
+    // After the page change, which clears the selection.
     if (pin.nodeId && doc.nodes[pin.nodeId]) select([pin.nodeId]);
-  }, [client, pins, pinId, select, setPage]);
+  }, [client, flyTo, pins, pinId, select]);
 
   return (
     <div className="fixed start-66 top-30 z-30 flex max-h-[calc(100dvh-8.5rem)] w-85 max-w-[calc(100vw-1.5rem)] flex-col gap-3 overflow-y-auto" data-testid="pins-region">

@@ -41,7 +41,7 @@ async function open() {
   await elapse(300);
   view.log.reset();
   const world = screen.getByTestId("canvas-world");
-  const viewport = screen.getByTestId("canvas-viewport");
+  const viewport = screen.getByTestId("viewport");
   const renders = () => (world as unknown as { __paprikaNodeRenders: number }).__paprikaNodeRenders;
   return { ...view, world, viewport, renders, opened };
 }

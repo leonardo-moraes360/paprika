@@ -1,4 +1,6 @@
 import type { CanvasOverlay } from "../types";
+import { AgentCursors } from "./agent-cursors";
+import { BuildReplay } from "./build-replay";
 import { ConnectorHandles, LinkDraft } from "./connector-handles";
 import { ConnectorLabelEditor } from "./connector-label-editor";
 import { CreateGhost } from "./create-ghost";
@@ -10,6 +12,7 @@ import { HoverOutline } from "./hover-outline";
 import { MarqueeBox } from "./marquee-box";
 import { PathEditOverlay } from "./path-edit";
 import { PenDraftOverlay } from "./pen-draft";
+import { PinDraft, Pins } from "./pins";
 import { SelectionOutline } from "./selection-outline";
 import { ShapeTextEditor } from "./shape-text-editor";
 import { SpacingHandles } from "./spacing-handles";
@@ -36,8 +39,14 @@ export const overlays: readonly CanvasOverlay[] = [
   { id: "connector-handles", Component: ConnectorHandles },
   { id: "gradient-handles", Component: GradientHandles },
   { id: "spacing-handles", Component: SpacingHandles },
+  // Pins and the pin being drawn.
+  { id: "pins", Component: Pins },
+  { id: "pin-draft", Component: PinDraft },
   // The editors, over everything.
   { id: "text-editor", Component: TextEditor },
   { id: "shape-text-editor", Component: ShapeTextEditor },
   { id: "connector-label-editor", Component: ConnectorLabelEditor },
+  // Other people and agents, and what they are building.
+  { id: "build-replay", Component: BuildReplay },
+  { id: "agent-cursors", Component: AgentCursors },
 ];

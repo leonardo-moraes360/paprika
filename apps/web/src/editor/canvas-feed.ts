@@ -14,7 +14,9 @@ const same = (a: CanvasInput, b: CanvasInput) =>
   a.tool === b.tool &&
   a.zoom === b.zoom &&
   a.fitRequest === b.fitRequest &&
-  a.renderer === b.renderer;
+  a.renderer === b.renderer &&
+  a.sampling === b.sampling &&
+  a.focusRequest === b.focusRequest;
 
 /**
  * The canvas' input from the two stores it depends on: the document (live) and what the editor shares (selection, page, tool,
@@ -26,7 +28,7 @@ export function createEditorFeed(live: Store<LiveState>, editor: EditorStore): C
   const get = (): CanvasInput => {
     const doc = live.state.doc;
     const e = editor.state;
-    const next: CanvasInput = { doc, pageId: resolvePageId(doc, e.pageId), selection: e.selection, hoveredId: e.hoveredId, tool: e.tool, zoom: e.zoom, fitRequest: e.fitRequest, renderer: e.renderer };
+    const next: CanvasInput = { doc, pageId: resolvePageId(doc, e.pageId), selection: e.selection, hoveredId: e.hoveredId, tool: e.tool, zoom: e.zoom, fitRequest: e.fitRequest, renderer: e.renderer, sampling: e.sampler !== null, focusRequest: e.focusRequest };
     if (last && same(last, next)) return last;
     last = next;
     return next;

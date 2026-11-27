@@ -24,6 +24,9 @@ describe("editor store", () => {
       hoveredId: null,
       pinId: null,
       agentTones: {},
+      pinPoint: null,
+      focusRequest: null,
+      sampler: null,
     });
   });
 

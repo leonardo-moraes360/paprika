@@ -2,11 +2,12 @@ import type { Document, Op } from "@paprika/core";
 import type { Store } from "@tanstack/react-store";
 import { createContext, useContext } from "react";
 import { elementOf, measureElement, nodeIdOf, toWorld } from "./geometry";
+import type { CanvasCollabFeed } from "./collab";
 import { createOverlayBus, type OverlayBus } from "./overlay-bus";
 import type { PreviewController } from "./preview";
 import type { CanvasActions, CanvasState } from "./region";
 import type { RenderStore } from "./render-index";
-import type { CanvasInputState, CanvasTool, NodeBox, Pt, VectorDefaults } from "./types";
+import type { CanvasInputState, CanvasPinPoint, CanvasTool, NodeBox, Pt, VectorDefaults } from "./types";
 import type { ViewStore } from "./view-store";
 
 export type PanMode = "off" | "ready" | "panning";
@@ -51,6 +52,13 @@ export type CanvasRuntime = {
   text: (path: string, options?: Record<string, unknown>) => string;
   /** The paint a new vector gets. */
   vectorDefaults: () => VectorDefaults | undefined;
+  /** Presence, pins and the build replay, when the owner gives them. */
+  collab: CanvasCollabFeed | undefined;
+  /** The eyedropper is armed. */
+  sampling: () => boolean;
+  pinPoint: (point: CanvasPinPoint) => void;
+  pinSelect: (id: string) => void;
+  sample: (color: string | null) => void;
 };
 
 export type RuntimeParts = {
@@ -61,6 +69,8 @@ export type RuntimeParts = {
   viewport: () => HTMLElement | null;
   world: () => HTMLElement | null;
   pageId: () => string | null;
+  collab?: () => CanvasCollabFeed | undefined;
+  sampling?: () => boolean;
   /** The owner's callbacks, read at call time. */
   callbacks: () => {
     select: (ids: readonly string[]) => void;
@@ -70,11 +80,16 @@ export type RuntimeParts = {
     error?: (message: string) => void;
     text?: (path: string, options?: Record<string, unknown>) => string;
     vectorDefaults?: VectorDefaults;
+    pinPoint?: (point: CanvasPinPoint) => void;
+    pinSelect?: (id: string) => void;
+    sample?: (color: string | null) => void;
   };
 };
 
 export function createRuntime(parts: RuntimeParts): CanvasRuntime {
   const { view, index, store, preview, viewport, world, pageId, callbacks } = parts;
+  const collab = parts.collab ?? (() => undefined);
+  const sampling = parts.sampling ?? (() => false);
   const input: CanvasInputState = { space: false };
   return {
     view,
@@ -127,6 +142,13 @@ export function createRuntime(parts: RuntimeParts): CanvasRuntime {
     error: (message) => callbacks().error?.(message),
     text: (path, options) => callbacks().text?.(path, options) ?? path,
     vectorDefaults: () => callbacks().vectorDefaults,
+    get collab() {
+      return collab();
+    },
+    sampling,
+    pinPoint: (point) => callbacks().pinPoint?.(point),
+    pinSelect: (id) => callbacks().pinSelect?.(id),
+    sample: (color) => callbacks().sample?.(color),
   };
 }
 

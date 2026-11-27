@@ -1,10 +1,12 @@
+import { canvasBounds } from "@paprika/core";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useCamera } from "./camera";
 import { runDoubleClick } from "./gestures/double-click";
 import { startGesture } from "./gestures/run";
 import { gestures } from "./gestures";
-import { gridStyle } from "./geometry";
+import { coveredBox, gridStyle, unionBox } from "./geometry";
+import { useCanvasInput } from "./input";
 import { useLayerMenu } from "./layer-menu";
 import { RenderStoreContext, RootViews } from "./node-view";
 import { overlays } from "./overlays";
@@ -12,7 +14,7 @@ import { createPreviewController } from "./preview";
 import { CanvasProvider, initialCanvasState, useCanvasStore } from "./region";
 import { createRenderStore } from "./render-index";
 import { CanvasRuntimeContext, createRuntime, type CanvasRuntime } from "./runtime";
-import type { CanvasInput, CanvasProps, Gesture } from "./types";
+import type { Box, CanvasFocusRequest, CanvasInput, CanvasInputRequest, CanvasProps, Gesture } from "./types";
 import { createViewStore } from "./view-store";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +51,8 @@ function CanvasBody(props: CanvasProps) {
   const pageRef = useRef(feed.get().pageId);
   /** The zoom the owner holds (what it gave us last, or what we told it last). */
   const ownerZoom = useRef(feed.get().zoom);
+  const samplingRef = useRef(feed.get().sampling === true);
+  const capturing = !!props.capture;
 
   const [rt] = useState<CanvasRuntime>(() => {
     const input = feed.get();
@@ -62,9 +66,11 @@ function CanvasBody(props: CanvasProps) {
       viewport: () => viewportRef.current,
       world: () => viewportRef.current?.querySelector<HTMLElement>("[data-canvas-world]") ?? null,
       pageId: () => pageRef.current,
+      collab: () => latest.current.collab,
+      sampling: () => samplingRef.current,
       callbacks: () => {
         const p = latest.current;
-        return { select: p.onSelect, hover: p.onHover, apply: p.onApply, toolDone: p.onToolDone, error: p.onError, vectorDefaults: p.vectorDefaults, text: (path, options) => (textRef.current as unknown as (key: string, options?: object) => string)(`frontends.canvas.${path}`, options) };
+        return { select: p.onSelect, hover: p.onHover, apply: p.onApply, toolDone: p.onToolDone, error: p.onError, vectorDefaults: p.vectorDefaults, pinPoint: p.onPinPoint, pinSelect: p.onPinSelect, sample: p.onSample, text: (path, options) => (textRef.current as unknown as (key: string, options?: object) => string)(`frontends.canvas.${path}`, options) };
       },
     });
     return runtime;
@@ -81,15 +87,55 @@ function CanvasBody(props: CanvasProps) {
     }, []),
   );
 
+  // Taking the camera somewhere: a box in world units, or nodes whose boxes are read once they are painted (after a page change they are not there yet, so it tries for a few frames).
+  const focusFrame = useRef(0);
+  const cancelFocus = useCallback(() => {
+    if (focusFrame.current) cancelAnimationFrame(focusFrame.current);
+    focusFrame.current = 0;
+  }, []);
+  const startFocus = useCallback(
+    (request: CanvasFocusRequest) => {
+      cancelFocus();
+      if (request.box) {
+        camera.focus(request.box);
+        return;
+      }
+      const ids = request.nodes ?? [];
+      if (ids.length === 0) return;
+      let attempts = 0;
+      const attempt = () => {
+        focusFrame.current = 0;
+        const boxes: Box[] = [];
+        for (const id of ids) {
+          const box = rt.measure(id);
+          if (box) boxes.push(coveredBox(box));
+        }
+        const all = unionBox(boxes);
+        if (all) camera.focus(all);
+        else if (++attempts < 40) focusFrame.current = requestAnimationFrame(attempt);
+      };
+      focusFrame.current = requestAnimationFrame(attempt);
+    },
+    [camera, rt, cancelFocus],
+  );
+
   // The feed: what changed goes to the store that shows it. The first fit waits for the viewport to have a size (a resize observer fits again until the camera is moved).
   useLayoutEffect(() => {
     let last = feed.get();
     let key = keyOf(last);
     let fitSeen = last.fitRequest;
     let zoomSeen = last.zoom;
+    let focusSeen = last.focusRequest ?? null;
     const viewport = viewportRef.current;
     if (viewport) viewport.dataset.tool = last.tool;
-    camera.fit();
+    const arm = (on: boolean) => {
+      samplingRef.current = on;
+      if (!viewport) return;
+      if (on) viewport.dataset.sampling = "";
+      else delete viewport.dataset.sampling;
+    };
+    arm(samplingRef.current);
+    if (!latest.current.capture) camera.fit();
     const sync = () => {
       const next = feed.get();
       if (next === last) return;
@@ -103,28 +149,37 @@ function CanvasBody(props: CanvasProps) {
       const nextKey = keyOf(next);
       if (nextKey !== key) {
         key = nextKey;
-        camera.fit();
+        if (!latest.current.capture) camera.fit();
       }
+      if ((next.sampling === true) !== samplingRef.current) arm(next.sampling === true);
       store.actions.setSelection(next.selection);
       store.actions.setHovered(next.hoveredId);
       if (next.tool !== before.tool) {
         store.actions.setTool(next.tool);
         if (viewport) viewport.dataset.tool = next.tool;
       }
+      const asked = next.focusRequest ?? null;
+      if (asked !== focusSeen) {
+        focusSeen = asked;
+        if (asked) startFocus(asked);
+      }
       if (next.fitRequest !== fitSeen) {
         fitSeen = next.fitRequest;
-        camera.fit();
+        if (!latest.current.capture) camera.fit();
       }
       if (next.zoom !== zoomSeen) {
         zoomSeen = next.zoom;
         ownerZoom.current = next.zoom;
-        if (Math.abs(next.zoom - rt.view.getTarget().zoom) > 1e-6) camera.setZoom(next.zoom);
+        if (!latest.current.capture && Math.abs(next.zoom - rt.view.getTarget().zoom) > 1e-6) camera.setZoom(next.zoom);
       }
     };
     sync();
     const off = feed.subscribe(sync);
-    return off;
-  }, [feed, rt, store, camera]);
+    return () => {
+      off();
+      cancelFocus();
+    };
+  }, [feed, rt, store, camera, startFocus, cancelFocus]);
 
   // The count of node renders, readable from the page (`?perf=1` measures, the tests count): the world element answers for it.
   useLayoutEffect(() => {
@@ -144,6 +199,43 @@ function CanvasBody(props: CanvasProps) {
   }, [rt]);
 
   const layerMenu = useLayerMenu(rt, latest);
+
+  // `?capture=<id>`: what the server's screenshot reads. Zoom 1 with the node's corner at the origin of the screen, and its box on the viewport.
+  useLayoutEffect(() => {
+    const id = props.capture;
+    const viewport = viewportRef.current;
+    if (!id || !viewport) return;
+    const place = () => {
+      const doc = rt.doc();
+      const node = doc.nodes[id];
+      if (!node) return;
+      let box: Box | null = null;
+      if (node.type === "page") {
+        try {
+          box = canvasBounds(doc, node.id);
+        } catch {
+          box = null;
+        }
+      } else {
+        const measured = rt.measure(id);
+        box = measured ? coveredBox(measured) : null;
+      }
+      if (!box) return;
+      const v = rt.view.get();
+      if (!(v.zoom === 1 && v.x === -box.x && v.y === -box.y)) rt.view.set({ zoom: 1, x: -box.x, y: -box.y }, true);
+      viewport.dataset.captureBox = `${box.x},${box.y},${box.width},${box.height}`;
+    };
+    place();
+    const off = rt.index.subscribeDoc(place);
+    return () => {
+      off();
+      delete viewport.dataset.captureBox;
+    };
+  }, [props.capture, rt]);
+
+  const onInput = useCallback((request: CanvasInputRequest) => latest.current.onInput?.(request), []);
+  useCanvasInput(rt, viewportRef, onInput);
+
   const hovered = useRef<string | null>(null);
   const grid = gridStyle(rt.view.get());
 
@@ -153,19 +245,26 @@ function CanvasBody(props: CanvasProps) {
         <div
           ref={viewportRef}
           tabIndex={-1}
-          data-testid="canvas-viewport"
-          data-canvas-viewport=""
+          data-testid="viewport"
+          data-viewport=""
           className={cn(
             "absolute inset-0 overflow-hidden bg-canvas contain-layout contain-paint outline-none touch-none",
             "data-[tool=frame]:cursor-crosshair data-[tool=rect]:cursor-crosshair data-[tool=ellipse]:cursor-crosshair data-[tool=text]:cursor-crosshair data-[tool=pen]:cursor-crosshair",
+            "data-[sampling]:cursor-crosshair data-[sampling]:**:cursor-crosshair! data-[tool=pin]:cursor-crosshair data-[file-over]:outline-2 data-[file-over]:-outline-offset-2 data-[file-over]:outline-select",
+            "data-[capture]:fixed data-[capture]:z-[100000] data-[capture]:bg-transparent",
             "data-[pan=ready]:**:cursor-grab! data-[pan=ready]:cursor-grab data-[pan=panning]:**:cursor-grabbing! data-[pan=panning]:cursor-grabbing",
             className,
           )}
-          style={{
-            backgroundImage: "linear-gradient(to right, var(--color-grid) 1px, transparent 1px), linear-gradient(to bottom, var(--color-grid) 1px, transparent 1px)",
-            backgroundSize: grid.size,
-            backgroundPosition: grid.position,
-          }}
+          data-capture={capturing ? "" : undefined}
+          style={
+            capturing
+              ? undefined
+              : {
+                  backgroundImage: "linear-gradient(to right, var(--color-grid) 1px, transparent 1px), linear-gradient(to bottom, var(--color-grid) 1px, transparent 1px)",
+                  backgroundSize: grid.size,
+                  backgroundPosition: grid.position,
+                }
+          }
           onMouseDown={(event) => {
             // The middle button would start the browser's autoscroll.
             if (event.button === 1) event.preventDefault();
@@ -192,13 +291,13 @@ function CanvasBody(props: CanvasProps) {
           }}
         >
           {/* The page, painted by the DOM. `scheme-light`: a document is drawn the same in a dark app. */}
-          <div data-canvas-world="" data-testid="canvas-world" className="absolute top-0 left-0 origin-top-left scheme-light [&_[data-paprika-id]]:select-none">
+          <div data-canvas-world="" data-testid="canvas-world" className="absolute top-0 left-0 origin-top-left scheme-light [&_[data-build]]:outline-[1.5px] [&_[data-build]]:outline-offset-1 [&_[data-build]]:outline-(--build) [&_[data-paprika-id]]:select-none">
             <RootViews />
           </div>
           <div
             data-canvas-overlays=""
             data-testid="canvas-overlays"
-            className="pointer-events-none absolute top-0 left-0 origin-top-left"
+            className={cn("pointer-events-none absolute top-0 left-0 origin-top-left", capturing && "hidden")}
             style={{ transform: "translate(var(--view-x, 0px), var(--view-y, 0px)) scale(var(--view-zoom, 1))" }}
           >
             {overlays.map(({ id, Component }) => (

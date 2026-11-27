@@ -100,7 +100,7 @@ function usePanelShortcuts(): PropertiesPanelShortcuts {
 export function Properties({ header }: { header?: ReactNode } = {}) {
   const { t } = useTranslation();
   const { apply } = useLiveActions();
-  const { select } = useEditorActions();
+  const { select, beginSampling } = useEditorActions();
   const input = usePanelInput();
   const documentView = input.selected.length === 0;
   const { activity, marker } = usePanelActivity(documentView);
@@ -143,6 +143,7 @@ export function Properties({ header }: { header?: ReactNode } = {}) {
       onApply={onApply}
       onSelect={select}
       onError={onError}
+      onSampleColor={beginSampling}
       storageKey={STORAGE_KEY}
       shortcuts={shortcuts}
     />

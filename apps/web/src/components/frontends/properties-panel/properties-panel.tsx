@@ -12,6 +12,7 @@ import { InstancePanel } from "./panels/instance-panel";
 import { MultiPanel } from "./panels/multi-panel";
 import { NodePanel } from "./panels/node-panel";
 import { PagePanel } from "./panels/page-panel";
+import { SampleColorContext } from "./sample-context";
 import { initialPropertiesPanelState, isOpenMap, PropertiesPanelRegion } from "./store";
 import type { PropertiesPanelProps, SetProps } from "./types";
 
@@ -38,6 +39,7 @@ function PropertiesPanelView({
   onApply,
   onSelect,
   onError,
+  onSampleColor,
   storageKey,
   store: ownerStore,
   shortcuts,
@@ -90,7 +92,7 @@ function PropertiesPanelView({
     <aside aria-label={t("frontends.propertiesPanel.region")} data-properties-panel="" tabIndex={-1} className={cn("flex h-full outline-none min-h-0 w-full flex-col bg-panel text-fg", className)}>
       {header ? <div className="shrink-0">{header}</div> : null}
       <ScrollArea className="min-h-0 flex-1" viewportClassName="pb-2">
-        {body}
+        <SampleColorContext value={onSampleColor}>{body}</SampleColorContext>
       </ScrollArea>
     </aside>
   );
