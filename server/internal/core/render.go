@@ -97,6 +97,41 @@ func jsxStyleAttr(css *CSS, _ *Node, _ string) string {
 	return " style=" + jsxStyle(css)
 }
 
+type linkCtx struct {
+	z   int
+	pe  bool
+	inA bool
+	ha  bool
+}
+
+var jsxEntity = regexp.MustCompile(`\\|&[#A-Za-z0-9]+;`)
+
+func jsxAttrValue(s string) string {
+	q := jsonv.Quote(s)
+	if jsxEntity.MatchString(q) {
+		return "{" + q + "}"
+	}
+	return q
+}
+
+func isHidden(doc *Document, node *Node) bool {
+	if node.Str("type") == "page" {
+		return false
+	}
+	return !node.Bool("visible") || variantHidden(doc, node)
+}
+
+var contextKeys = []string{"opacity", "transform", "filter", "backdropFilter", "mixBlendMode", "isolation", "clipPath", "mask", "perspective"}
+
+func createsContext(css *CSS) bool {
+	for _, k := range contextKeys {
+		if _, ok := css.Get(k); ok {
+			return true
+		}
+	}
+	return false
+}
+
 func hasRunLink(doc *Document, node *Node) bool {
 	runs := node.Arr("runs")
 	if len(runs) == 0 {
@@ -125,7 +160,7 @@ func anchorInside(doc *Document, node *Node) bool {
 		return hasRunLink(doc, node)
 	case "frame", "group", "page":
 		for _, c := range childNodes(doc, node) {
-			if selfAnchor(c) || anchorInside(doc, c) {
+			if !isHidden(doc, c) && (selfAnchor(c) || anchorInside(doc, c)) {
 				return true
 			}
 		}
@@ -168,35 +203,66 @@ func collapseSeparators(s string) string {
 	return b.String()
 }
 
-func overlayCSS(z int) *CSS {
-	return jsonv.NewObject("position", "absolute", "inset", "0", "zIndex", float64(z))
+func overlayCSS(z int, pe bool) *CSS {
+	css := jsonv.NewObject("position", "absolute", "inset", "0", "zIndex", float64(z), "outlineOffset", "-2px")
+	if pe {
+		css.Set("pointerEvents", "auto")
+	}
+	return css
 }
 
-func overlayOwner(z int) string {
+func overlayOwner(z int, pe bool) string {
+	name := "linkOverlay"
+	if pe {
+		name += "Auto"
+	}
 	if z > 1 {
-		return "linkOverlay" + strconv.Itoa(z)
+		name += strconv.Itoa(z)
 	}
-	return "linkOverlay"
+	return name
 }
 
-func overlayHTML(node *Node, emit styleEmitter, z int) string {
-	return `<a href="` + EscapeHTML(node.Str("href")) + `" aria-label="` + EscapeHTML(overlayLabel(node)) + `"` + emit(overlayCSS(z), nil, overlayOwner(z)) + `></a>`
+func overlayHTML(node *Node, emit styleEmitter, z int, pe bool) string {
+	return `<a href="` + EscapeHTML(node.Str("href")) + `" aria-label="` + EscapeHTML(overlayLabel(node)) + `"` + emit(overlayCSS(z, pe), nil, overlayOwner(z, pe)) + `></a>`
 }
 
-func overlayJSX(node *Node, emit styleEmitter, z int, indent string) string {
-	return indent + "<a" + emit(overlayCSS(z), nil, overlayOwner(z)) + " href=" + jsonv.Quote(node.Str("href")) + " aria-label=" + jsonv.Quote(overlayLabel(node)) + "></a>"
+func overlayJSX(node *Node, emit styleEmitter, z int, pe bool, indent string) string {
+	return indent + "<a" + emit(overlayCSS(z, pe), nil, overlayOwner(z, pe)) + " href=" + jsxAttrValue(node.Str("href")) + " aria-label=" + jsxAttrValue(overlayLabel(node)) + "></a>"
 }
 
-func renderNode(doc *Document, node *Node, asRoot, vars bool, emit styleEmitter, offset *Point, lz int) string {
-	css := NodeStyleVars(doc, node, asRoot, vars)
-	overlay := needsOverlay(doc, node)
-	if lz > 0 && selfAnchor(node) && !overlay {
-		css.Set("zIndex", float64(lz+1))
+type nodeLinks struct {
+	overlay bool
+	plain   bool
+	kids    linkCtx
+}
+
+func layerLinks(doc *Document, node *Node, css *CSS, lk linkCtx) nodeLinks {
+	sup := lk.ha || (lk.inA && isHidden(doc, node))
+	overlay := !sup && needsOverlay(doc, node)
+	plain := !sup && selfAnchor(node) && !overlay
+	lifted := lk.z > 0 && !lk.pe && !sup && !plain && anchorInside(doc, node) && createsContext(css)
+	if lk.z > 0 && plain {
+		css.Set("zIndex", float64(lk.z+1))
 	}
-	kz := lz
+	if lifted {
+		css.Set("zIndex", float64(lk.z+1))
+		css.Set("pointerEvents", "none")
+	}
+	if lk.pe && plain {
+		css.Set("pointerEvents", "auto")
+	}
+	kz := lk.z
 	if overlay {
-		kz = lz + 1
+		kz++
 	}
+	return nodeLinks{overlay, plain, linkCtx{kz, lk.pe || lifted, lk.inA || plain, sup}}
+}
+
+func renderNode(doc *Document, node *Node, asRoot, vars bool, emit styleEmitter, offset *Point, lk linkCtx) string {
+	css := NodeStyleVars(doc, node, asRoot, vars)
+	ln := layerLinks(doc, node, css, lk)
+	overlay, plain, kk := ln.overlay, ln.plain, ln.kids
+	kz := kk.z
 	if offset != nil && !asRoot && node.Str("type") != "page" {
 		css.Set("left", jsonv.FormatNumber(node.Num("x")-offset.X)+"px")
 		css.Set("top", jsonv.FormatNumber(node.Num("y")-offset.Y)+"px")
@@ -219,26 +285,26 @@ func renderNode(doc *Document, node *Node, asRoot, vars bool, emit styleEmitter,
 	case "frame", "group", "page":
 		var kids strings.Builder
 		for _, c := range childNodes(doc, node) {
-			kids.WriteString(renderNode(doc, c, false, vars, emit, nil, kz))
+			kids.WriteString(renderNode(doc, c, false, vars, emit, nil, kk))
 		}
 		if overlay {
-			return "<div " + attrs + ">" + overlayHTML(node, emit, kz) + kids.String() + "</div>"
+			return "<div " + attrs + ">" + overlayHTML(node, emit, kz, kk.pe) + kids.String() + "</div>"
 		}
 		tag := "div"
 		href := ""
-		if typ == "frame" && node.Str("href") != "" {
+		if typ == "frame" && plain {
 			tag = "a"
 			href = ` href="` + EscapeHTML(node.Str("href")) + `"`
 		}
 		return "<" + tag + " " + attrs + href + ">" + kids.String() + "</" + tag + ">"
 	case "text":
 		if overlay {
-			return "<div " + attrs + ">" + overlayHTML(node, emit, kz) + richText(doc, node, vars, false, kz) + "</div>"
+			return "<div " + attrs + ">" + overlayHTML(node, emit, kz, kk.pe) + richText(doc, node, vars, false, kk) + "</div>"
 		}
-		if node.Str("href") != "" {
-			return `<a ` + attrs + ` href="` + EscapeHTML(node.Str("href")) + `">` + richText(doc, node, vars, false, kz) + "</a>"
+		if plain {
+			return `<a ` + attrs + ` href="` + EscapeHTML(node.Str("href")) + `">` + richText(doc, node, vars, false, kk) + "</a>"
 		}
-		return "<div " + attrs + ">" + richText(doc, node, vars, false, kz) + "</div>"
+		return "<div " + attrs + ">" + richText(doc, node, vars, false, kk) + "</div>"
 	case "image":
 		src := EscapeHTML(ResolveAsset(doc, node.Str("src")))
 		if node.Bool("decorative") {
@@ -302,7 +368,7 @@ func buildExportParts(doc *Document, opts RenderOptions, emit styleEmitter) (exp
 	}
 	if node != nil && page == nil {
 		bounds, _ = RootBounds(doc, opts.RootID)
-		body = renderNode(doc, node, true, opts.CSSVariables, emit, nil, 0)
+		body = renderNode(doc, node, true, opts.CSSVariables, emit, nil, linkCtx{})
 	} else {
 		pageID := ""
 		if page != nil {
@@ -313,7 +379,7 @@ func buildExportParts(doc *Document, opts RenderOptions, emit styleEmitter) (exp
 		var b strings.Builder
 		for _, id := range roots {
 			if n := GetNode(doc, id); n != nil {
-				b.WriteString(renderNode(doc, n, false, opts.CSSVariables, emit, &Point{bounds.X, bounds.Y}, 0))
+				b.WriteString(renderNode(doc, n, false, opts.CSSVariables, emit, &Point{bounds.X, bounds.Y}, linkCtx{}))
 			}
 		}
 		body = b.String()
@@ -487,7 +553,7 @@ func jsxText(s string) string {
 	return strings.ReplaceAll(s, "\n", `{'\n'}`)
 }
 
-func richText(doc *Document, node *Node, vars, jsx bool, lz int) string {
+func richText(doc *Document, node *Node, vars, jsx bool, lk linkCtx) string {
 	runs := node.Arr("runs")
 	if len(runs) == 0 {
 		if jsx {
@@ -506,17 +572,22 @@ func richText(doc *Document, node *Node, vars, jsx bool, lz int) string {
 			continue
 		}
 		css := TextRunCSS(doc, node, p.Run, vars)
-		if _, isLink := p.Run.Get("href"); isLink && lz > 0 {
+		_, hasHref := p.Run.Get("href")
+		isLink := hasHref && !lk.ha
+		if isLink && lk.z > 0 {
 			css.Set("position", "relative")
-			css.Set("zIndex", float64(lz+1))
+			css.Set("zIndex", float64(lk.z+1))
+		}
+		if isLink && lk.pe {
+			css.Set("pointerEvents", "auto")
 		}
 		style := ` style="` + EscapeHTML(CSSToString(css)) + `"`
 		if jsx {
 			style = " style=" + jsxStyle(css)
 		}
-		if href, ok := p.Run.Get("href"); ok {
+		if href, ok := p.Run.Get("href"); ok && isLink {
 			if jsx {
-				b.WriteString("<a href=" + jsonv.Quote(jsString(href)) + style + ">" + body + "</a>")
+				b.WriteString("<a href=" + jsxAttrValue(jsString(href)) + style + ">" + body + "</a>")
 			} else {
 				b.WriteString(`<a href="` + EscapeHTML(jsString(href)) + `"` + style + ">" + body + "</a>")
 			}
@@ -533,22 +604,17 @@ func jsxAttrs(attrs []Attr) string {
 		if n, ok := a.Value.(float64); ok {
 			fmt.Fprintf(&b, " %s={%s}", a.Key, jsonv.FormatNumber(n))
 		} else {
-			fmt.Fprintf(&b, " %s=%s", a.Key, jsonv.Quote(jsString(a.Value)))
+			fmt.Fprintf(&b, " %s=%s", a.Key, jsxAttrValue(jsString(a.Value)))
 		}
 	}
 	return b.String()
 }
 
-func jsxNode(doc *Document, node *Node, asRoot bool, indent string, vars bool, emit styleEmitter, lz int) string {
+func jsxNode(doc *Document, node *Node, asRoot bool, indent string, vars bool, emit styleEmitter, lk linkCtx) string {
 	css := NodeStyleVars(doc, node, asRoot, vars)
-	overlay := needsOverlay(doc, node)
-	if lz > 0 && selfAnchor(node) && !overlay {
-		css.Set("zIndex", float64(lz+1))
-	}
-	kz := lz
-	if overlay {
-		kz = lz + 1
-	}
+	ln := layerLinks(doc, node, css, lk)
+	overlay, plain, kk := ln.overlay, ln.plain, ln.kids
+	kz := kk.z
 	fluid := useFluid(doc, node, asRoot)
 	if fluid {
 		applyFluid(css, node)
@@ -556,7 +622,7 @@ func jsxNode(doc *Document, node *Node, asRoot bool, indent string, vars bool, e
 	style := emit(css, node, "")
 	name := ""
 	if n := node.Str("name"); n != "" {
-		name = " data-name=" + jsonv.Quote(n)
+		name = " data-name=" + jsxAttrValue(n)
 	}
 	if fluid {
 		name += fluidJsx(node)
@@ -568,16 +634,16 @@ func jsxNode(doc *Document, node *Node, asRoot bool, indent string, vars bool, e
 		mode = ModeOf(doc, node)
 	}
 	if mode != "" {
-		name += " data-paprika-mode=" + jsonv.Quote(mode)
+		name += " data-paprika-mode=" + jsxAttrValue(mode)
 	}
 	switch node.Str("type") {
 	case "frame", "group", "page":
 		kids := []string{}
 		for _, c := range childNodes(doc, node) {
-			kids = append(kids, jsxNode(doc, c, false, indent+"  ", vars, emit, kz))
+			kids = append(kids, jsxNode(doc, c, false, indent+"  ", vars, emit, kk))
 		}
 		if overlay {
-			all := overlayJSX(node, emit, kz, indent+"  ")
+			all := overlayJSX(node, emit, kz, kk.pe, indent+"  ")
 			if len(kids) > 0 {
 				all += "\n" + strings.Join(kids, "\n")
 			}
@@ -585,9 +651,9 @@ func jsxNode(doc *Document, node *Node, asRoot bool, indent string, vars bool, e
 		}
 		tag := "div"
 		href := ""
-		if node.Str("type") == "frame" && node.Str("href") != "" {
+		if node.Str("type") == "frame" && plain {
 			tag = "a"
-			href = " href=" + jsonv.Quote(node.Str("href"))
+			href = " href=" + jsxAttrValue(node.Str("href"))
 		}
 		if len(kids) > 0 {
 			return indent + "<" + tag + name + href + style + ">\n" + strings.Join(kids, "\n") + "\n" + indent + "</" + tag + ">"
@@ -595,21 +661,21 @@ func jsxNode(doc *Document, node *Node, asRoot bool, indent string, vars bool, e
 		return indent + "<" + tag + name + href + style + " />"
 	case "text":
 		if overlay {
-			return indent + "<div" + name + style + ">\n" + overlayJSX(node, emit, kz, indent+"  ") + richText(doc, node, vars, true, kz) + "\n" + indent + "</div>"
+			return indent + "<div" + name + style + ">\n" + overlayJSX(node, emit, kz, kk.pe, indent+"  ") + richText(doc, node, vars, true, kk) + "\n" + indent + "</div>"
 		}
 		tag := "div"
 		href := ""
-		if node.Str("href") != "" {
+		if plain {
 			tag = "a"
-			href = " href=" + jsonv.Quote(node.Str("href"))
+			href = " href=" + jsxAttrValue(node.Str("href"))
 		}
-		return indent + "<" + tag + name + href + style + ">" + richText(doc, node, vars, true, kz) + "</" + tag + ">"
+		return indent + "<" + tag + name + href + style + ">" + richText(doc, node, vars, true, kk) + "</" + tag + ">"
 	case "image":
-		hidden := " alt=" + jsonv.Quote(node.Str("alt"))
+		hidden := " alt=" + jsxAttrValue(node.Str("alt"))
 		if node.Bool("decorative") {
 			hidden = ` alt="" aria-hidden data-paprika-decorative="true"`
 		}
-		return indent + "<img" + name + style + " src=" + jsonv.Quote(ResolveAsset(doc, node.Str("src"))) + hidden + " />"
+		return indent + "<img" + name + style + " src=" + jsxAttrValue(ResolveAsset(doc, node.Str("src"))) + hidden + " />"
 	case "path":
 		svg, path, inner := PathAttrsVars(doc, node, vars)
 		return indent + "<svg" + name + style + jsxAttrs(svg) + ">\n" + indent + "  " + inner + "<path" + jsxAttrs(path) + " />\n" + indent + "</svg>"
@@ -695,5 +761,5 @@ func ExportReact(doc *Document, rootID string, cssVariables bool) (string, error
 	if cssVariables {
 		css = "export const tokensCss = " + jsonv.Quote(TokenStylesheet(doc)) + ";\n\n"
 	}
-	return css + "export function " + componentName(n) + "() {\n  return (\n" + jsxNode(doc, node, true, "    ", cssVariables, jsxStyleAttr, 0) + "\n  );\n}\n", nil
+	return css + "export function " + componentName(n) + "() {\n  return (\n" + jsxNode(doc, node, true, "    ", cssVariables, jsxStyleAttr, linkCtx{}) + "\n  );\n}\n", nil
 }

@@ -49,12 +49,21 @@ Precisa do build da web (`apps/web/dist/client`) e do Chromium do Playwright par
 
 ## O app (`apps/web`)
 
-A suíte acima ainda não cobre o app. O que existe hoje:
+O bloco `browser` de `packages/e2e/test/perf/perf.test.ts` abre o app (`/w/<doc>` a partir de `apps/web/dist/client`) no pior caso e num documento pequeno, na mesma execução, e aplica os orçamentos acima à diferença. Ele é pulado quando não há build web. Seus cenários:
+
+- `pan-zoom`: pan com a roda e zoom com ctrl+roda na página pesada, p95 de quadro (orçamento `frameP95Ms`, imposto).
+- `panel-resize`: cinco passos de arrasto do primeiro `separator` do workspace, medidos até o segundo quadro de animação (`panelResizeStepMs`, imposto).
+- `tab-incoming-write`: tempo de script na aba, pelas métricas do CDP, quando outro cliente escreve uma propriedade (`tabWriteScriptMs`, só relatório), junto com a tarefa mais longa e o número de tarefas longas. O mesmo teste confere que abrir a página recebe um snapshot (`wsSnapshotsOnOpen`).
+- `agent-build`: tempo desde um `create_nodes` MCP de um frame de 200 nós até os 200 elementos estarem no DOM e pintados, no documento pequeno e na página pesada (`agentNodeVisibleSmallMs` imposto, `agentNodeVisibleMs` só relatório).
+
+Os demais cenários do arquivo (`ws-bytes`, `ws-open`, `server-write`, `slow-tab`) exercitam o servidor e o fio, não o app.
+
+Também no app:
 
 - Contagem de commits no Vitest: `apps/web/src/perf/*.perf.test.tsx` renderizam o editor e o overview no jsdom sobre um documento gerado de N nós e verificam quantas vezes cada região faz commit para uma ação (rodam com `pnpm --filter @paprika/web test`). Conferem que uma ação não re-renderiza regiões que não deveria tocar. Não são orçamentos de tempo, e os tempos que imprimem são do jsdom, que não dizem nada sobre um navegador.
 - Uma medição manual: `?perf=1` num build de desenvolvimento (`vite dev`) liga o `RegionProfiler` (`apps/web/src/perf`), que registra os commits e o `actualDuration` de cada região e os expõe em `window.__paprikaPerf` (leia pelo console ou por um script). Fica desligado no build de produção. Números obtidos assim são de build de desenvolvimento.
 
-O que falta: um cenário e um orçamento do `apps/web` em `packages/e2e/test/perf` (regra 7(b) do [AGENTS.md](../../AGENTS.md)). Os testes de commits do Vitest não são esse orçamento.
+O que ainda falta, sem cenário nem orçamento em `packages/e2e/test/perf` (regra 7(b) do [AGENTS.md](../../AGENTS.md)): selecionar um nó e rolar o painel de camadas numa página com milhares de nós (hoje só o jsdom mede), arrastar, redimensionar ou girar uma seleção na página pesada, editar texto, desfazer e refazer, o tempo para abrir a página pesada (primeira pintura), a pintura da camada WASM e o overview com muitos projetos. Uma mudança num desses caminhos quentes acrescenta seu cenário e orçamento no mesmo PR. Os testes de commits do Vitest não são esse orçamento.
 
 ## Como fazer profiling
 

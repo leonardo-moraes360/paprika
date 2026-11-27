@@ -344,6 +344,9 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 
 	if opts.Team != nil {
 		opts.Team.Routes(engine)
+	} else {
+		// No team mode: 204 without a JSON body is what the web client reads as "no team", unlike a 404 (a console error on every open).
+		engine.GET("/api/team", func(c *gin.Context) { c.Status(http.StatusNoContent) })
 	}
 
 	clients := newClientNames(1024)
