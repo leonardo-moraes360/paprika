@@ -37,7 +37,7 @@ async function probe(page: Page, prefix: string, count: number): Promise<Probe> 
       let unstyled = 0;
       const ids = [p as string, ...Array.from({ length: (n as number) - 1 }, (_, i) => `${p}-${i}`)];
       ids.forEach((id, k) => {
-        const el = document.querySelector<HTMLElement>(`.world [data-paprika-id="${id}"]`);
+        const el = document.querySelector<HTMLElement>(`[data-testid="canvas-world"] [data-paprika-id="${id}"]`);
         if (!el) {
           missing++;
           return;
@@ -72,7 +72,7 @@ describe.skipIf(!existsSync(webDist))("E2E: o que o agente cria aparece de uma v
     await page.evaluate(() => {
       const w = window as unknown as { __walk: { id: string; at: number }[] };
       w.__walk = [];
-      const world = document.querySelector(".world");
+      const world = document.querySelector('[data-testid="canvas-world"]');
       if (!world) return;
       new MutationObserver((records) => {
         for (const rec of records) {
