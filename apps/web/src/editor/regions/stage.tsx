@@ -1,13 +1,15 @@
-import { ArrowUpRight, Circle, Cloud, Cylinder, Diamond, Frame, MapPin, MousePointer2, PenTool, Shapes, Square, StickyNote, Triangle, Type } from "lucide-react";
+import { ArrowUpRight, Circle, Cloud, Cpu, Cylinder, Diamond, Frame, MapPin, Monitor, MousePointer2, PenTool, Shapes, Square, StickyNote, Triangle, Type } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Toolbar, type ToolbarTool } from "@/components/frontends/toolbar";
 import { ZoomBar, type ZoomRenderer } from "@/components/frontends/zoom-bar";
 import { useLive, useLiveActions } from "@/data/live";
+import { RegionProfiler } from "@/perf";
 import { writeRendererPreference } from "../renderer-preference";
 import { editorTools, MAX_ZOOM, MIN_ZOOM, useEditor, useEditorActions, type EditorRenderer, type EditorTool } from "../editor-store";
 import { toolHotkeys, useEditorShortcuts } from "../shortcuts";
 import { useHistoryActions } from "../use-history-actions";
+import { CanvasRegion } from "./canvas";
 
 const hotkeyOf = (tool: EditorTool) => Object.entries(toolHotkeys).find(([, id]) => id === tool)?.[0];
 
@@ -79,10 +81,11 @@ const StageToolbar = memo(function StageToolbar() {
 const isRenderer = (id: string): id is EditorRenderer => id === "dom" || id === "wasm";
 
 /**
- * Zoom lives in the editor store for the canvas to read. The renderer menu has the two modes of the old app (DOM and
- * WASM): the choice goes to the store, to `paprika.renderer` (the old app's key) and, as a `hello`, to the server,
- * which shows it to the agents (`get_context`) and uses it for `render_screenshot`. There is no canvas yet, so the
- * menu only keeps and announces the choice (the backend, GPU or CPU, is the canvas' to report).
+ * Zoom lives in the editor store: the canvas reads the bar's commands from it (zoom in and out, fit) and writes its own zoom
+ * back once the camera rests. The renderer menu has the two modes of the old app (DOM and WASM): the choice goes to the
+ * store, to `paprika.renderer` (the old app's key) and, as a `hello`, to the server, which shows it to the agents
+ * (`get_context`) and uses it for `render_screenshot`. The canvas draws with the DOM in both modes until the WASM renderer
+ * is ported (batch 5): the choice is kept and announced, nothing is simulated.
  */
 const StageZoom = memo(function StageZoom() {
   const { t } = useTranslation();
@@ -90,7 +93,7 @@ const StageZoom = memo(function StageZoom() {
   const renderer = useEditor((s) => s.renderer);
   const editor = useEditorActions();
   const live = useLiveActions();
-  const renderers = useMemo<ZoomRenderer[]>(() => [{ id: "dom", label: t("app.shell.renderers.dom") }, { id: "wasm", label: t("app.shell.renderers.wasm") }], [t]);
+  const renderers = useMemo<ZoomRenderer[]>(() => [{ id: "dom", label: t("app.shell.renderers.dom"), icon: <Monitor /> }, { id: "wasm", label: t("app.shell.renderers.wasm"), icon: <Cpu /> }], [t]);
   // The `hello` goes on mount (as the old app did on every open) and on every change; the client repeats it after a reconnection.
   useEffect(() => live.setRenderer(renderer), [live, renderer]);
   const onRendererChange = useCallback(
@@ -118,7 +121,7 @@ const StageZoom = memo(function StageZoom() {
 });
 
 /**
- * An empty stage that takes focus (the canvas does not exist yet) with the toolbar and the zoom bar over it, and the
+ * The stage: the canvas (its own region) in a focusable region, with the toolbar and the zoom bar over it, and the
  * editor's global keys. It selects only the workspace id: a delta that changes one node never re-renders it.
  */
 export function Stage() {
@@ -128,7 +131,11 @@ export function Stage() {
   useEditorShortcuts();
   return (
     <div className="relative h-full min-h-0 flex-1 bg-canvas">
-      <div ref={stage} tabIndex={0} role="region" aria-label={t("app.stage")} data-workspace={id} className="absolute inset-0 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-select" />
+      <div ref={stage} tabIndex={0} role="region" aria-label={t("app.stage")} data-workspace={id} className="absolute inset-0 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-select">
+        <RegionProfiler id="canvas">
+          <CanvasRegion />
+        </RegionProfiler>
+      </div>
       <StageToolbar />
       <StageZoom />
     </div>
