@@ -72,10 +72,10 @@ const channelInput = cn(bareInput, "text-sm tabular-nums [appearance:textfield] 
 
 const sliderTrack = `relative mx-2 h-3 w-[calc(100%-1rem)] rounded-md border border-track-line bg-size-[100%_100%,12px_12px] ${focusRing}`;
 
-const thumb = "top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-field bg-thumb outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select forced-colors:border-[ButtonText]";
+const thumb = "top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-field bg-thumb outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-select forced-colors:border-[ButtonText]";
 
 const swatchItem =
-  "size-6 shrink-0 cursor-pointer rounded-[5px] border border-swatch-line outline-none data-selected:rounded-md data-selected:border-2 data-selected:border-fg data-selected:p-0.5 data-selected:bg-clip-content focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select forced-colors:data-selected:border-[Highlight]";
+  "size-6 shrink-0 cursor-pointer rounded-[5px] border border-swatch-line outline-none data-selected:rounded-md data-selected:border-2 data-selected:border-fg data-selected:p-0.5 data-selected:bg-clip-content focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-select forced-colors:data-selected:border-[Highlight]";
 
 /** The browser has the `EyeDropper` API (the SDK's own button then works and shows itself). */
 const hasEyeDropper = () => typeof window !== "undefined" && "EyeDropper" in window;
@@ -142,7 +142,7 @@ export function ColorPicker({
           render={(thumbProps, state) => (
             <div {...thumbProps} aria-valuetext={labels.areaValueText(Math.round(state.color.coords[1] ?? 0), Math.round(state.color.coords[2] ?? 0))} />
           )}
-          className="-translate-x-1/2 -translate-y-1/2 size-3.5 rounded-full border-2 border-thumb shadow-[0_0_0_1px_var(--color-thumb-ring)] outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-select" />
+          className="-translate-x-1/2 -translate-y-1/2 size-3.5 rounded-full border-2 border-thumb shadow-[0_0_0_1px_var(--color-thumb-ring)] outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-select" />
       </ColorPickerArea>
       <ColorPickerSlider channel="hue" className={cn(sliderTrack, "bg-(image:--color-slider-background)")}>
         <ColorPickerSliderThumb

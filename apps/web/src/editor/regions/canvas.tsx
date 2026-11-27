@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Canvas, type CanvasPinPoint, type CanvasRendererStatus } from "@/components/frontends/canvas";
@@ -38,19 +38,30 @@ export function CanvasRegion() {
   const onError = useCallback((message: string) => showStatusToast({ status: "danger", title: t("app.shell.actionFailedTitle"), description: message }), [t]);
   // The renderer reports to the editor's store, where the zoom bar's menu reads it. A build without the renderer cannot hold the choice;
   // a failure gives the nodes back to the DOM (the canvas already did) and tells the person, through the same toast as any failed action.
+  // The mode that last painted (the status says which backend drew): where a failed mode goes back to, instead of straight to DOM.
+  const working = useRef<"cpu" | "gpu" | null>(null);
   const onRendererStatus = useCallback(
     (status: CanvasRendererStatus) => {
       editor.actions.setRendererStatus(status);
+      if (status.backend === "webgpu") working.current = "gpu";
+      else if (status.backend === "cpu") working.current = "cpu";
       if (status.backend === "unavailable") editor.actions.setRenderer("dom");
     },
     [editor],
   );
   const onRendererError = useCallback(
-    (message: string) => {
-      editor.actions.setRenderer("dom");
+    (message: string, mode: "cpu" | "gpu") => {
+      if (working.current === mode) working.current = null;
+      const back = working.current ?? "dom";
+      editor.actions.setRenderer(back);
       // The exception ("Failed to fetch dynamically imported module: ...") is for the console; the person gets a sentence.
-      console.warn("[paprika] WASM renderer stopped:", message);
-      showStatusToast({ status: "danger", title: t("app.canvas.renderer.failedTitle"), description: t("app.canvas.renderer.failed") });
+      console.warn(`[paprika] WASM renderer (${mode}) stopped:`, message);
+      const backLabel = t(`app.shell.renderers.${back === "dom" ? "dom" : back}`);
+      showStatusToast({
+        status: "danger",
+        title: t(mode === "gpu" ? "app.canvas.renderer.gpuFailedTitle" : "app.canvas.renderer.failedTitle"),
+        description: t(mode === "gpu" ? "app.canvas.renderer.gpuFailed" : "app.canvas.renderer.failed", { back: backLabel }),
+      });
     },
     [editor, t],
   );

@@ -10,9 +10,10 @@ import type { WasmLayer } from "./layer";
  * `data-detail` and `data-creates` on it by itself: the server's screenshot waits for them.
  */
 export function WasmCanvas({ layer }: { layer: WasmLayer }) {
-  const wasm = useCanvasState((s) => s.renderer === "wasm");
-  const [retain, setRetain] = useState(wasm);
-  if (wasm && !retain) setRetain(true);
-  if (!retain) return null;
-  return <canvas ref={layer.setCanvas} data-testid="wasm-layer" aria-hidden="true" className={cn("pointer-events-none absolute inset-0 size-full", !wasm && "invisible")} />;
+  const mode = useCanvasState((s) => s.renderer);
+  // A canvas keeps the context type it got first (2d for the CPU, WebGPU for the GPU): the other backend gets a new one.
+  const [kept, setKept] = useState<"cpu" | "gpu" | null>(mode === "dom" ? null : mode);
+  if (mode !== "dom" && mode !== kept) setKept(mode);
+  if (!kept) return null;
+  return <canvas key={kept} ref={layer.setCanvas} data-mode={kept} data-testid="wasm-layer" aria-hidden="true" className={cn("pointer-events-none absolute inset-0 size-full", mode === "dom" && "invisible")} />;
 }

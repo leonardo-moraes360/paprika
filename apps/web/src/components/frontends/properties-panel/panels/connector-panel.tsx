@@ -34,7 +34,7 @@ export function ConnectorPanel({ doc, node, set, onApply, onSelect }: NodePanelB
       <div key={key} className="flex flex-col gap-1.5">
         <p className="text-xs text-muted">
           {title}:{" "}
-          <button type="button" className="cursor-pointer font-semibold text-select-ink underline focus-visible:outline-2 focus-visible:outline-select" onClick={() => onSelect([target])}>
+          <button type="button" className="cursor-pointer font-semibold text-select-ink underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-select" onClick={() => onSelect([target])}>
             {doc.nodes[target]?.name || `#${target}`}
           </button>
         </p>

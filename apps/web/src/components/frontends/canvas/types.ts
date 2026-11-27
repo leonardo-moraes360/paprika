@@ -9,7 +9,7 @@ export type { CanvasRuntime, CanvasRendererStatus, WasmLoader };
 /** The tools of the editor (the same names as the toolbar); the canvas reads the one in use and a gesture decides what it does. */
 export type CanvasTool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen" | "shape" | "diamond" | "triangle" | "cylinder" | "parallelogram" | "cloud" | "note" | "connector" | "pin";
 
-export type CanvasRenderer = "dom" | "wasm";
+export type CanvasRenderer = "dom" | "cpu" | "gpu";
 
 export type Pt = { x: number; y: number };
 export type Box = { x: number; y: number; width: number; height: number };
@@ -102,7 +102,7 @@ export type CanvasProps = {
   /** Where the WASM renderer stands (loading, the backend that draws, an error); called when it changes. */
   onRendererStatus?: (status: CanvasRendererStatus) => void;
   /** The WASM renderer failed and the DOM paints again (the message is the cause). The owner tells the person and may take the choice back to DOM. */
-  onRendererError?: (message: string) => void;
+  onRendererError?: (message: string, mode: "cpu" | "gpu") => void;
   className?: string;
 };
 

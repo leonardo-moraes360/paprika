@@ -22,7 +22,12 @@ export const appEn = {
   },
   canvas: {
     order: { front: "bring to front", forward: "bring forward", back: "send to back", backward: "send backward" },
-    renderer: { failedTitle: "The WASM renderer stopped", failed: "The canvas went back to the standard renderer, which draws the same page." },
+    renderer: {
+      failedTitle: "The WASM renderer stopped",
+      failed: "The canvas went back to {{back}}, which draws the same page.",
+      gpuFailedTitle: "GPU renderer unavailable",
+      gpuFailed: "This browser could not start WebGPU (it is missing, disabled or only software). The canvas went back to {{back}}.",
+    },
     collab: {
       working: "working",
       pinBadge: "Pin {{number}}",
@@ -75,7 +80,7 @@ export const appEn = {
   shell: {
     rightTabs: { label: "Right panel", properties: "Properties", team: "Team" },
     mcpOn: "MCP at /mcp",
-    renderers: { dom: "DOM", wasm: "WASM", wasmGpu: "WASM · GPU", wasmCpu: "WASM · CPU", wasmUnavailable: "this build has no WASM renderer" },
+    renderers: { dom: "DOM", domMenu: "DOM (SVG)", cpu: "WASM · CPU", gpu: "WASM · GPU", wasmUnavailable: "this build has no WASM renderer", noWebGpu: "no WebGPU" },
     actionFailedTitle: "Could not apply the change",
     actionFailed: "The server did not accept it.",
     selectionErrors: {
@@ -264,7 +269,12 @@ export const appPtBR: typeof appEn = {
   },
   canvas: {
     order: { front: "trazer para frente", forward: "avançar", back: "enviar para fundo", backward: "recuar" },
-    renderer: { failedTitle: "O renderizador WASM parou", failed: "O canvas voltou para o renderizador padrão, que desenha a mesma página." },
+    renderer: {
+      failedTitle: "O renderizador WASM parou",
+      failed: "O canvas voltou para {{back}}, que desenha a mesma página.",
+      gpuFailedTitle: "Renderizador GPU indisponível",
+      gpuFailed: "Este navegador não conseguiu iniciar o WebGPU (ausente, desativado ou só por software). O canvas voltou para {{back}}.",
+    },
     collab: {
       working: "trabalhando",
       pinBadge: "Apontamento {{number}}",
@@ -317,7 +327,7 @@ export const appPtBR: typeof appEn = {
   shell: {
     rightTabs: { label: "Painel direito", properties: "Propriedades", team: "Time" },
     mcpOn: "MCP em /mcp",
-    renderers: { dom: "DOM", wasm: "WASM", wasmGpu: "WASM · GPU", wasmCpu: "WASM · CPU", wasmUnavailable: "esta versão não tem o renderizador WASM" },
+    renderers: { dom: "DOM", domMenu: "DOM (SVG)", cpu: "WASM · CPU", gpu: "WASM · GPU", wasmUnavailable: "esta versão não tem o renderizador WASM", noWebGpu: "sem WebGPU" },
     actionFailedTitle: "Não foi possível aplicar a alteração",
     actionFailed: "O servidor não a aceitou.",
     selectionErrors: {

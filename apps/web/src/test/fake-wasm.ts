@@ -1,4 +1,4 @@
-import type { WasmLoader, WasmRenderer } from "@/components/frontends/canvas";
+import type { WasmLoader, WasmMode, WasmRenderer } from "@/components/frontends/canvas";
 
 /** A renderer that records what the canvas asks of it (the real one needs a GPU or a CPU rasteriser and the built artifact). */
 export type FakeRenderer = WasmRenderer & {
@@ -16,9 +16,16 @@ export type FakeRenderer = WasmRenderer & {
 export const fakeWasm = {
   /** Whether this "build" carries the renderer. */
   available: true,
-  backend: "cpu" as "cpu" | "webgpu",
+  /** The modes `createRenderer` was asked for, in order (React's dev double effect boots a first one that is freed at once: `asked` folds repeats). The backend follows the mode: `cpu` is the CPU, `gpu` is WebGPU. */
+  modes: [] as WasmMode[],
   /** `createRenderer` rejects with this. */
   failCreate: null as string | null,
+  /** `createRenderer` rejects with this only for `gpu` (no WebGPU, or only a software adapter). */
+  failGpu: null as string | null,
+  /** `modes` without consecutive repeats. */
+  get asked(): WasmMode[] {
+    return this.modes.filter((m, i) => m !== this.modes[i - 1]);
+  },
   /** `render` throws this. */
   failRender: null as string | null,
   /** What `deviceError` reports after a frame (a lost WebGPU device). */
@@ -35,7 +42,8 @@ export const fakeWasm = {
   },
   reset() {
     this.available = true;
-    this.backend = "cpu";
+    this.modes = [];
+    this.failGpu = null;
     this.failCreate = null;
     this.failRender = null;
     this.deviceError = "";
@@ -51,15 +59,17 @@ export const fakeWasm = {
   loader: (async () => {
     fakeWasm.loads += 1;
     return {
-      createRenderer: async (canvas: HTMLCanvasElement) => {
+      createRenderer: async (canvas: HTMLCanvasElement, mode: WasmMode) => {
+        fakeWasm.modes.push(mode);
         if (fakeWasm.hold) await new Promise<void>((resolve) => (fakeWasm.releaseHeld = resolve));
         if (fakeWasm.failCreate) throw new Error(fakeWasm.failCreate);
-        const backend = fakeWasm.backend;
+        if (mode === "gpu" && fakeWasm.failGpu) throw new Error(fakeWasm.failGpu);
+        const backend = mode === "gpu" ? "webgpu" : "cpu";
         const renderer: FakeRenderer = {
           canvas,
           backend,
           adapterInfo: backend === "webgpu" ? "fake adapter" : "no adapter",
-          fallbackReason: backend === "cpu" ? "no hardware adapter" : "",
+          fallbackReason: backend === "cpu" ? "forced by mode=cpu" : "",
           get deviceError() {
             return fakeWasm.deviceError;
           },
