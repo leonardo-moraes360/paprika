@@ -10,6 +10,7 @@ import {
   diskEnvironment,
   editorRegions,
   moduleScopeCreators,
+  mutableState,
   scan,
   sourceFiles,
   typedSpecifiers,
@@ -42,7 +43,10 @@ describe("architecture of the app layers: the real tree", () => {
   it("adapters are pure: @paprika/core, sibling adapters, pure lib and TYPES of data and the frontends", () => {
     const files = layerFiles("adapters");
     expect(files.length).toBeGreaterThan(0);
-    const violations = files.flatMap((file) => checkAdapterFile(disk, file, disk.read(file) as string));
+    // `adapters/doc-fonts.ts` keeps a `let last` that makes its result depend on the previous call (review finding A1, the
+    // performance package replaces it): delete this exception together with that `let`.
+    const exceptions = { "adapters/doc-fonts.ts": [mutableState.id] };
+    const violations = files.flatMap((file) => checkAdapterFile(disk, file, disk.read(file) as string, exceptions));
     expect(violations).toEqual([]);
   });
 
@@ -127,6 +131,91 @@ describe("architecture of the app layers: nothing is created at import time", ()
     const scanned = (s: string) => scan(s);
     expect(createsAtModuleScope(scanned("function f() {}\nconst c = createPerfLog();"), moduleScopeCreators)).toBe(true);
     expect(createsAtModuleScope(scanned("if (x) { const c = createPerfLog(); }"), moduleScopeCreators)).toBe(false);
+  });
+});
+
+describe("architecture of the app layers: holes found by probe (T1)", () => {
+  const scoped = (path: string, source: string) => app(path, source).filter((message) => message.includes("module scope"));
+
+  it.each([
+    ["an object literal", "export const holder = { log: createPerfLog() };"],
+    ["a nested object literal", "export const holder = { a: { b: [createLiveClient()] } };"],
+    ["an arrow called at once", "export const client = (() => createLiveClient())();"],
+    ["an arrow with a body called at once", "export const client = (() => { return createLiveClient(); })();"],
+    ["an async arrow called at once", "export const client = (async () => { await 1; return createLiveClient(); })();"],
+    ["a function expression called at once", "export const client = (function () { return createLiveClient(); })();"],
+    ["a function expression called inside the parens", "export const client = (function () { return createLiveClient(); }());"],
+    ["a creator after an arrow in the same object", "export const x = { f: () => 1, g: createPerfLog() };"],
+    ["a line after an arrow without a semicolon", "const f = () => 1\nconst x = createPerfLog()"],
+  ])("sees a creator at import time inside %s", (_name, source) => {
+    expect(scoped("editor/x.ts", source)).toEqual(["editor/x.ts: store, socket or client created at module scope"]);
+  });
+
+  it.each([
+    ["an arrow in an object", "export const x = { build: () => createLiveClient() };"],
+    ["a method in an object", "export default { setup() { return createPerfLog(); } };"],
+    ["a function with a body in an object", "export const x = { build: function () { return createLiveClient(); } };"],
+    ["a lazy initializer", "function C() { const [log] = useState(() => createPerfLog()); return log; }"],
+    ["an arrow passed to a call", "const make = memo(() => createLiveClient());"],
+    ["an arrow that is only defined", "const make = (() => createLiveClient());"],
+    ["a class method", "class A { make() { return createPerfLog(); } }"],
+    ["a function declaration", "function make() { return { log: createPerfLog() }; }"],
+  ])("does not flag a creator that waits for a call: %s", (_name, source) => {
+    expect(scoped("editor/x.tsx", source)).toEqual([]);
+  });
+
+  it.each([
+    ["a bracket access with a cast", 'navigator["sendBeacon" as never](u);'],
+    ["a bracket access to WebSocket", 'const s = new globalThis["WebSocket"](u);'],
+    ["a bracket access to XMLHttpRequest", "const x = new window['XMLHttpRequest']();"],
+    ["a bracket access to EventSource", "const e = new self[`EventSource`](u);"],
+    ["an image loaded from the API", 'const img = new Image(); img.src = "/api/workspaces";'],
+    ["an API path in a template", "const url = `/api/workspaces/${id}`;"],
+    ["the API root in a string", 'const base = "/api";'],
+  ])("sees the network through %s", (_name, source) => {
+    expect(app("editor/regions/x.tsx", source).length).toBeGreaterThan(0);
+  });
+
+  it("names the API-path rule, leaves data/, tests and comments alone, and does not mistake other paths for it", () => {
+    expect(app("overview/x.ts", 'const url = "/api/pins";')).toEqual(["overview/x.ts: api path"]);
+    expect(app("data/queries/x.ts", 'const url = "/api/pins";')).toEqual([]);
+    expect(app("editor/x.test.tsx", 'expect(url).toBe("/api/pins");')).toEqual([]);
+    expect(app("editor/x.ts", "// GET /api/pins\nconst a = 1;")).toEqual([]);
+    expect(app("editor/x.ts", 'const a = "/apiary"; const b = "https://a.b/api/c"; const c = "x/api";')).toEqual([]);
+  });
+
+  const lib = (files: Record<string, string>, source: string, path = "adapters/x.ts") => {
+    const e = virtual(files);
+    return checkAdapterFile(e, join(e.srcDir, path), source);
+  };
+
+  it("an adapter takes only the pure lib modules: not persist, use-* or the ones that touch the browser", () => {
+    for (const name of ["persist", "use-persisted-state", "use-now", "use-async-action", "copy-text"]) {
+      const files = { [`lib/${name}.ts`]: "export const x = 1;" };
+      expect(lib(files, `import { x } from "@/lib/${name}";`).join(), name).toContain(`lib module not allowed (@/lib/${name})`);
+    }
+    expect(lib({ "lib/numeric-input.ts": "export const x = 1;" }, 'import { x } from "@/lib/numeric-input";')).toEqual([]);
+  });
+
+  it("an adapter, and the pure lib it follows, cannot reach for storage", () => {
+    expect(lib({}, "const v = localStorage.getItem('a');")).toContain("adapters/x.ts: localStorage");
+    expect(lib({}, "const v = globalThis.sessionStorage;")).toContain("adapters/x.ts: localStorage");
+    expect(lib({ "lib/history-model.ts": "export const x = window.localStorage.getItem('a');" }, 'import { x } from "@/lib/history-model";').join()).toContain("localStorage");
+  });
+
+  it("an adapter has no mutable module state: `let` and `var` at the top level, but not in a function", () => {
+    expect(lib({}, "let counter = 0;\nexport const next = () => ++counter;")).toContain("adapters/x.ts: mutable module state (let)");
+    expect(lib({}, "export let last = [];")).toContain("adapters/x.ts: mutable module state (let)");
+    expect(lib({}, "var memo = null;")).toContain("adapters/x.ts: mutable module state (let)");
+    expect(lib({}, "export function f() { let a = 0; for (let i = 0; i < 3; i += 1) a += i; return a; }\nconst b = [1].map((x) => { let y = x; return y; });")).toEqual([]);
+    expect(lib({}, "let counter = 0;", "adapters/x.test.ts")).toEqual([]);
+  });
+
+  it("an adapter cannot use any React hook or context", () => {
+    for (const hook of ["useContext(C)", "useSyncExternalStore(a, b)", "useLayoutEffect(f)", "useReducer(r, 0)", "use(promise)"]) {
+      expect(lib({}, `const x = ${hook};`).join(), hook).toContain("React hook or context");
+    }
+    expect(lib({}, "const x = reuse(1); const y = obj.use(2); const z = used(3);")).toEqual([]);
   });
 });
 

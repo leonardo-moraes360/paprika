@@ -1,9 +1,8 @@
 import type { Document } from "@paprika/core";
 import type { LayerAgent } from "@/components/frontends/layers-panel";
-import { toneFor, type AgentColor } from "./agents";
+import { agentLabel, pageOfNode, toneFor, type AgentTones } from "./agents";
 
-/** Tone of each agent client, given by the editor (`useAgentTones`); the same one the roster, the pins and the history show. */
-export type AgentTones = Readonly<Record<string, AgentColor>>;
+export { pageOfNode, type AgentTones };
 
 /** The part of a presence entry (`AgentPresence` of the live store) that this adapter reads. */
 export type PresenceLike = { agent: string; actor: string; nodes: readonly string[]; at: number };
@@ -23,8 +22,6 @@ export type ActiveAgents = {
 
 export const noActiveAgents: ActiveAgents = { nodes: new Map(), pages: new Map() };
 
-const baseName = (actor: string) => actor.replace(/^agent:?/, "") || "agent";
-
 /**
  * Name and tone of every agent. The tone belongs to the actor (the client) and comes from `tones`; the name is the
  * actor's name, numbered when one actor runs several agents ("claude", "claude 2"), by order of arrival.
@@ -35,15 +32,9 @@ export function agentIdentities(agents: readonly PresenceLike[], tones: AgentTon
   for (const agent of agents) {
     const before = seen.get(agent.actor) ?? 0;
     seen.set(agent.actor, before + 1);
-    out.set(agent.agent, { name: before === 0 ? baseName(agent.actor) : `${baseName(agent.actor)} ${before + 1}`, tone: toneFor(agent.actor, tones) });
+    out.set(agent.agent, { name: before === 0 ? agentLabel(agent.actor) : `${agentLabel(agent.actor)} ${before + 1}`, tone: toneFor(agent.actor, tones) });
   }
   return out;
-}
-
-export function pageOfNode(doc: Document, nodeId: string): string | null {
-  let node = doc.nodes[nodeId];
-  for (let guard = 0; node?.parentId && guard < 1000; guard += 1) node = doc.nodes[node.parentId];
-  return node?.type === "page" ? node.id : null;
 }
 
 const sameIdentity = (a: AgentIdentity | undefined, b: AgentIdentity | undefined) => a === b || (a !== undefined && b !== undefined && a.name === b.name && a.tone === b.tone);

@@ -152,7 +152,7 @@ describe("Pins region", () => {
 
   it("tells the person when the list cannot be loaded", async () => {
     fakeHttp({ "GET /api/pins": () => jsonResponse({ error: "database is locked" }, 500) });
-    const view = await renderRegions({ regions: [["pins", <Pins key="p" />]], initial: { dialogs: { history: false, pins: true, export: false, import: false, agents: false, team: false } } });
+    const view = await renderRegions({ regions: [["pins", <Pins key="p" />]], initial: { dialogs: { history: false, pins: true, export: false, import: false, agents: false } } });
     serve(view.rig, view.doc);
     expect(await screen.findByText("Could not load the pins.", undefined, { timeout: 4000 })).toBeInTheDocument();
     expect(screen.getByText("database is locked")).toBeInTheDocument();

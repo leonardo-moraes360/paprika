@@ -10,6 +10,8 @@ const steps = [
   { id: 2, actor: "agent:claude", label: "agent edit", at: Date.now() - 30_000, ops: 2, undone: false, nodeIds: ["n3"] },
 ];
 
+const pin = (id: string, n: number) => ({ id, n, workspaceId: "doc-1", pageId: "page-0", region: { x: 0, y: 0, width: 20, height: 20 }, text: `pin ${n}`, author: "user", status: "open", createdAt: Date.now() - 60_000, updatedAt: Date.now() });
+
 function stubFetch(extra: (url: string) => unknown = () => undefined) {
   const calls: string[] = [];
   vi.stubGlobal(
@@ -18,7 +20,7 @@ function stubFetch(extra: (url: string) => unknown = () => undefined) {
       const url = String(input);
       calls.push(url);
       const custom = extra(url);
-      const body = custom ?? (url.includes("/history") ? { version: 2, steps, canUndo: true, canRedo: false } : url.includes("/api/pins") ? { pins: [{ id: "a" }, { id: "b" }] } : {});
+      const body = custom ?? (url.includes("/history") ? { version: 2, steps, canUndo: true, canRedo: false } : url.includes("/api/pins") ? { pins: [pin("a", 1), pin("b", 2)] } : {});
       return new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
     }),
   );
@@ -310,6 +312,106 @@ describe("keyboard", () => {
     await user.keyboard("r");
     expect(screen.getByRole("button", { name: "Select" })).toHaveAttribute("aria-pressed", "true");
     dialog.remove();
+    view.unmount();
+  });
+});
+
+describe("keyboard scope (E1)", () => {
+  const selectedCount = () => within(tree()).getAllByRole("treeitem").filter((el) => el.getAttribute("aria-selected") === "true").length;
+  const selectFirstLayer = async (user: ReturnType<typeof userEvent.setup>) => {
+    const name = within(tree()).getAllByRole("treeitem")[1]?.textContent as string;
+    await user.click(within(layer(name)).getByText(name));
+    expect(selectedCount()).toBe(1);
+  };
+  const editKeys = ["{Delete}", "{Backspace}", "r", "{ArrowRight}", "{Shift>}{ArrowDown}{/Shift}", "{Control>}a{/Control}", "{Control>}g{/Control}", "{Control>}d{/Control}", "{Alt>}c{/Alt}"];
+
+  /** Focus on a button inside each region that is not the stage or the layers: no edit key may touch the document, the selection or the tool. */
+  const regionFocus: [string, () => Promise<HTMLElement>][] = [
+    ["the history", async () => within(await screen.findByRole("region", { name: "History" })).getAllByRole("button")[0]!],
+    ["the pins", async () => within(await screen.findByRole("region", { name: "Pins" })).getAllByRole("button")[0]!],
+    ["the header", async () => within(screen.getAllByRole("banner")[0]!).getAllByRole("button")[0]!],
+  ];
+  for (const [place, focusIn] of regionFocus) {
+    it(`edit keys do nothing with the focus in ${place}`, async () => {
+      const user = userEvent.setup();
+      const view = await openShell();
+      await selectFirstLayer(user);
+      await user.keyboard("{Control>}h{/Control}");
+      await user.keyboard("{Shift>}i{/Shift}");
+      const target = await focusIn();
+      target.focus();
+      expect(document.activeElement).toBe(target);
+      for (const key of editKeys) await user.keyboard(key);
+      expect(opsSent(view)).toHaveLength(0);
+      expect(selectedCount()).toBe(1);
+      expect(screen.getByRole("button", { name: "Select" })).toHaveAttribute("aria-pressed", "true");
+      view.unmount();
+    });
+  }
+
+  it("the app keys still work from a panel: Ctrl+Z asks for the undo and Esc closes the history", async () => {
+    const user = userEvent.setup();
+    const view = await openShell();
+    await user.keyboard("{Control>}h{/Control}");
+    const close = within(await screen.findByRole("region", { name: "History" })).getAllByRole("button")[0]!;
+    close.focus();
+    await user.keyboard("{Control>}z{/Control}");
+    expect(view.socket.sentOf("undo")).toHaveLength(1);
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("region", { name: "History" })).not.toBeInTheDocument());
+    view.unmount();
+  });
+
+  it("edit keys act with the focus on the page, the stage, the layers tree or the stage toolbar", async () => {
+    const user = userEvent.setup();
+    const view = await openShell();
+    await selectFirstLayer(user);
+    const places: (() => HTMLElement)[] = [
+      () => document.body,
+      () => screen.getByRole("region", { name: "Canvas" }),
+      () => within(tree()).getAllByRole("treeitem")[1]!,
+      () => within(screen.getByRole("toolbar", { name: "Tools" })).getAllByRole("button")[0]!,
+    ];
+    for (const place of places) {
+      const el = place();
+      if (el === document.body) (document.activeElement as HTMLElement | null)?.blur();
+      else el.focus();
+      await user.keyboard("{Control>}a{/Control}");
+      expect(selectedCount()).toBeGreaterThan(0);
+      await user.keyboard("{Escape}");
+      expect(screen.getByRole("button", { name: "Select" })).toHaveAttribute("aria-pressed", "true");
+      await selectFirstLayer(user);
+    }
+    (document.activeElement as HTMLElement | null)?.blur();
+    await user.keyboard("{Delete}");
+    await waitFor(() => expect(opsSent(view)).toHaveLength(1));
+    view.unmount();
+  });
+
+  it("Esc with the pins open closes the pins and leaves the selection and the tool alone", async () => {
+    const user = userEvent.setup();
+    const view = await openShell();
+    await selectFirstLayer(user);
+    (document.activeElement as HTMLElement | null)?.blur();
+    await user.keyboard("r");
+    await user.keyboard("{Shift>}i{/Shift}");
+    expect(await screen.findByRole("region", { name: "Pins" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Pins" })).not.toBeInTheDocument());
+    expect(selectedCount()).toBe(1);
+    expect(screen.getByRole("button", { name: "Rectangle" })).toHaveAttribute("aria-pressed", "true");
+    view.unmount();
+  });
+
+  it("holding an arrow adds the steps up while the deltas have not arrived (E3)", async () => {
+    const user = userEvent.setup();
+    const view = await openShell();
+    await selectFirstLayer(user);
+    (document.activeElement as HTMLElement | null)?.blur();
+    await user.keyboard("{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}");
+    await waitFor(() => expect(opsSent(view)).toHaveLength(5));
+    const xs = (opsSent(view) as unknown as { ops: { props: { x: number } }[] }[]).map((m) => m.ops[0]!.props.x);
+    expect(xs.map((x, i) => (i === 0 ? x : x - xs[i - 1]!)).slice(1)).toEqual([1, 1, 1, 1]);
     view.unmount();
   });
 });

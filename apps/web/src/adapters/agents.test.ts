@@ -1,5 +1,8 @@
 import type { Document } from "@paprika/core";
 import { describe, expect, it } from "vitest";
+import { actorName as activityActorName } from "./activity";
+import { agentIdentities } from "./active-agents";
+import { actorName as historyActorName } from "./history";
 import { agentLabel, agentPages, toAgentEntries, toneFor, toolActivity, type AgentPresence } from "./agents";
 
 const presence = (agent: string, actor: string, tool = "update_nodes", nodes: string[] = [], at = 1000): AgentPresence => ({ agent, actor, tool, nodes, at });
@@ -10,6 +13,15 @@ describe("agentLabel", () => {
     expect(agentLabel("agent:claude @ Marina")).toBe("claude @ Marina");
     expect(agentLabel("agent:")).toBe("agent");
     expect(agentLabel(undefined)).toBe("agent");
+  });
+
+  it("is the one rule of the roster, the history, the activity and the active agents (A2)", () => {
+    for (const actor of ["agent:claude", "agent:", "agentx", "agent", "user", "import", "agent:claude @ Marina"]) {
+      expect(historyActorName(actor), actor).toBe(agentLabel(actor));
+      expect(activityActorName(actor), actor).toBe(agentLabel(actor));
+      expect(agentIdentities([{ agent: "a1", actor, nodes: [], at: 0 }]).get("a1")?.name, actor).toBe(agentLabel(actor));
+    }
+    expect(agentLabel("agentx")).toBe("agentx");
   });
 });
 

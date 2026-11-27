@@ -47,6 +47,15 @@ pnpm test:perf
 
 Precisa do build da web (`web-legacy/dist`) e do Chromium do Playwright para os cenários de navegador (veja [desenvolvimento](desenvolvimento.md); `PAPRIKA_CHROMIUM` aponta outro Chrome). Sem o build da web só os cenários do servidor rodam. Imprime uma tabela `cenário | orçamento | medido | limite | status` e grava os mesmos dados em JSON em `$PAPRIKA_PERF_REPORT` (padrão `report.json` num diretório novo `paprika-perf-report-*` dentro do diretório temporário do sistema; o caminho é impresso). Não faz parte do `pnpm check`.
 
+## O app novo (`apps/web`)
+
+A suíte acima ainda não cobre o app novo. O que existe hoje:
+
+- Contagem de commits no Vitest: `apps/web/src/perf/*.perf.test.tsx` renderizam o editor e o overview no jsdom sobre um documento gerado de N nós e verificam quantas vezes cada região faz commit para uma ação (rodam com `pnpm --filter @paprika/web test`). Conferem que uma ação não re-renderiza regiões que não deveria tocar. Não são orçamentos de tempo, e os tempos que imprimem são do jsdom, que não dizem nada sobre um navegador.
+- Uma medição manual: `?perf=1` num build de desenvolvimento (`vite dev`) liga o `RegionProfiler` (`apps/web/src/perf`), que registra os commits e o `actualDuration` de cada região e os expõe em `window.__paprikaPerf` (leia pelo console ou por um script). Fica desligado no build de produção. Números obtidos assim são de build de desenvolvimento.
+
+O que falta: um cenário e um orçamento do app novo em `packages/e2e/test/perf` (regra 7(b) do [AGENTS.md](../../AGENTS.md)). Essa suíte guia o app legado a partir de `web-legacy/dist`, e o servidor Go ainda não serve o app novo, então não há o que ela guiar. Os testes de commits do Vitest não são esse orçamento.
+
 ## Como fazer profiling
 
 - Servidor: um teste ou benchmark em Go com `go test -cpuprofile cpu.out`, depois `go tool pprof -top cpu.out`; ou cronometrar a chamada MCP contra o pior caso. Informe as funções do topo antes e depois.

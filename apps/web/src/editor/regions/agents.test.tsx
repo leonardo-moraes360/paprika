@@ -21,7 +21,7 @@ describe("Agents region", () => {
   });
 
   it("lists the agents by name (numbered when one client has two sessions), activity from the tool, and the page", async () => {
-    const view = await renderRegions({ regions: [["agents", <AgentsRoster key="a" />]], initial: { dialogs: { history: false, pins: false, export: false, import: false, agents: true, team: false } } });
+    const view = await renderRegions({ regions: [["agents", <AgentsRoster key="a" />]], initial: { dialogs: { history: false, pins: false, export: false, import: false, agents: true } } });
     serve(view.rig, view.doc);
     view.rig.push(presence("s:1", "agent:claude", "update_nodes", ["n3"]), presence("s:2", "agent:claude", "get_nodes", ["n4"]), presence("s:3", "agent:codex", "lint_design", []));
     const roster = await screen.findByRole("dialog");
@@ -36,7 +36,7 @@ describe("Agents region", () => {
   });
 
   it("'focus' goes to the agent's page and selects the nodes it touches that exist", async () => {
-    const view = await renderRegions({ regions: [["agents", <AgentsRoster key="a" />]], initial: { dialogs: { history: false, pins: false, export: false, import: false, agents: true, team: false }, pageId: "other", selection: ["n9"] } });
+    const view = await renderRegions({ regions: [["agents", <AgentsRoster key="a" />]], initial: { dialogs: { history: false, pins: false, export: false, import: false, agents: true }, pageId: "other", selection: ["n9"] } });
     serve(view.rig, view.doc);
     view.rig.push(presence("s:1", "agent:claude", "update_nodes", ["gone", "n3", "n4"]));
     const roster = await screen.findByRole("dialog");
