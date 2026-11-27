@@ -265,8 +265,7 @@ describe.skipIf(!existsSync(webDist))("E2E: panel resize and virtualized layers"
       await expect.poll(() => posinset("r20")).toBe("39");
     });
 
-    // PAP-E2E: o autoscroll do painel de camadas volta atrás (~450 px) assim que a linha arrastada sai da janela virtual
-    it.fails("autoscrolls a long drag without the list jumping back", async () => {
+    it("autoscrolls a long drag without the list jumping back", async () => {
       await scrollLayersTo(0);
       await dragToEdge("r2");
       try {

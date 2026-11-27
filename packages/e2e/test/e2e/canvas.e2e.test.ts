@@ -176,24 +176,31 @@ describe("E2E: canvas + agente via MCP", () => {
     }
   });
 
-  // PAP-E2E: dois agentes com o mesmo nome dividem o tom (o tom é por nome do ator, não por sessão); o app antigo dava uma cor por sessão
-  it.fails("presença: dois agentes com o mesmo nome têm cursores de cores diferentes", async () => {
+  it("presença: o cursor tem a cor do nome do agente, então dois agentes com o mesmo nome dividem a cor e nomes diferentes têm cores diferentes", async () => {
     const twin = new Client({ name: "e2e-agent", version: "0" });
+    const stranger = new Client({ name: "e2e-leitor", version: "0" });
     await twin.connect(new StreamableHTTPClientTransport(new URL(`${url}/mcp`)));
+    await stranger.connect(new StreamableHTTPClientTransport(new URL(`${url}/mcp`)));
     try {
       await agent.callTool({ name: "get_nodes", arguments: { ids: ["login"] } });
       await twin.callTool({ name: "get_nodes", arguments: { ids: ["plano"] } });
+      await stranger.callTool({ name: "get_nodes", arguments: { ids: ["login"] } });
       await page.getByRole("button", { name: /ativos?$/ }).click();
-      const rows = page.getByRole("dialog").locator("li[data-agent]").filter({ hasText: /^e2e-agent( \d+)?\s*get_nodes/ });
-      await expect.poll(() => rows.count()).toBe(2);
-      const ids = await rows.evaluateAll((els) => els.map((e) => e.getAttribute("data-agent")!));
-      const fills = await Promise.all(
-        ids.map((id) => page.locator(`[data-testid="agent-cursor"][data-agent="${id}"] svg[viewBox="0 0 18 22"] path`).evaluate((el) => getComputedStyle(el).fill)),
-      );
-      expect(new Set(fills).size).toBe(2);
+      const dialog = page.getByRole("dialog");
+      const sameName = /^e2e-agent( \d+)?\s*get_nodes/;
+      const otherName = /^e2e-leitor\s*get_nodes/;
+      const idsOf = (name: RegExp) => dialog.locator("li[data-agent]").filter({ hasText: name }).evaluateAll((els) => els.map((e) => e.getAttribute("data-agent")!));
+      await expect.poll(async () => (await idsOf(sameName)).length).toBe(2);
+      await expect.poll(async () => (await idsOf(otherName)).length).toBe(1);
+      const fill = (id: string) => page.locator(`[data-testid="agent-cursor"][data-agent="${id}"] svg[viewBox="0 0 18 22"] path`).evaluate((el) => getComputedStyle(el).fill);
+      const [first, second] = await Promise.all((await idsOf(sameName)).map(fill));
+      const [leitor] = await Promise.all((await idsOf(otherName)).map(fill));
+      expect(first).toBe(second);
+      expect(leitor).not.toBe(first);
     } finally {
       await page.keyboard.press("Escape");
       await twin.close();
+      await stranger.close();
     }
   });
 
@@ -506,39 +513,50 @@ describe("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => (await translate()).y).toBeCloseTo(a.y, 0);
   });
 
-  for (const key of ["Space", "Enter"]) {
-    // PAP-E2E: segurar Enter não vira mão aberta no app novo (só Space move o board); o antigo aceitava as duas teclas
-    (key === "Enter" ? it.fails : it)(`segurar ${key} sobre o board vira mão aberta; arrastando, mão fechada que move o board`, async () => {
-      await page.keyboard.press("Escape");
-      await page.keyboard.press("Escape");
-      await clickEmpty();
-      const vp = page.locator('[data-testid="viewport"]');
-      const board = world();
-      const box = (await vp.boundingBox())!;
-      const cursorAt = (x: number, y: number) =>
-        page.evaluate(([x, y]) => getComputedStyle(document.elementFromPoint(x!, y!)!).cursor, [x, y]);
-      const card = (await page.locator('[data-paprika-id="login"]').boundingBox())!;
-      const px = card.x + 40;
-      const py = card.y + 40;
-      await page.mouse.move(px, py);
-      await expect.poll(() => cursorAt(px, py)).not.toBe("grab");
-      const before = await board.getAttribute("style");
+  const holdOverCard = async () => {
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
+    await clickEmpty();
+    const card = (await page.locator('[data-paprika-id="login"]').boundingBox())!;
+    const px = card.x + 40;
+    const py = card.y + 40;
+    await page.mouse.move(px, py);
+    return { px, py, cursorAt: (x: number, y: number) => page.evaluate(([x, y]) => getComputedStyle(document.elementFromPoint(x!, y!)!).cursor, [x, y]) };
+  };
 
-      await page.keyboard.down(key);
-      await expect.poll(() => cursorAt(px, py)).toBe("grab");
-      await page.mouse.down();
-      await page.mouse.move(px + 80, py + 50, { steps: 6 });
-      await expect.poll(() => cursorAt(px + 80, py + 50)).toBe("grabbing");
-      await page.mouse.up();
-      await expect.poll(() => cursorAt(px + 80, py + 50)).toBe("grab");
-      await page.keyboard.up(key);
-      await expect.poll(() => cursorAt(px + 80, py + 50)).not.toMatch(/grab/);
+  it("segurar Space sobre o board vira mão aberta; arrastando, mão fechada que move o board", async () => {
+    const { px, py, cursorAt } = await holdOverCard();
+    const board = world();
+    await expect.poll(() => cursorAt(px, py)).not.toBe("grab");
+    const before = await board.getAttribute("style");
 
-      expect(await board.getAttribute("style")).not.toBe(before);
-      expect(box.width).toBeGreaterThan(0);
-      if (shots && key === "Space") await page.screenshot({ path: join(shots, "04-pan.png") });
-    });
-  }
+    await page.keyboard.down("Space");
+    await expect.poll(() => cursorAt(px, py)).toBe("grab");
+    await page.mouse.down();
+    await page.mouse.move(px + 80, py + 50, { steps: 6 });
+    await expect.poll(() => cursorAt(px + 80, py + 50)).toBe("grabbing");
+    await page.mouse.up();
+    await expect.poll(() => cursorAt(px + 80, py + 50)).toBe("grab");
+    await page.keyboard.up("Space");
+    await expect.poll(() => cursorAt(px + 80, py + 50)).not.toMatch(/grab/);
+
+    expect(await board.getAttribute("style")).not.toBe(before);
+    if (shots) await page.screenshot({ path: join(shots, "04-pan.png") });
+  });
+
+  it("segurar Enter sobre o board não arma a mão: o cursor continua como estava", async () => {
+    const { px, py, cursorAt } = await holdOverCard();
+    const before = await cursorAt(px, py);
+    expect(before).not.toMatch(/grab/);
+    await page.keyboard.down("Enter");
+    try {
+      await page.waitForTimeout(300);
+      expect(await cursorAt(px, py)).toBe(before);
+    } finally {
+      await page.keyboard.up("Enter");
+    }
+    expect(await cursorAt(px, py)).toBe(before);
+  });
 
   it("caneta: clicar e arrastar cria bezier; clicar no 1º vértice fecha a forma onde foi desenhada", async () => {
     await page.keyboard.press("Escape");

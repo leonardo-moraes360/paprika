@@ -79,16 +79,6 @@ describe.skipIf(!existsSync(webDist))("E2E: construção ao vivo", () => {
     expect(seen.filter((row) => row.id === "build-a" || row.id === "build-c").every((row) => row.opacity === "1" && row.bg !== "rgba(0, 0, 0, 0)" && row.bg !== "transparent")).toBe(true);
   });
 
-  // PAP-E2E: o app novo não tem o botão "código" do replay (BuildCode do antigo mostrava o exportReact do frame em construção)
-  it.fails("o botão de código mostra o JSX do frame que o agente constrói", async () => {
-    const toggle = page.getByRole("button", { name: /código/i });
-    await expect.poll(() => toggle.getAttribute("aria-pressed"), { timeout: 3000 }).toBe("false");
-    await expect.poll(() => page.getByTestId("build-code").count()).toBe(0);
-    await toggle.click({ timeout: 3000 });
-    await expect.poll(() => page.getByTestId("build-code").innerText()).toContain("BuildLiveRow");
-    await expect.poll(() => page.locator('[data-paprika-id="build-screen"]').count()).toBe(1);
-  });
-
   it("com movimento reduzido não há contorno nem passeio, só o estado final", async () => {
     await page.evaluate(() => {
       (window as unknown as { __build: unknown[] }).__build.length = 0;
