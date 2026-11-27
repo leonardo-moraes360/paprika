@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "node ../../crates/render/build.mjs && vite build",
+    "build:wasm": "node ../../crates/render/build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

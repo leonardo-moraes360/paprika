@@ -2,8 +2,9 @@ import type { ConnectorEnd, Document, Layout, Op } from "@paprika/core";
 import type { ComponentType } from "react";
 import type { CanvasCollabFeed } from "./collab";
 import type { CanvasRuntime } from "./runtime";
+import type { CanvasRendererStatus, WasmLoader } from "./wasm/types";
 
-export type { CanvasRuntime };
+export type { CanvasRuntime, CanvasRendererStatus, WasmLoader };
 
 /** The tools of the editor (the same names as the toolbar); the canvas reads the one in use and a gesture decides what it does. */
 export type CanvasTool = "select" | "frame" | "rect" | "ellipse" | "text" | "pen" | "shape" | "diamond" | "triangle" | "cylinder" | "parallelogram" | "cloud" | "note" | "connector" | "pin";
@@ -96,6 +97,12 @@ export type CanvasProps = {
   onCenterContent?: (ids: readonly string[]) => void;
   /** What the nodes the canvas creates carry (see `CanvasDefaults`). */
   defaults: CanvasDefaults;
+  /** Loads the WASM renderer (`crates/render`). Absent when the build has none: the canvas paints with the DOM and reports `unavailable`. */
+  wasm?: WasmLoader | null;
+  /** Where the WASM renderer stands (loading, the backend that draws, an error); called when it changes. */
+  onRendererStatus?: (status: CanvasRendererStatus) => void;
+  /** The WASM renderer failed and the DOM paints again (the message is the cause). The owner tells the person and may take the choice back to DOM. */
+  onRendererError?: (message: string) => void;
   className?: string;
 };
 

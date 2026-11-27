@@ -54,6 +54,7 @@ const sameView = (a: { flags: number; patch: unknown; linked: Linked }, b: { fla
 const SELECTED = 1;
 const HOVERED = 2;
 const EDITING = 4;
+const PAINTED = 8;
 
 /**
  * One node of the document as the DOM draws it (`nodeStyle` is the single source of its CSS, shared with the export and the
@@ -70,7 +71,7 @@ export const NodeView = memo(function NodeViewOf({ id }: { id: string }) {
   // A connector also follows the patches of the nodes it is attached to (and of the connector itself): it is routed again over them.
   const { flags, patch, linked } = useCanvasState(
     (s) => ({
-      flags: (s.selected.has(id) ? SELECTED : 0) | (s.hoveredId === id ? HOVERED : 0) | (s.editingId === id ? EDITING : 0),
+      flags: (s.selected.has(id) ? SELECTED : 0) | (s.hoveredId === id ? HOVERED : 0) | (s.editingId === id ? EDITING : 0) | (s.painted.has(id) ? PAINTED : 0),
       patch: s.preview[id],
       linked: linkedPatches(s.preview, store.doc(), snap.node),
     }),
@@ -85,6 +86,14 @@ export const NodeView = memo(function NodeViewOf({ id }: { id: string }) {
   // What the gesture shows over the node: a path's outline, a connector's route, a frame's gap and padding.
   const node = held.type === "connector" && linked.length > 0 ? routedConnector(doc, held, linked) : hasContentPatch(patch) ? withPatch(held, patch) : held;
   const css = { ...nodeStyle(doc, node) } as CSSProperties;
+  // The WASM layer paints this node's fill, border and shadow: the DOM keeps the box (a border keeps its width, so auto layout does not move) and drops the paint.
+  const painted = (flags & PAINTED) !== 0;
+  if (painted) {
+    if (css.background) css.background = "transparent";
+    if (css.border) css.borderColor = "transparent";
+    delete css.boxShadow;
+    delete css.filter;
+  }
   if (patch) {
     if (patch.x !== undefined) css.left = patch.x;
     if (patch.y !== undefined) css.top = patch.y;
@@ -118,6 +127,7 @@ export const NodeView = memo(function NodeViewOf({ id }: { id: string }) {
     case "image":
       return <img {...props} src={resolveAsset(doc, node.src)} alt={node.decorative ? "" : node.alt} aria-hidden={node.decorative || undefined} draggable={false} />;
     case "path": {
+      if (painted) return <div {...props} />;
       const a = pathAttrs(doc, node);
       return (
         <svg {...props} {...a.svg}>

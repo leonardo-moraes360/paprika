@@ -76,7 +76,7 @@ describe("editor commits with a document of 5 000 nodes", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Renderer: DOM" }));
     await user.click(screen.getByRole("menuitemradio", { name: "WASM" }));
-    expect(await screen.findByRole("button", { name: "Renderer: WASM" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Renderer: WASM · CPU" })).toBeInTheDocument();
     expect(view.socket.sentOf("hello")).toHaveLength(helloBefore + 1);
     expect(view.socket.sentOf("ops")).toEqual([]);
     for (const id of ["layers", "properties", "pages"]) expect(view.log.commits(id), id).toBe(0);

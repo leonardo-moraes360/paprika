@@ -16,6 +16,7 @@ import { createRenderStore } from "./render-index";
 import { CanvasRuntimeContext, createRuntime, type CanvasRuntime } from "./runtime";
 import type { Box, CanvasFocusRequest, CanvasInput, CanvasInputRequest, CanvasProps, Gesture } from "./types";
 import { createViewStore } from "./view-store";
+import { createWasmLayer, WasmCanvas } from "./wasm";
 import { cn } from "@/lib/utils";
 
 const keyOf = (input: CanvasInput) => `${input.doc?.id ?? ""}/${input.pageId ?? ""}`;
@@ -31,7 +32,7 @@ export function Canvas(props: CanvasProps) {
     <CanvasProvider
       initial={() => {
         const input = feed.get();
-        return initialCanvasState({ selection: input.selection, hoveredId: input.hoveredId, tool: input.tool });
+        return initialCanvasState({ selection: input.selection, hoveredId: input.hoveredId, tool: input.tool, renderer: input.renderer });
       }}
     >
       <CanvasBody {...props} />
@@ -75,6 +76,16 @@ function CanvasBody(props: CanvasProps) {
     });
     return runtime;
   });
+
+  // The WASM layer: made once, driven by the feed's `renderer`; it reports to the owner through the latest callbacks.
+  const [wasm] = useState(() =>
+    createWasmLayer({
+      rt,
+      loader: () => latest.current.wasm,
+      onStatus: (status) => latest.current.onRendererStatus?.(status),
+      onError: (message) => latest.current.onRendererError?.(message),
+    }),
+  );
 
   const camera = useCamera(
     rt,
@@ -126,6 +137,7 @@ function CanvasBody(props: CanvasProps) {
     let fitSeen = last.fitRequest;
     let zoomSeen = last.zoom;
     let focusSeen = last.focusRequest ?? null;
+    wasm.setRequested(last.renderer === "wasm");
     const viewport = viewportRef.current;
     if (viewport) viewport.dataset.tool = last.tool;
     const arm = (on: boolean) => {
@@ -152,6 +164,10 @@ function CanvasBody(props: CanvasProps) {
         if (!latest.current.capture) camera.fit();
       }
       if ((next.sampling === true) !== samplingRef.current) arm(next.sampling === true);
+      if (next.renderer !== before.renderer) {
+        store.actions.setRenderer(next.renderer);
+        wasm.setRequested(next.renderer === "wasm");
+      }
       store.actions.setSelection(next.selection);
       store.actions.setHovered(next.hoveredId);
       if (next.tool !== before.tool) {
@@ -179,7 +195,7 @@ function CanvasBody(props: CanvasProps) {
       off();
       cancelFocus();
     };
-  }, [feed, rt, store, camera, startFocus, cancelFocus]);
+  }, [feed, rt, store, camera, wasm, startFocus, cancelFocus]);
 
   // The count of node renders, readable from the page (`?perf=1` measures, the tests count): the world element answers for it.
   useLayoutEffect(() => {
@@ -196,12 +212,14 @@ function CanvasBody(props: CanvasProps) {
   const stopGesture = useRef<(() => void) | null>(null);
   useEffect(() => {
     rt.preview.attach();
+    wasm.start();
     return () => {
+      wasm.stop();
       stopGesture.current?.();
       rt.preview.dispose();
       rt.view.dispose();
     };
-  }, [rt]);
+  }, [rt, wasm]);
 
   const layerMenu = useLayerMenu(rt, latest);
 
@@ -299,6 +317,8 @@ function CanvasBody(props: CanvasProps) {
             rt.hover(null);
           }}
         >
+          {/* The WASM layer, under the world: what it paints sits below the DOM's text, images and selection. */}
+          <WasmCanvas layer={wasm} />
           {/* The page, painted by the DOM. `scheme-light`: a document is drawn the same in a dark app. */}
           <div data-canvas-world="" data-testid="canvas-world" className="absolute top-0 left-0 origin-top-left scheme-light [&_[data-build]]:outline-[1.5px] [&_[data-build]]:outline-offset-1 [&_[data-build]]:outline-(--build) [&_[data-paprika-id]]:select-none">
             <RootViews />

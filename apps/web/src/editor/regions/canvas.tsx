@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Canvas, type CanvasPinPoint } from "@/components/frontends/canvas";
+import { Canvas, type CanvasPinPoint, type CanvasRendererStatus } from "@/components/frontends/canvas";
 import { useLiveClient } from "@/data/live";
 import { showStatusToast } from "@/lib/notify";
 import { canvasDefaults } from "../canvas-defaults";
@@ -10,6 +10,7 @@ import { useCanvasCollab } from "../canvas-collab";
 import { useCanvasInputHandler } from "../canvas-input";
 import { readCaptureParams } from "../capture";
 import { useEditorStore } from "../editor-store";
+import { createWasmLoader } from "../wasm-module";
 import { useApplyOps } from "../use-apply";
 import { useSelectionActions } from "../use-selection-actions";
 
@@ -29,11 +30,28 @@ export function CanvasRegion() {
   const { collab, source } = useCanvasCollab();
   const onInput = useCanvasInputHandler();
   const capture = useMemo(readCaptureParams, []);
+  const wasm = useMemo(createWasmLoader, []);
   const onSelect = useCallback((ids: readonly string[]) => editor.actions.select(ids), [editor]);
   const onHover = useCallback((id: string | null) => editor.actions.setHovered(id), [editor]);
   const onZoomChange = useCallback((zoom: number) => editor.actions.setZoom(zoom), [editor]);
   const onToolDone = useCallback(() => editor.actions.setTool("select"), [editor]);
   const onError = useCallback((message: string) => showStatusToast({ status: "danger", title: t("app.shell.actionFailedTitle"), description: message }), [t]);
+  // The renderer reports to the editor's store, where the zoom bar's menu reads it. A build without the renderer cannot hold the choice;
+  // a failure gives the nodes back to the DOM (the canvas already did) and tells the person, through the same toast as any failed action.
+  const onRendererStatus = useCallback(
+    (status: CanvasRendererStatus) => {
+      editor.actions.setRendererStatus(status);
+      if (status.backend === "unavailable") editor.actions.setRenderer("dom");
+    },
+    [editor],
+  );
+  const onRendererError = useCallback(
+    (message: string) => {
+      editor.actions.setRenderer("dom");
+      showStatusToast({ status: "danger", title: t("app.canvas.renderer.failedTitle"), description: t("app.canvas.renderer.failed", { reason: message }) });
+    },
+    [editor, t],
+  );
   // The layers menu acts on the ids it was opened on.
   const onConvertToPath = useCallback((ids: readonly string[]) => void selection.convert(ids), [selection]);
   const onCenterContent = useCallback((ids: readonly string[]) => void selection.center(ids), [selection]);
@@ -91,6 +109,9 @@ export function CanvasRegion() {
         onZoomChange={onZoomChange}
         onApply={apply}
         defaults={canvasDefaults}
+        wasm={wasm}
+        onRendererStatus={onRendererStatus}
+        onRendererError={onRendererError}
         onConvertToPath={onConvertToPath}
         onCenterContent={onCenterContent}
         onToolDone={onToolDone}

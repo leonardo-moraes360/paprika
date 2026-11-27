@@ -4,7 +4,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const crate = dirname(fileURLToPath(import.meta.url));
-const out = join(crate, "../../web-legacy/src/wasm");
+// The artifact goes to both apps: each imports it from its own `src/wasm/` (gitignored).
+const outs = ["web-legacy", "apps/web"].map((app) => join(crate, "../..", app, "src/wasm"));
 const want = readFileSync(join(crate, "Cargo.toml"), "utf8").match(/wasm-bindgen = "=([\d.]+)"/)?.[1];
 const require = process.env.PAPRIKA_REQUIRE_WASM === "1";
 
@@ -34,6 +35,9 @@ if (missing.length) {
 
 const run = (cmd, args) => execFileSync(cmd, args, { cwd: crate, stdio: "inherit" });
 run("cargo", ["build", "--release", "--target", "wasm32-unknown-unknown"]);
-mkdirSync(out, { recursive: true });
-run("wasm-bindgen", ["--target", "web", "--out-dir", out, join(crate, "target/wasm32-unknown-unknown/release/paprika_render.wasm")]);
-console.log(`[render-wasm] built -> ${out}`);
+const wasm = join(crate, "target/wasm32-unknown-unknown/release/paprika_render.wasm");
+for (const out of outs) {
+  mkdirSync(out, { recursive: true });
+  run("wasm-bindgen", ["--target", "web", "--out-dir", out, wasm]);
+}
+console.log(`[render-wasm] built -> ${outs.join(", ")}`);

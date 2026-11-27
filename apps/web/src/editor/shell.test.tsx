@@ -254,7 +254,8 @@ describe("stage", () => {
       await user.click(trigger);
       expect(screen.getByRole("menuitemradio", { name: "DOM" })).toBeChecked();
       await user.click(screen.getByRole("menuitemradio", { name: "WASM" }));
-      expect(screen.getByRole("button", { name: "Renderer: WASM" })).toBeInTheDocument();
+      // The renderer loads, and the menu says which backend draws.
+      expect(await screen.findByRole("button", { name: "Renderer: WASM · CPU" })).toBeInTheDocument();
       expect(view.socket.sentOf("hello").at(-1)).toMatchObject({ renderer: "wasm" });
       expect(window.localStorage.getItem("paprika.renderer")).toBe("wasm");
       expect(opsSent(view)).toEqual([]);
@@ -264,7 +265,7 @@ describe("stage", () => {
     it("reopens on the saved choice and announces it with a hello", async () => {
       window.localStorage.setItem("paprika.renderer", "wasm");
       const view = await openShell();
-      expect(screen.getByRole("button", { name: "Renderer: WASM" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Renderer: WASM · CPU" })).toBeInTheDocument();
       expect(view.socket.sentOf("hello")).toEqual([expect.objectContaining({ renderer: "wasm" })]);
       view.unmount();
     });

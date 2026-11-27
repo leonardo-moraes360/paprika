@@ -1,6 +1,6 @@
 import type { StoreActionsFactory } from "@tanstack/react-store";
 import { createRegion } from "../_shared";
-import type { CanvasTool, PreviewPatch } from "./types";
+import type { CanvasRenderer, CanvasTool, PreviewPatch } from "./types";
 
 /**
  * The state of the canvas that many pieces read, each its own slice: a node asks "am I selected / hovered / being previewed",
@@ -16,6 +16,10 @@ export type CanvasState = {
   preview: Readonly<Record<string, PreviewPatch>>;
   /** The node whose content an editor (text, label) is painting over: the node hides its own so it does not show twice. */
   editingId: string | null;
+  /** The renderer the owner asked for. The WASM layer follows it; what it actually paints is `painted`. */
+  renderer: CanvasRenderer;
+  /** The nodes the WASM layer paints (a node drops its fill, border and shadow in the DOM); empty while the DOM paints everything. */
+  painted: ReadonlySet<string>;
 };
 
 export type CanvasActions = {
@@ -27,7 +31,13 @@ export type CanvasActions = {
   /** Removes the patches of `ids`, or all of them. */
   clearPreview: (ids?: readonly string[]) => void;
   setEditing: (id: string | null) => void;
+  setRenderer: (renderer: CanvasRenderer) => void;
+  /** Takes the set as it is: the layer hands over a new set only when the nodes it paints changed. */
+  setPainted: (ids: ReadonlySet<string>) => void;
 };
+
+/** The set while the DOM paints everything (one object, so a node's selector answers `false` without a lookup that differs). */
+export const NO_PAINTED: ReadonlySet<string> = new Set();
 
 const samePatch = (a: PreviewPatch, b: PreviewPatch) => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height && a.rotation === b.rotation && a.inert === b.inert && a.d === b.d && a.from === b.from && a.to === b.to && a.control === b.control && a.layout === b.layout;
 const sameIds = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((id, i) => id === b[i]);
@@ -65,13 +75,15 @@ export const canvasActions: StoreActionsFactory<CanvasState, CanvasActions> = ({
       return touched ? { ...s, preview: next } : s;
     }),
   setEditing: (editingId) => setState((s) => (s.editingId === editingId ? s : { ...s, editingId })),
+  setRenderer: (renderer) => setState((s) => (s.renderer === renderer ? s : { ...s, renderer })),
+  setPainted: (painted) => setState((s) => (s.painted === painted ? s : { ...s, painted })),
 });
 
 export const CanvasStateRegion = createRegion<CanvasState, CanvasActions>("Canvas", canvasActions);
 
-export const initialCanvasState = (overrides: Partial<Pick<CanvasState, "selection" | "hoveredId" | "tool">> = {}): CanvasState => {
+export const initialCanvasState = (overrides: Partial<Pick<CanvasState, "selection" | "hoveredId" | "tool" | "renderer">> = {}): CanvasState => {
   const selection = overrides.selection ?? [];
-  return { selection, selected: new Set(selection), hoveredId: overrides.hoveredId ?? null, tool: overrides.tool ?? "select", preview: {}, editingId: null };
+  return { selection, selected: new Set(selection), hoveredId: overrides.hoveredId ?? null, tool: overrides.tool ?? "select", preview: {}, editingId: null, renderer: overrides.renderer ?? "dom", painted: NO_PAINTED };
 };
 
 export const CanvasProvider = CanvasStateRegion.Provider;
