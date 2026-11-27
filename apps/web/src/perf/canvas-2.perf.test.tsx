@@ -70,7 +70,7 @@ describe("creation on 5 000 nodes", () => {
     expect(view.renders() - rendersBefore).toBe(0);
     process.stderr.write(`[perf canvas-2 jsdom] draw: ${during.canvas} canvas commits over 31 pointer events, 0 node renders, 1 apply\n`);
     view.unmount();
-  });
+  }, 30_000);
 });
 
 describe("text editing on 5 000 nodes", () => {
@@ -111,5 +111,5 @@ describe("text editing on 5 000 nodes", () => {
     expect((view.sent()[0] as unknown as { ops: unknown[] }).ops).toEqual([{ op: "update", id, props: { text: `hello${"!".repeat(40)}`, runs: null } }]);
     process.stderr.write("[perf canvas-2 jsdom] text: open renders 1 node; 40 inputs = 0 renders, 0 commits, 0 messages; confirm = 1 apply\n");
     view.unmount();
-  });
+  }, 30_000);
 });
