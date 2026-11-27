@@ -860,9 +860,14 @@ describe.skipIf(!wasmBuilt)("E2E: measureBoxes escala linear e não força layou
     await cdp.send("Performance.enable");
     await openCanvas(page, server.url, "cpu");
     await page.waitForFunction(() => !!(document.querySelector('[data-testid="canvas-world"]') as unknown as { __paprikaMeasure?: unknown })?.__paprikaMeasure, undefined, { timeout: 60_000 });
-    await page.waitForTimeout(800);
     const layouts = async () => ((await cdp.send("Performance.getMetrics")).metrics.find((m) => m.name === "LayoutCount")?.value ?? 0);
-    const before = await layouts();
+    let before = await layouts();
+    for (let quiet = 0, tries = 0; quiet < 3 && tries < 60; tries++) {
+      await page.waitForTimeout(300);
+      const now = await layouts();
+      quiet = now === before ? quiet + 1 : 0;
+      before = now;
+    }
     const r = await page.evaluate(() => {
       const world = document.querySelector<HTMLElement>('[data-testid="canvas-world"]')! as unknown as { __paprikaMeasure: () => Map<string, unknown> };
       const times: number[] = [];
