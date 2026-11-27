@@ -54,7 +54,7 @@ The suite above does not cover the new app yet. What exists today:
 - Commit counts in Vitest: `apps/web/src/perf/*.perf.test.tsx` render the editor and the overview in jsdom on a generated N-node document and assert how many times each region commits for an action (they run with `pnpm --filter @paprika/web test`). They check that an action does not re-render regions it should not touch. They are not time budgets and the timings they print are jsdom's, which say nothing about a browser.
 - A manual measure: `?perf=1` on a development build (`vite dev`) turns on `RegionProfiler` (`apps/web/src/perf`), which records each region's commits and `actualDuration` and exposes them as `window.__paprikaPerf` (read it from the console or a script). It is off in a production build. Numbers taken this way are from a development build.
 
-What is missing: a scenario and a budget for the new app in `packages/e2e/test/perf` (rule 7(b) of [AGENTS.md](../../AGENTS.md)). That suite drives the legacy app from `web-legacy/dist`, and the Go server does not serve the new app yet, so there is nothing for it to drive. The Vitest commit tests are not that budget.
+What is missing: a scenario and a budget for the new app in `packages/e2e/test/perf` (rule 7(b) of [AGENTS.md](../../AGENTS.md)). That suite drives the legacy app from `web-legacy/dist`, and every browser suite of `packages/e2e` still drives the legacy app (PAP-A-086), although the Go server now serves the new one by default; the harness pins `--web web-legacy/dist`. The Vitest commit tests are not that budget.
 
 ## How to profile
 

@@ -23,9 +23,12 @@ func webRoot(flagValue string) string {
 	candidates = append(candidates, "apps/web/dist/client", "../apps/web/dist/client")
 	candidates = append(candidates, legacy...)
 	candidates = append(candidates, "web-legacy/dist", "../web-legacy/dist")
-	for _, c := range candidates {
+	for i, c := range candidates {
 		if c != "" && server.WebEntry(c) != "" {
 			return c
+		}
+		if i < 2 && c != "" {
+			logf("aviso: " + c + " não tem _shell.html nem index.html; procurando o app em outro lugar")
 		}
 	}
 	return ""

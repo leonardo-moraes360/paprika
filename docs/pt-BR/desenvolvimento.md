@@ -44,7 +44,6 @@ O servidor fica em `server/` e guarda documentos, tokens e o histórico de undo/
 ```bash
 pnpm check        # build + typecheck + fixtures em dia + testes unitários e Go + suítes da API e E2E
 pnpm dev          # servidor com o demo (dev.db, recriado ao iniciar); em outro terminal: pnpm --filter @paprika/web dev (faz proxy de /api, /ws, /mcp e /fonts para o servidor; `PAPRIKA_URL` muda o alvo)
-pnpm --filter @paprika/web dev   # app novo (TanStack Start, modo SPA), em construção; mesmo proxy para o servidor
 pnpm test:api     # suíte black-box MCP/HTTP/WS contra server/bin/paprika
 pnpm test:e2e     # E2E do canvas (Playwright) contra server/bin/paprika
 pnpm test:render  # renderizador Rust (crates/render): testes nativos com vello_cpu

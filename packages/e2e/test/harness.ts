@@ -12,7 +12,18 @@ if (!existsSync(serverBin)) throw new Error(`servidor Go não encontrado em ${se
 
 // As suítes ainda dirigem o app antigo; o servidor serve o novo por padrão, então a raiz antiga é fixada aqui.
 const legacyWebRoot = join(repoRoot, "web-legacy/dist");
-const defaultWebRoot = existsSync(join(legacyWebRoot, "index.html")) ? legacyWebRoot : undefined;
+
+let warnedNoLegacy = false;
+
+// Sem o build do app antigo a suíte de API ainda roda, mas o servidor cairia no app novo sem ninguém ver: avisa alto, uma vez.
+function defaultWebRoot(): string | undefined {
+  if (existsSync(join(legacyWebRoot, "index.html"))) return legacyWebRoot;
+  if (!warnedNoLegacy) {
+    warnedNoLegacy = true;
+    console.warn(`[e2e] app antigo não construído em ${legacyWebRoot} (rode \`pnpm --filter @paprika/web-legacy build\`): as suítes de navegador vão encontrar o app novo, não o antigo`);
+  }
+  return undefined;
+}
 
 export interface ExternalServer {
   url: string;
@@ -32,7 +43,8 @@ export async function startServer(opts: { seed?: string; webRoot?: string } = {}
     await copyFile(opts.seed, file);
     execFileSync(serverBin, ["import", file, "--db", db], { stdio: "pipe" });
   }
-  const args = ["serve", "--db", db, "--port", "0", ...((opts.webRoot ?? defaultWebRoot) ? ["--web", (opts.webRoot ?? defaultWebRoot)!] : [])];
+  const web = opts.webRoot ?? defaultWebRoot();
+  const args = ["serve", "--db", db, "--port", "0", ...(web ? ["--web", web] : [])];
   const proc = spawn(serverBin, args, { stdio: ["ignore", "pipe", "pipe"] });
   let log = "";
   const url = await new Promise<string>((ok, fail) => {

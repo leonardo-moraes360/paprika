@@ -373,7 +373,20 @@ func TestWebRootAcceptsShellAndPrefersIt(t *testing.T) {
 	}
 	empty := t.TempDir()
 	t.Setenv("PAPRIKA_WEB_ROOT", empty)
-	if got := webRoot(empty); got == empty {
+	rd, wr, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := os.Stderr
+	os.Stderr = wr
+	got := webRoot(empty)
+	os.Stderr = saved
+	wr.Close()
+	warn, _ := io.ReadAll(rd)
+	if got == empty {
 		t.Errorf("a folder without an entry must not be chosen")
+	}
+	if !strings.Contains(string(warn), empty) {
+		t.Errorf("a folder given without an entry must be reported, got %q", warn)
 	}
 }
