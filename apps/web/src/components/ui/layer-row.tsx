@@ -11,7 +11,7 @@ export function LayerTree<Mode extends TreeMode = "single">({ className, expandO
   return <Tree<Mode> expandOnPress={expandOnPress} className={cn("flex flex-col outline-none", className)} {...props} />;
 }
 
-const toggleBase = `group/toggle hidden size-6 shrink-0 cursor-pointer items-center justify-center rounded-xs text-muted group-focus-within/layer:flex group-hover/layer:flex pointer-coarse:flex data-pressed:flex data-disabled:cursor-not-allowed forced-colors:data-pressed:border forced-colors:data-pressed:border-[Highlight] [&_svg]:size-3.5 [&_svg]:stroke-[1.75] ${focusRing}`;
+const toggleBase = `group/toggle hidden size-6 shrink-0 cursor-pointer items-center justify-center rounded-xs text-muted group-focus-within/layer:flex group-hover/layer:flex group-[:is([role=treeitem]:focus-visible>*)]/layer:flex pointer-coarse:flex data-pressed:flex data-disabled:cursor-not-allowed forced-colors:data-pressed:border forced-colors:data-pressed:border-[Highlight] [&_svg]:size-3.5 [&_svg]:stroke-[1.75] ${focusRing}`;
 
 const stopBubbling = {
   onClick: (event: { stopPropagation: () => void }) => event.stopPropagation(),

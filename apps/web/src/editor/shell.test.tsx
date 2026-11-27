@@ -65,6 +65,7 @@ describe("header", () => {
     const header = screen.getByRole("banner");
     expect(within(header).getByRole("link", { name: "Workspaces" })).toBeInTheDocument();
     expect(within(header).getByText("Synthetic")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Synthetic");
     expect(within(header).getByText("Page 1")).toBeInTheDocument();
     expect(await within(header).findByText("2 open")).toBeInTheDocument();
     expect(within(header).queryByText(/active/)).not.toBeInTheDocument();
@@ -79,6 +80,19 @@ describe("header", () => {
     view.rig.push({ type: "team", status: { team: { name: "Estúdio Norte" }, peers: [{ state: "direct" }] } });
     expect(await screen.findByText("Estúdio Norte · 2 online")).toBeInTheDocument();
     view.unmount();
+  });
+});
+
+describe("panel layout", () => {
+  it("remembers the panel sizes in the browser (the old app did, under paprika.panel.*)", async () => {
+    const user = userEvent.setup();
+    window.localStorage.removeItem("paprika.ui-sdk-resizable:layout");
+    const view = await openShell();
+    screen.getByRole("separator", { name: "Resize layers panel" }).focus();
+    await user.keyboard("{ArrowRight}");
+    expect(window.localStorage.getItem("paprika.ui-sdk-resizable:layout")).not.toBeNull();
+    view.unmount();
+    window.localStorage.removeItem("paprika.ui-sdk-resizable:layout");
   });
 });
 
@@ -451,6 +465,7 @@ describe("keyboard", () => {
     expect(sent).toEqual([{ type: "undo", mode: "own", reqId: expect.any(String) }]);
     act(() => view.socket.ack(sent[0]?.reqId, 1, { step: { result: "undone", ord: 4, label: "move", actor: "user", newer: 0 } }));
     expect(await screen.findByText("Undone: move")).toBeInTheDocument();
+    expect(Array.from(document.querySelectorAll("kbd"), (key) => key.textContent)).toEqual(expect.arrayContaining(["Y"]));
     await user.keyboard("{Control>}{Shift>}z{/Shift}{/Control}");
     const redo = view.socket.sentOf("redo") as { reqId?: string }[];
     expect(redo).toEqual([{ type: "redo", mode: "own", reqId: expect.any(String) }]);

@@ -1,5 +1,7 @@
-import { useMemo } from "react";
+import { useFormatForDisplay } from "@tanstack/react-hotkeys";
+import { createElement, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { Kbd } from "@/components/ui/kbd";
 import { stepNumber, stepOutcome, type StepOutcome } from "@/adapters/history";
 import { useLiveActions, type StepResult } from "@/data/live";
 import { showStatusToast, showUndoToast } from "@/lib/notify";
@@ -18,8 +20,12 @@ export function useHistoryActions() {
   const live = useLiveActions();
   const editor = useEditorActions();
   const failure = useFailureText();
+  const format = useFormatForDisplay();
 
   return useMemo(() => {
+    // The redo key the toast offers next to its button, as the old app did ("Ctrl Y").
+    const redoKeys = format("Mod+Y", { parts: true });
+    const shortcut = createElement("span", { className: "flex gap-1" }, ...redoKeys.map((key) => createElement(Kbd, { key }, key)));
     const announce = (outcome: StepOutcome, redoStep: (ord: number) => void) => {
       const history = { label: t("app.shell.toast.viewHistory"), onAction: () => editor.openDialog("history") };
       switch (outcome.kind) {
@@ -29,7 +35,7 @@ export function useHistoryActions() {
             : outcome.own && outcome.newer > 0
               ? t("app.shell.toast.undoneOwn", { label: outcome.label, count: outcome.newer })
               : t("app.shell.toast.undone", { label: outcome.label });
-          showUndoToast({ title, action: { label: t("app.shell.toast.redo"), onAction: () => redoStep(outcome.ord) } });
+          showUndoToast({ title, action: { label: t("app.shell.toast.redo"), onAction: () => redoStep(outcome.ord) }, shortcut });
           return;
         }
         case "redone":
@@ -78,5 +84,5 @@ export function useHistoryActions() {
       undoStep: (id: string) => step(id, false),
       redoStep: (id: string) => step(id, true),
     };
-  }, [t, live, editor, failure]);
+  }, [t, live, editor, failure, format]);
 }

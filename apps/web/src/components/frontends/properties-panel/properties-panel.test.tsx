@@ -385,6 +385,12 @@ describe("Section state", () => {
     expect(box("X")).toBeInTheDocument();
   });
 
+  it("slides a section's body over its height, and not under reduced motion", () => {
+    setup({ id: "f1" });
+    const body = document.getElementById(screen.getByRole("button", { name: "Position and size" }).getAttribute("aria-controls") as string);
+    expect(body).toHaveClass("transition-[height]", "motion-reduce:transition-none", "data-ending-style:h-0", "data-starting-style:h-0");
+  });
+
   it("renders the same first markup whatever is stored, and applies the stored state after mounting", async () => {
     const doc = buildDocument();
     const node = doc.nodes.f1 ?? null;

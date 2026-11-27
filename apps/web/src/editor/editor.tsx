@@ -28,6 +28,7 @@ export function Editor() {
           </RegionProfiler>
           <div className="min-h-0 flex-1">
             <EditorLayout
+              storageKey="layout"
               left={
                 <div className="flex h-full min-h-0 flex-col">
                   <RegionProfiler id="pages">

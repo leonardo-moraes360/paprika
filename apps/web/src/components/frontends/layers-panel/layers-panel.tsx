@@ -3,7 +3,7 @@ import { useVirtualizer, defaultRangeExtractor, type Range } from "@tanstack/rea
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { visibleTreeRows } from "@ui-sdk/react/tree";
 import { Ellipsis } from "lucide-react";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { DragOverlay } from "@/components/ui/drag-overlay";
 import { IconButton } from "@/components/ui/icon-button";
@@ -146,6 +146,13 @@ function LayersPanelView({
   });
   const virtualized = visible.length > virtualizeAfter;
   const indexes = virtualized ? virtual.getVirtualItems().map((item) => item.index) : visible.map((_, index) => index);
+
+  // A selection made elsewhere (the canvas, an agent) brings its last row into view; a row already in view does not move ("auto").
+  const lastSelectedId = selectedIds[selectedIds.length - 1];
+  useEffect(() => {
+    const index = lastSelectedId === undefined ? undefined : latest.current.visibleIndex.get(lastSelectedId);
+    if (viewport && index !== undefined) virtual.scrollToIndex(index, { align: "auto" });
+  }, [lastSelectedId, viewport]);
 
   useLayoutEffect(() => {
     const renamingId = store.get().renamingId;

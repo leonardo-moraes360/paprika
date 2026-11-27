@@ -38,6 +38,11 @@ const transform = (el: HTMLElement) => {
 };
 
 describe("rendering of every kind of node", () => {
+  it("the world does not inherit the chrome's line height: design text without one renders as in a plain page", () => {
+    const { world } = mount();
+    expect(world.className).toContain("[line-height:normal]");
+  });
+
   it("paints each node of the page with its id and type, the way the old canvas did", () => {
     const { world } = mount();
     const expected: Record<string, string> = { home: "frame", turned: "rect", title: "text", pic: "image", squiggle: "path", pair: "group", dot: "ellipse", box: "shape", arrow: "connector", "btn-copy": "frame" };

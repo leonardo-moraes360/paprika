@@ -1,13 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { chromium, type Browser, type Page } from "playwright";
-import { pinLocale } from "./locale.js";
-import { startServer, type ExternalServer } from "../harness.js";
+import type { Page } from "playwright";
+import { closeSeededCanvas, openSeededCanvas, webDist, type CanvasSession } from "./seededCanvas.js";
 
-const root = resolve(import.meta.dirname, "../../../..");
-const webRoot = join(root, "web-legacy/dist");
-const SECTION = "inspector-section-position";
+const TITLE = "Posição e tamanho";
+const section = (page: Page) => page.locator('[data-slot="collapsible"]').filter({ has: page.getByRole("heading", { name: TITLE, level: 3 }) });
 
 type Sample = { t: number; sectionH: number; siblingY: number; bodyH: number };
 
@@ -41,8 +38,9 @@ function assertNoBackwardJump(samples: Sample[], direction: "close" | "open") {
 }
 
 async function arm(page: Page) {
-  await page.evaluate((testId) => {
-    const section = document.querySelector(`[data-testid="${testId}"]`);
+  await page.evaluate((title) => {
+    const heading = [...document.querySelectorAll("h3")].find((h) => h.textContent?.trim() === title);
+    const section = heading?.closest("[data-slot='collapsible']");
     if (!section || !section.parentElement || !section.nextElementSibling) throw new Error("missing section");
     const parent = section.parentElement;
     const next = section.nextElementSibling;
@@ -52,7 +50,7 @@ async function arm(page: Page) {
       const parentTop = parent.getBoundingClientRect().top;
       const box = section.getBoundingClientRect();
       const sib = next.getBoundingClientRect();
-      const body = section.querySelector("[data-slot='collapsible-content']");
+      const body = section.querySelector("[data-slot='collapsible-panel']");
       const bodyBox = body ? body.getBoundingClientRect() : null;
       samples.push({
         t: performance.now(),
@@ -70,7 +68,7 @@ async function arm(page: Page) {
         return samples;
       },
     };
-  }, SECTION);
+  }, TITLE);
 }
 
 async function stop(page: Page): Promise<Sample[]> {
@@ -78,9 +76,9 @@ async function stop(page: Page): Promise<Sample[]> {
 }
 
 async function toggle(page: Page, direction: "close" | "open") {
-  const section = page.getByTestId(SECTION);
-  await section.scrollIntoViewIfNeeded();
-  const trigger = section.getByRole("button").first();
+  const root = section(page);
+  await root.scrollIntoViewIfNeeded();
+  const trigger = root.getByRole("button").first();
   await expect.poll(() => trigger.getAttribute("aria-expanded")).toBe(direction === "close" ? "true" : "false");
   await arm(page);
   await trigger.click();
@@ -89,27 +87,24 @@ async function toggle(page: Page, direction: "close" | "open") {
   return stop(page);
 }
 
-describe.skipIf(!existsSync(webRoot))("E2E: colapso das seções do inspector", () => {
-  let external: ExternalServer | undefined;
-  let browser: Browser;
+async function selectLogin(page: Page) {
+  await page.locator('[data-layer-id="login"]').click({ position: { x: 70, y: 14 } });
+  await section(page).waitFor();
+}
+
+describe.skipIf(!existsSync(webDist))("E2E: colapso das seções do inspector", () => {
+  let session: CanvasSession | undefined;
   let page: Page;
 
   beforeAll(async () => {
-    external = await startServer({ seed: join(root, "packages/e2e/fixtures/demo.paprika.json"), webRoot });
-    browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
-    page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-    await pinLocale(page, "pt-BR");
+    session = await openSeededCanvas("paprika-collapse-");
+    page = session.page;
     await page.emulateMedia({ reducedMotion: "no-preference" });
-    await page.goto(external.url);
-    await page.locator(".workspace-card.is-active").click();
-    await page.waitForSelector('[data-paprika-id="login"]');
-    await page.locator('[data-layer-id="login"]').click();
-    await page.getByTestId(SECTION).waitFor();
+    await selectLogin(page);
   }, 60_000);
 
   afterAll(async () => {
-    await browser?.close();
-    await external?.stop();
+    await closeSeededCanvas(session, []);
   });
 
   it("fechar e abrir desliza sem voltar e sem passar da altura final", async () => {
@@ -126,11 +121,10 @@ describe.skipIf(!existsSync(webRoot))("E2E: colapso das seções do inspector", 
 
   it("movimento reduzido fecha sem animação e sem salto", async () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.evaluate(() => localStorage.removeItem("paprika.inspector.sections.v1"));
+    await page.evaluate(() => localStorage.removeItem("paprika.properties.sections"));
     await page.reload();
     await page.waitForSelector('[data-paprika-id="login"]');
-    await page.locator('[data-layer-id="login"]').click();
-    await page.getByTestId(SECTION).waitFor();
+    await selectLogin(page);
 
     const closing = await toggle(page, "close");
     assertNoBackwardJump(closing, "close");
