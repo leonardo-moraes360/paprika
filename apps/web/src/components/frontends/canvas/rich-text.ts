@@ -204,6 +204,15 @@ export const marks = {
   link: (href: string) => (run: TextRun | undefined): TextRun => ({ start: 0, end: 0, ...(run ?? {}), href }),
 };
 
+/** The link under a caret or selection: the run with an `href` that holds the caret, or the first that the selection touches. */
+export function linkAt(runs: readonly TextRun[] | null | undefined, start: number, end: number): TextRun | null {
+  for (const run of runs ?? []) {
+    if (!run.href) continue;
+    if (start === end ? run.start <= start && start <= run.end : run.start < end && start < run.end) return run;
+  }
+  return null;
+}
+
 /** An address the toolbar accepts as a link (the old canvas' rule). */
 export const linkOk = (href: string) => /^(https?:\/\/|mailto:|[#/])/.test(href) && !/[\s<>"']/.test(href);
 

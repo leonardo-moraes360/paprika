@@ -77,6 +77,9 @@ export const canvasEn = {
     link: "Link",
     applyLink: "Apply link",
     removeLink: "Remove link",
+    linkField: "Link address",
+    linkPlaceholder: "https://… or /path",
+    linkInvalid: "Use http(s), mailto, / or #",
   },
   editors: {
     shapeText: "Shape text",
@@ -175,6 +178,9 @@ export const canvasPtBR: typeof canvasEn = {
     link: "Link",
     applyLink: "Aplicar link",
     removeLink: "Remover link",
+    linkField: "Endereço do link",
+    linkPlaceholder: "https://… ou /caminho",
+    linkInvalid: "Use http(s), mailto, / ou #",
   },
   editors: {
     shapeText: "Texto da forma",

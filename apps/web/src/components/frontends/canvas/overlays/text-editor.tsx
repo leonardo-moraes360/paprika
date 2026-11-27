@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { TextField } from "@/components/ui/text-field";
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/ui/toolbar-group";
 import { ToolbarButton } from "@/components/ui/toolbar-button";
-import { editRange, linkOk, marks, paintEditable, readEditable, sameText, selectOffsets, selectionOffsets } from "../rich-text";
+import { editRange, linkAt, linkOk, marks, paintEditable, readEditable, sameText, selectOffsets, selectionOffsets } from "../rich-text";
 import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
 import { confirmKey, editorOutlineStyle } from "./editor-chrome";
@@ -45,7 +45,9 @@ function TextSurface({ node }: { node: TextNode }) {
   const saved = useRef<{ start: number; end: number } | null>(null);
   const [size, setSize] = useState(typeof node.fontSize === "number" ? String(node.fontSize) : "16");
   const [color, setColor] = useState(hexOf(node.color));
-  const [href, setHref] = useState("https://");
+  const [href, setHref] = useState("");
+  const [linked, setLinked] = useState<string | null>(null);
+  const [tried, setTried] = useState(false);
 
   const version = useDocVersion();
   // The shell and the bar follow the text: another client may move it, or change its size, while it is open.
@@ -104,6 +106,25 @@ function TextSurface({ node }: { node: TextNode }) {
     }
   }, [node.text, node.runs]);
 
+  // A caret or selection inside a link puts its address in the field and offers to remove it.
+  useEffect(() => {
+    const follow = () => {
+      const el = surface.current;
+      if (!el || done.current) return;
+      const at = selectionOffsets(el);
+      if (!at) return;
+      const current = readEditable(el);
+      const run = linkAt(current.runs, at.start, at.end);
+      setLinked(run?.href ?? null);
+      if (run?.href) {
+        setHref(run.href);
+        setTried(false);
+      }
+    };
+    document.addEventListener("selectionchange", follow);
+    return () => document.removeEventListener("selectionchange", follow);
+  }, []);
+
   const finish = (refocus: boolean) => {
     if (done.current) return;
     done.current = true;
@@ -116,17 +137,32 @@ function TextSurface({ node }: { node: TextNode }) {
     if (refocus) rt.viewport()?.focus({ preventScroll: true });
   };
 
-  const change = (run: (run: TextRun | undefined) => TextRun | null) => {
+  const change = (run: (run: TextRun | undefined) => TextRun | null, whole?: boolean) => {
     const el = surface.current;
     if (!el) return;
     const live = selectionOffsets(el);
-    const sel = live && live.start !== live.end ? live : saved.current;
-    if (!sel || sel.start === sel.end) return;
+    let sel = live && live.start !== live.end ? live : saved.current;
     const current = readEditable(el);
+    if ((!sel || sel.start === sel.end) && whole) {
+      const at = live ?? saved.current;
+      const hit = at ? linkAt(current.runs, at.start, at.end) : null;
+      if (hit) sel = { start: hit.start, end: hit.end };
+    }
+    if (!sel || sel.start === sel.end) return;
     paintEditable(el, current.text, editRange(current.text, current.runs ?? undefined, sel.start, sel.end, run));
     selectOffsets(el, sel.start, sel.end);
   };
 
+  const apply = () => {
+    if (!linkOk(href.trim())) {
+      setTried(true);
+      return;
+    }
+    setTried(false);
+    change(marks.link(href.trim()), true);
+  };
+
+  const showError = tried && !linkOk(href.trim());
   const number = Number(size);
   const sizeOk = Number.isFinite(number) && number >= 1 && number <= 1000;
   const colorOk = color.trim() !== "" && typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("color", color.trim());
@@ -196,23 +232,33 @@ function TextSurface({ node }: { node: TextNode }) {
             }}
           />
           <TextField
-            aria-label={text("link")}
-            className="h-7 w-32 px-1.5 text-sm"
+            aria-label={text("linkField")}
+            aria-invalid={showError || undefined}
+            aria-describedby={showError ? "text-link-error" : undefined}
+            className={`h-7 w-32 px-1.5 text-sm ${showError ? "border-red-ink" : ""} focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-select`}
             value={href}
+            placeholder={text("linkPlaceholder")}
             onChange={(e) => setHref(e.target.value)}
             onKeyDown={(e) => {
               if (e.key !== "Enter") return;
               e.preventDefault();
-              if (linkOk(href)) change(marks.link(href));
+              if (href.trim() !== "") apply();
             }}
           />
-          <ToolbarButton aria-label={text("applyLink")} disabled={!linkOk(href)} onClick={() => change(marks.link(href))}>
+          <ToolbarButton aria-label={text("applyLink")} disabled={href.trim() === ""} onClick={apply}>
             <Link2 aria-hidden="true" />
           </ToolbarButton>
-          <ToolbarButton aria-label={text("removeLink")} onClick={() => change(marks.unlink)}>
-            <Unlink aria-hidden="true" />
-          </ToolbarButton>
+          {linked !== null ? (
+            <ToolbarButton aria-label={text("removeLink")} onClick={() => change(marks.unlink, true)}>
+              <Unlink aria-hidden="true" />
+            </ToolbarButton>
+          ) : null}
         </Toolbar>
+        {showError ? (
+          <p id="text-link-error" role="alert" className="mt-1 rounded-sm bg-surface px-1.5 py-1 text-xs font-medium text-red-ink">
+            {text("linkInvalid")}
+          </p>
+        ) : null}
       </div>
       <div
         ref={surface}
