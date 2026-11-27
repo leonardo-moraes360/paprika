@@ -323,7 +323,7 @@ function CanvasBody(props: CanvasProps) {
           {/* The WASM layer, under the world: what it paints sits below the DOM's text, images and selection. */}
           <WasmCanvas layer={wasm} />
           {/* The page, painted by the DOM. `scheme-light`: a document is drawn the same in a dark app. */}
-          <div data-canvas-world="" data-testid="canvas-world" className="absolute top-0 left-0 origin-top-left scheme-light [&_[data-paprika-id]]:select-none">
+          <div data-canvas-world="" data-testid="canvas-world" className="absolute top-0 left-0 origin-top-left scheme-light [line-height:normal] [&_[data-paprika-id]]:select-none">
             <RootViews />
           </div>
           <div
