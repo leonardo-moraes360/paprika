@@ -35,7 +35,7 @@ describe.skipIf(!existsSync(webDist))("E2E: incoming write cost does not scale w
     page.evaluate(
       () =>
         ({
-          renders: (document.querySelector(".world") as unknown as { __paprikaNodeRenders: number }).__paprikaNodeRenders,
+          renders: (document.querySelector('[data-testid="canvas-world"]') as unknown as { __paprikaNodeRenders: number }).__paprikaNodeRenders,
           lint: (window as unknown as { __paprikaLint: Probe["lint"] }).__paprikaLint,
         }) satisfies Probe,
     );
@@ -55,9 +55,9 @@ describe.skipIf(!existsSync(webDist))("E2E: incoming write cost does not scale w
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
     await pinLocale(page, "pt-BR");
     await page.goto(`${srv.url}/w/${worst.doc.id}`);
-    await page.waitForSelector(".world [data-paprika-id]", { timeout: 120_000 });
+    await page.waitForSelector('[data-testid="canvas-world"] [data-paprika-id]', { timeout: 120_000 });
     await page.waitForTimeout(2500);
-    await page.waitForFunction(() => (window as unknown as { __paprikaLint?: { posts: number } }).__paprikaLint!.posts > 0);
+    await page.waitForFunction(() => ((window as unknown as { __paprikaLint?: { posts: number } }).__paprikaLint?.posts ?? 0) > 0);
     const id = plainText(worst);
     await mcp(srv.url, "update_nodes", { updates: [{ id, props: { opacity: 0.9 } }] });
     await page.waitForFunction(() => (window as unknown as { __paprikaLint: { patchedNodes: number } }).__paprikaLint.patchedNodes > 0 || (window as unknown as { __paprikaLint: { resets: number } }).__paprikaLint.resets > 1, undefined, { timeout: 30_000 });
@@ -88,7 +88,7 @@ describe.skipIf(!existsSync(webDist))("E2E: incoming write cost does not scale w
   it("still reports the review issues, now computed off the main thread", async () => {
     const run1 = await run({ pages: 2, totalNodes: 400, heavyNodes: 200, instances: 10 }, "incissue01");
     await mcp(run1.srv.url, "update_nodes", { updates: [{ id: run1.id, props: { fontSize: 6 } }] });
-    const section = run1.page.locator('[data-testid="inspector-section-review"]');
+    const section = run1.page.getByRole("heading", { level: 3, name: /Revisão/ });
     await expect.poll(async () => (await section.innerText()).replace(/\D+/g, ""), { timeout: 15_000 }).toMatch(/^[1-9]\d*$/);
     await run1.page.close();
   });
