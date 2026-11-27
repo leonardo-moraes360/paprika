@@ -7,13 +7,14 @@ import { connect, type NetConnectOpts } from "node:net";
 import WebSocket from "ws";
 import { chromium, type Browser, type Page } from "playwright";
 import { startServer, repoRoot, type ExternalServer } from "../harness.js";
+import { webDist } from "../e2e/seededCanvas.js";
+import { WORLD } from "../e2e/support-e2.js";
 import { pinLocale } from "../e2e/locale.js";
 import { BUDGETS } from "./budgets.js";
 import { evaluate, table, writeReport, type Result } from "./report.js";
 import { buildWorstCase, type WorstCase } from "./synthetic.js";
 import { instrument, longTasks, cdpDelta, mcp, measureFrames, median } from "./helpers.js";
 
-const webDist = join(repoRoot, "web-legacy/dist");
 const hasWeb = existsSync(webDist);
 const log = (m: string) => {
   if (process.env.PAPRIKA_PERF_VERBOSE) console.error(`[perf ${new Date().toISOString().slice(11, 23)}] ${m}`);
@@ -265,7 +266,7 @@ describe("perf: worst-case document", () => {
       await instrument(page);
       await pinLocale(page, "pt-BR");
       await page.goto(`${srv.url}/w/${docId}`);
-      await page.waitForSelector(".world [data-paprika-id]", { timeout: 120_000 });
+      await page.waitForSelector(`${WORLD} [data-paprika-id]`, { timeout: 120_000 });
       await page.waitForTimeout(2500);
       return page;
     };
@@ -302,15 +303,23 @@ describe("perf: worst-case document", () => {
     };
 
     const canvasMetrics = async (page: Page, srv: ExternalServer, textId: string) => {
-      const vp = (await page.locator(".viewport").boundingBox())!;
+      const vp = (await page.getByTestId("viewport").boundingBox())!;
       await page.mouse.move(vp.x + vp.width / 2, vp.y + vp.height / 2);
       const commits = () => page.evaluate(() => (window as any).__commits as number);
+      // The camera must actually move under the wheel: a gesture the app ignores would pass every frame budget for nothing.
+      await page.evaluate((world) => {
+        const w = window as any;
+        w.__camera = 0;
+        new MutationObserver((records) => void (w.__camera += records.length)).observe(document.querySelector(world)!, { attributes: true, attributeFilter: ["style"] });
+      }, WORLD);
       const gesture = async (steps: number, dy: number, withCtrl: boolean) => {
         const c0 = await commits();
+        const camera0 = await page.evaluate(() => (window as any).__camera as number);
         let cost: Awaited<ReturnType<typeof cdpDelta>> | undefined;
         const frames = await measureFrames(page, async () => {
           cost = await cdpDelta(page, () => wheel(page, steps, dy, withCtrl));
         });
+        expect(await page.evaluate(() => (window as any).__camera as number), "the wheel moved the camera").toBeGreaterThan(camera0);
         return { ...frames, cost: cost!, commits: (await commits()) - c0 };
       };
       log("pan");
@@ -346,7 +355,7 @@ describe("perf: worst-case document", () => {
       log("open heavy");
       heavyPage = await open(heavy, worst.doc.id);
       const opened = incoming.get(heavyPage)!.snapshots;
-      notes.heavyDom = await heavyPage.evaluate(() => ({ nodes: document.querySelectorAll(".world [data-paprika-id]").length, all: document.querySelectorAll("*").length }));
+      notes.heavyDom = await heavyPage.evaluate((world) => ({ nodes: document.querySelectorAll(`${world} [data-paprika-id]`).length, all: document.querySelectorAll("*").length }), WORLD);
       heavyMetrics = await canvasMetrics(heavyPage, heavy, plainTextId);
       notes.browser = { small: smallMetrics, heavy: heavyMetrics };
       const rs = [record("wsSnapshotsOnOpen", opened), record("frameP95Ms", heavyMetrics.frameP95, smallMetrics.frameP95), record("tabWriteScriptMs", heavyMetrics.writeCost!.scriptMs, smallMetrics.writeCost!.scriptMs)];
@@ -362,8 +371,8 @@ describe("perf: worst-case document", () => {
         nodes: [{ type: "frame", id, name: "perf", x: 0, y: -900, width: 600, height: 400, fill: "#ffffff", layout: { mode: "row", wrap: true, gap: 4, padding: 8 }, children: kids }],
       });
       await page.waitForFunction(
-        (prefix) => {
-          const els = document.querySelectorAll<HTMLElement>(`.world [data-paprika-id^="${prefix}"]`);
+        ([prefix, world]) => {
+          const els = document.querySelectorAll<HTMLElement>(`${world} [data-paprika-id^="${prefix}"]`);
           if (els.length !== 200) return false;
           for (const el of els) {
             const cs = getComputedStyle(el);
@@ -371,7 +380,7 @@ describe("perf: worst-case document", () => {
           }
           return true;
         },
-        id,
+        [id, WORLD] as const,
         { timeout: 120_000, polling: "raf" },
       );
       const visibleMs = Date.now() - t;

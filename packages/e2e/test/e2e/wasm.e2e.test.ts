@@ -2,52 +2,18 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import { existsSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { startServer, type ExternalServer } from "../harness.js";
 import { pinLocale } from "./locale.js";
+import { repoRoot as root, webDist as webRoot } from "./seededCanvas.js";
+import { chooseRenderer, hasWasmAsset, openCanvas, rendererMenu, timedChoose, HIDE_FLOATING, isTeamProbe, viewportShot, workspaceCanvasUrl, WORLD, type Renderer } from "./support-e2.js";
 
-const root = resolve(import.meta.dirname, "../../../..");
-const webRoot = join(root, "web-legacy/dist");
-const wasmBuilt = existsSync(join(root, "web-legacy/src/wasm/paprika_render.js")) && existsSync(webRoot);
+const wasmBuilt = existsSync(webRoot) && hasWasmAsset();
 const shots = process.env.PAPRIKA_E2E_SHOTS;
-
-async function workspaceCanvasUrl(base: string): Promise<string> {
-  const active = ((await (await fetch(`${base}/api/workspaces`)).json()) as { active: string }).active;
-  return `${base}/w/${encodeURIComponent(active)}`;
-}
-
-async function toggleUntilReady(page: Page): Promise<number> {
-  return page.evaluate(async () => {
-    const sel = '[data-testid="renderer-toggle"]';
-    const btn = document.querySelector<HTMLElement>(sel)!;
-    const t0 = performance.now();
-    btn.click();
-    await new Promise<void>((ok) => {
-      const tick = () => {
-        const backend = document.querySelector<HTMLElement>(sel)?.dataset.backend;
-        if (backend === "cpu" || backend === "webgpu") ok();
-        else requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    });
-    return Math.round(performance.now() - t0);
-  });
-}
-
-async function openCanvas(page: Page, base: string, renderer: "dom" | "wasm") {
-  await page.goto(`${await workspaceCanvasUrl(base)}?renderer=${renderer}`);
-  await page.waitForSelector('[data-paprika-id="board"]');
-  if (renderer === "wasm") {
-    await page.waitForFunction(() => {
-      const b = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')?.dataset.backend;
-      return b === "cpu" || b === "webgpu" || b === "error" || b === "unavailable";
-    });
-  }
-  await page.waitForTimeout(300);
-}
+const layerAttr = (page: Page, name: string) => page.getByTestId("wasm-layer").getAttribute(name);
 
 async function diffRatio(page: Page, a: Buffer, b: Buffer, tol = 40, slack = 0): Promise<number> {
   return page.evaluate(
@@ -112,8 +78,8 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
   const errors: string[] = [];
 
   const canvasUrl = () => workspaceCanvasUrl(url);
-  const open = (renderer: "dom" | "wasm") => openCanvas(page, url, renderer);
-  const shot = () => page.getByTestId("viewport").screenshot();
+  const open = (renderer: Renderer) => openCanvas(page, url, renderer);
+  const shot = () => viewportShot(page);
 
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "paprika-wasm-e2e-"));
@@ -147,8 +113,8 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
   it("desenha as formas no WASM (CPU sem GPU) e fica igual ao DOM", async () => {
     await open("dom");
     const dom = await shot();
-    await open("wasm");
-    const backend = await page.getByTestId("renderer-toggle").getAttribute("data-backend");
+    await open("cpu");
+    const backend = await layerAttr(page, "data-backend");
     expect(["cpu", "webgpu"]).toContain(backend);
     expect(await page.getByTestId("wasm-layer").count()).toBe(1);
     const bg = await page.locator('[data-paprika-id="board"]').evaluate((el) => getComputedStyle(el).backgroundColor);
@@ -195,7 +161,7 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
       await open("dom");
       await settled();
       const dom = await shot();
-      await open("wasm");
+      await open("cpu");
       await settled();
       await expect.poll(async () => diffRatio(page, dom, await shot()), { interval: 200, timeout: 5000 }).toBeLessThan(0.005);
     } finally {
@@ -227,13 +193,16 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
         ],
       },
     });
-    const view = async (renderer: "dom" | "wasm") => {
+    let n = 0;
+    const view = async (renderer: Renderer) => {
       await open(renderer);
       await page.waitForSelector('[data-paprika-id="conv-circle"]');
-      return shot();
+      const png = await shot();
+      if (shots) await (await import("node:fs/promises")).writeFile(join(shots, `conv-${renderer}-${++n}.png`), png);
+      return png;
     };
     const domBefore = await view("dom");
-    const wasmBefore = await view("wasm");
+    const wasmBefore = await view("cpu");
     await agent.callTool({
       name: "apply_ops",
       arguments: {
@@ -244,7 +213,7 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
       },
     });
     const domAfter = await view("dom");
-    const wasmAfter = await view("wasm");
+    const wasmAfter = await view("cpu");
     await agent.callTool({ name: "delete_nodes", arguments: { ids: ["conv-stage"] } });
     expect(await diffRatio(page, domBefore, domAfter, 8)).toBeLessThan(0.0005);
     expect(await diffRatio(page, wasmBefore, wasmAfter)).toBeLessThan(0.005);
@@ -254,13 +223,20 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
 
   it("render_screenshot renderer wasm captura o que a camada WASM pinta", async () => {
     await open("dom");
-    const dom = await page.locator('[data-paprika-id="board"]').screenshot();
+    // The board sits at a fractional offset in the new layout, so an element screenshot grows to 481 px: cut the 480 x 360 box at the rounded corner instead.
+    const at = (await page.locator('[data-paprika-id="board"]').boundingBox())!;
+    const dom = await page.screenshot({ clip: { x: Math.round(at.x), y: Math.round(at.y), width: 480, height: 360 }, style: HIDE_FLOATING });
     const r = (await agent.callTool({ name: "render_screenshot", arguments: { rootId: "board", renderer: "wasm" } })) as {
       isError?: boolean;
       content: { type: string; data?: string; text?: string }[];
     };
     expect(r.isError, JSON.stringify(r.content)).toBeFalsy();
     const png = Buffer.from(r.content.find((c) => c.type === "image")!.data!, "base64");
+    if (shots) {
+      const { writeFile } = await import("node:fs/promises");
+      await writeFile(join(shots, "rs-dom.png"), dom);
+      await writeFile(join(shots, "rs-mcp.png"), png);
+    }
     expect(png.readUInt32BE(16)).toBe(480);
     expect(png.readUInt32BE(20)).toBe(360);
     expect(await diffRatio(page, dom, png)).toBeLessThan(0.01);
@@ -272,7 +248,7 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
   }, 90_000);
 
   it("edição do agente via MCP aparece nos pixels do WASM", async () => {
-    await open("wasm");
+    await open("cpu");
     const before = await shot();
     await agent.callTool({ name: "update_nodes", arguments: { updates: [{ id: "board", props: { fill: "#2a9d8f" } }] } });
     await expect
@@ -300,10 +276,10 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
   });
 
   it.each([
-    ["camadas", "Largura do painel de camadas", 1],
-    ["propriedades", "Largura do painel de propriedades", -1],
+    ["camadas", "Redimensionar painel de camadas", 1],
+    ["propriedades", "Redimensionar painel de propriedades", -1],
   ] as const)("redimensionar o painel de %s não pisca a camada WASM", async (_name, label, dir) => {
-    await open("wasm");
+    await open("cpu");
     await page.evaluate(() => {
       const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="wasm-layer"]')!;
       const ctx = canvas.getContext("2d")!;
@@ -318,28 +294,51 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
     });
     const handle = page.getByRole("separator", { name: label });
     const box = (await handle.boundingBox())!;
-    const y = box.y + box.height / 2;
-    await page.mouse.move(box.x + box.width / 2, y);
+    // The collapse button of the panel sits over the middle of the separator: grab it near the top.
+    const y = box.y + 20;
+    const x = box.x + box.width / 2;
+    await page.mouse.move(x, y);
     await page.mouse.down();
+    // Out and back: the panel gets wider and narrower while the layer must keep its pixels at every size.
     for (let i = 1; i <= 8; i++) {
-      await page.mouse.move(box.x + box.width / 2 + i * 12 * dir, y);
+      await page.mouse.move(x + i * 12 * dir, y);
+      await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
+    }
+    for (let i = 7; i >= 0; i--) {
+      await page.mouse.move(x + i * 12 * dir, y);
       await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
     }
     await page.mouse.up();
-    await page.getByRole("separator", { name: label }).dblclick();
     const frames = await page.evaluate(() => (window as unknown as { __frames: boolean[] }).__frames);
     expect(frames.length).toBeGreaterThan(4);
     expect(frames.filter((p) => !p)).toEqual([]);
     expect(errors).toEqual([]);
   });
 
-  it("o botão alterna o renderizador e a escolha fica salva", async () => {
+  // PAP-E2E: o app novo não volta o painel à largura inicial com duplo clique no separador (o antigo fazia, PanelResizer.onDoubleClick)
+  it.fails("duplo clique no separador devolve o painel de camadas à largura inicial", async () => {
+    await open("cpu");
+    const handle = page.getByRole("separator", { name: "Redimensionar painel de camadas" });
+    const initial = await handle.getAttribute("aria-valuenow");
+    const box = (await handle.boundingBox())!;
+    const y = box.y + 20;
+    const x = box.x + box.width / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + 60, y, { steps: 6 });
+    await page.mouse.up();
+    expect(await handle.getAttribute("aria-valuenow")).not.toBe(initial);
+    await page.mouse.dblclick(x + 60, y);
+    expect(await handle.getAttribute("aria-valuenow")).toBe(initial);
+  });
+
+  it("o menu alterna o renderizador, cria o dispositivo uma vez só e a escolha fica salva", async () => {
     await open("dom");
     await page.evaluate(() => {
       const w = window as unknown as {
         __adapters: number;
         __devices: number;
-        __labels: { text: string; busy: string | null }[];
+        __labels: { label: string; busy: string | null }[];
       };
       w.__adapters = 0;
       w.__devices = 0;
@@ -360,61 +359,67 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
           return adapter;
         };
       }
-      const btn = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')!;
-      const snap = () => w.__labels.push({ text: (btn.textContent ?? "").trim(), busy: btn.getAttribute("aria-busy") });
+      const btn = document.querySelector<HTMLElement>('button[aria-label^="Renderizador: "]')!;
+      const snap = () => w.__labels.push({ label: btn.getAttribute("aria-label") ?? "", busy: btn.getAttribute("aria-busy") });
       snap();
       new MutationObserver(snap).observe(btn, { attributes: true, childList: true, subtree: true, characterData: true });
     });
-    const toggle = page.getByTestId("renderer-toggle");
-    const coldMs = await toggleUntilReady(page);
-    await expect.poll(() => toggle.getAttribute("data-backend")).toMatch(/^(cpu|webgpu)$/);
-    const cold = await page.evaluate(() => {
-      const w = window as unknown as {
-        __adapters: number;
-        __devices: number;
-        __labels: { text: string; busy: string | null }[];
-      };
-      const btn = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')!;
-      return {
-        adapters: w.__adapters,
-        devices: w.__devices,
-        labels: w.__labels,
-        creates: btn.dataset.creates ?? "",
-        text: (btn.textContent ?? "").trim(),
-        busy: btn.getAttribute("aria-busy"),
-      };
-    });
+    const trigger = rendererMenu(page);
+    expect(await trigger.getAttribute("aria-label")).toBe("Renderizador: DOM");
+    await chooseRenderer(page, "cpu");
+    await expect.poll(() => layerAttr(page, "data-backend")).toMatch(/^(cpu|webgpu)$/);
+    await expect.poll(() => trigger.getAttribute("aria-busy")).toBeNull();
+    const state = () =>
+      page.evaluate(() => {
+        const w = window as unknown as { __adapters: number; __devices: number; __labels: { label: string; busy: string | null }[] };
+        const layer = document.querySelector<HTMLElement>('[data-testid="wasm-layer"]')!;
+        const btn = document.querySelector<HTMLElement>('button[aria-label^="Renderizador: "]')!;
+        return { adapters: w.__adapters, devices: w.__devices, labels: w.__labels, creates: layer.dataset.creates ?? "", requested: layer.dataset.requested ?? "", label: btn.getAttribute("aria-label"), busy: btn.getAttribute("aria-busy") };
+      });
+    const cold = await state();
     expect(cold.creates).toBe("1");
-    expect(cold.text).toMatch(/^(CPU|GPU)$/);
+    expect(cold.requested).toBe("cpu");
+    expect(cold.label).toBe("Renderizador: WASM · CPU");
     expect(cold.busy).toBeNull();
-    expect(cold.labels.some((s) => s.text === "WASM")).toBe(false);
-    expect(cold.labels.some((s) => s.busy === "true" && s.text === "DOM")).toBe(true);
-    await toggle.click();
-    await expect.poll(() => toggle.getAttribute("data-backend")).toBe("dom");
-    expect((await toggle.textContent())?.trim()).toBe("DOM");
-    const warmMs = await toggleUntilReady(page);
-    const warm = await page.evaluate(() => {
-      const w = window as unknown as { __adapters: number; __devices: number };
-      const btn = document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')!;
-      return { adapters: w.__adapters, devices: w.__devices, creates: btn.dataset.creates ?? "", busy: btn.getAttribute("aria-busy") };
-    });
-    expect(warm.creates, `cold ${coldMs}ms warm ${warmMs}ms adapters ${cold.adapters}->${warm.adapters}`).toBe("1");
+    // While it boots the menu says so (and is busy); the label never claims the WASM before the layer paints.
+    expect(cold.labels.some((l) => l.busy === "true" && l.label === "Renderizador: Trocando…")).toBe(true);
+    expect(cold.labels.some((l) => l.label === "Renderizador: WASM · CPU" && l.busy === "true")).toBe(false);
+    await chooseRenderer(page, "dom");
+    await expect.poll(() => layerAttr(page, "data-requested")).toBe("dom");
+    expect(await trigger.getAttribute("aria-label")).toBe("Renderizador: DOM");
+    await expect.poll(() => page.locator(WORLD).getAttribute("data-wasm-active")).toBe("0");
+    const warmMs = await timedChoose(page);
+    const warm = await state();
+    expect(warm.creates, `warm ${warmMs}ms adapters ${cold.adapters}->${warm.adapters}`).toBe("1");
     expect(warm.adapters).toBe(cold.adapters);
     expect(warm.devices).toBe(cold.devices);
     expect(warm.busy).toBeNull();
     expect(warmMs).toBeLessThan(100);
+    // The choice is saved: opened without \`?renderer=\`, it comes back on the WASM.
     await page.goto(await canvasUrl());
-    await expect.poll(() => toggle.getAttribute("data-backend")).toMatch(/^(cpu|webgpu)$/);
-    await toggle.click();
-    await expect.poll(() => toggle.getAttribute("data-backend")).toBe("dom");
+    await expect.poll(() => layerAttr(page, "data-backend")).toMatch(/^(cpu|webgpu)$/);
+    await chooseRenderer(page, "dom");
+    await expect.poll(() => layerAttr(page, "data-requested")).toBe("dom");
     expect(await page.getByTestId("wasm-layer").getAttribute("aria-hidden")).toBe("true");
-    expect(await toggle.getAttribute("data-creates")).toBe("1");
+    expect(await layerAttr(page, "data-creates")).toBe("1");
+    // And so is going back to the DOM.
+    await page.goto(await canvasUrl());
+    await page.waitForSelector('[data-paprika-id="board"]');
+    expect(await rendererMenu(page).getAttribute("aria-label")).toBe("Renderizador: DOM");
+  });
+
+  it("o endereço antigo ?renderer=wasm vira CPU (ou GPU onde há WebGPU)", async () => {
+    await page.goto(`${await canvasUrl()}?renderer=wasm`);
+    await page.waitForSelector('[data-paprika-id="board"]');
+    // With WebGPU in the browser the old value asks for the GPU; one that cannot start (no adapter here) falls back to the CPU on its own.
+    await expect.poll(() => layerAttr(page, "data-backend")).toMatch(/^(cpu|webgpu)$/);
+    expect(await layerAttr(page, "data-requested")).toBe((await layerAttr(page, "data-backend")) === "webgpu" ? "gpu" : "cpu");
   });
 
   it("trocar DOM e WASM não deixa quadro com a pintura desligada e o canvas vazio", async () => {
     await open("dom");
     await page.evaluate(() => {
-      const world = document.querySelector<HTMLElement>(".world");
+      const world = document.querySelector<HTMLElement>('[data-testid="canvas-world"]');
       const board = document.querySelector<HTMLElement>('[data-paprika-id="board"]');
       if (!world || !board) throw new Error("missing world");
       const frames: { domOff: boolean; canvasEmpty: boolean }[] = [];
@@ -459,11 +464,12 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
       };
     });
     for (let round = 0; round < 2; round++) {
-      await page.getByTestId("renderer-toggle").click();
-      await expect.poll(() => page.getByTestId("renderer-toggle").getAttribute("data-backend")).toMatch(/^(cpu|webgpu)$/);
+      await chooseRenderer(page, "cpu");
+      await expect.poll(() => layerAttr(page, "data-backend")).toMatch(/^(cpu|webgpu)$/);
+      await expect.poll(() => page.locator(WORLD).getAttribute("data-wasm-active")).toBe("1");
       await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
-      await page.getByTestId("renderer-toggle").click();
-      await expect.poll(() => page.getByTestId("renderer-toggle").getAttribute("data-backend")).toBe("dom");
+      await chooseRenderer(page, "dom");
+      await expect.poll(() => layerAttr(page, "data-requested")).toBe("dom");
       await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
     }
     const frames = await page.evaluate(() => (window as unknown as { __handoff: { stop(): { domOff: boolean; canvasEmpty: boolean }[] } }).__handoff.stop());
@@ -475,7 +481,7 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
   });
 
   it("erro de render devolve as formas ao DOM", async () => {
-    await open("wasm");
+    await open("cpu");
     const board = page.locator('[data-paprika-id="board"]');
     const shape = page.locator('[data-paprika-id="1j39qe3gt7"] path');
     await expect.poll(() => board.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
@@ -491,10 +497,10 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
       }) as typeof ctx.putImageData;
     });
     await page.getByRole("button", { name: "Aumentar zoom" }).click();
-    await expect.poll(() => page.getByTestId("renderer-toggle").getAttribute("data-backend")).toBe("error");
+    await expect.poll(() => layerAttr(page, "data-backend")).toBe("error");
     expect(await board.evaluate((el) => getComputedStyle(el).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)");
     expect(await shape.count()).toBeGreaterThan(0);
-    expect(await page.locator(".world").getAttribute("data-wasm-active")).toBe("0");
+    expect(await page.locator(WORLD).getAttribute("data-wasm-active")).toBe("0");
     await page.evaluate(() => {
       const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="wasm-layer"]')!;
       const ctx = canvas.getContext("2d")!;
@@ -504,7 +510,7 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
   });
 
   it("200 nós criados por um agente aparecem pintados no WASM em 1 s, e o passeio termina em cerca de 2 s", async () => {
-    await open("wasm");
+    await open("cpu");
     const fills = ["#e11d48", "#2563eb", "#16a34a", "#d97706"];
     const kids = Array.from({ length: 199 }, (_, i) => ({ type: "rect", id: `wb-${i}`, width: 12, height: 12, fill: fills[i % 4] }));
     await agent.callTool({
@@ -529,7 +535,7 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
           let ok = 0;
           let missing = 0;
           for (let i = 0; i < 199; i++) {
-            const el = document.querySelector<HTMLElement>(`.world [data-paprika-id="wb-${i}"]`);
+            const el = document.querySelector<HTMLElement>(`[data-testid="canvas-world"] [data-paprika-id="wb-${i}"]`);
             if (!el) {
               missing++;
               continue;
@@ -567,7 +573,7 @@ function useFixtureServer(example: string, opts: { consoleErrors?: boolean } = {
     ctx.page.on("pageerror", (e) => ctx.errors.push(e.message));
     if (opts.consoleErrors)
       ctx.page.on("console", (m) => {
-        if (m.type() === "error") ctx.errors.push(m.text());
+        if (m.type() === "error" && !isTeamProbe(m)) ctx.errors.push(m.text());
       });
   }, 60_000);
   afterAll(async () => {
@@ -584,7 +590,7 @@ describe.skipIf(!wasmBuilt)("E2E: WASM respeita a ordem de pintura", () => {
   let browser: Browser;
   let page: Page;
   const errors: string[] = [];
-  const open = (renderer: "dom" | "wasm") => openCanvas(page, url, renderer);
+  const open = (renderer: Renderer) => openCanvas(page, url, renderer);
   const bg = (id: string) => page.locator(`[data-paprika-id="${id}"]`).evaluate((el) => getComputedStyle(el).backgroundColor);
 
   beforeAll(async () => {
@@ -605,15 +611,15 @@ describe.skipIf(!wasmBuilt)("E2E: WASM respeita a ordem de pintura", () => {
 
   it("os três casos de overlap ficam iguais ao DOM", async () => {
     await open("dom");
-    const dom = await page.getByTestId("viewport").screenshot();
-    await open("wasm");
-    const backend = await page.getByTestId("renderer-toggle").getAttribute("data-backend");
+    const dom = await viewportShot(page);
+    await open("cpu");
+    const backend = await layerAttr(page, "data-backend");
     expect(["cpu", "webgpu"]).toContain(backend);
     expect(await bg("board")).toBe("rgba(0, 0, 0, 0)");
     expect(await bg("back")).toBe("rgba(0, 0, 0, 0)");
     expect(await bg("card")).toBe("rgba(0, 0, 0, 0)");
     for (const id of ["dash", "front", "nest", "child", "cover"]) expect(await bg(id)).not.toBe("rgba(0, 0, 0, 0)");
-    const wasm = await page.getByTestId("viewport").screenshot();
+    const wasm = await viewportShot(page);
     expect(await diffRatio(page, dom, wasm)).toBeLessThan(0.005);
     expect(errors).toEqual([]);
   });
@@ -640,17 +646,17 @@ describe.skipIf(!wasmBuilt)("E2E: WASM desenha formas escuras sobre o fundo do q
   }
 
   it.each([0, 1, 2])("o logo escuro continua visível no WASM depois de %i aumentos de zoom", async (zoomIns) => {
-    const open = async (renderer: "dom" | "wasm") => {
+    const open = async (renderer: Renderer) => {
       await openCanvas(fx.page, fx.url, renderer);
       for (let i = 0; i < zoomIns; i++) await fx.page.getByRole("button", { name: "Aumentar zoom" }).click();
       await fx.page.waitForTimeout(300);
-      return fx.page.getByTestId("viewport").screenshot();
+      return viewportShot(fx.page);
     };
     const dom = await open("dom");
     const domDark = await darkPixels(dom);
     expect(domDark).toBeGreaterThan(1000);
-    const wasm = await open("wasm");
-    expect(["cpu", "webgpu"]).toContain(await fx.page.getByTestId("renderer-toggle").getAttribute("data-backend"));
+    const wasm = await open("cpu");
+    expect(["cpu", "webgpu"]).toContain(await layerAttr(fx.page, "data-backend"));
     expect(await fx.page.locator('[data-paprika-id="board"]').evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
     expect(await fx.page.locator('[data-paprika-id="hull"] path').count()).toBe(0);
     expect(Math.abs((await darkPixels(wasm)) - domDark) / domDark).toBeLessThan(0.1);
@@ -663,8 +669,8 @@ describe.skipIf(!wasmBuilt)("E2E: WASM estabiliza um path de caixa fracionária 
   const fx = useFixtureServer("wasm-fractional-path.paprika.json", { consoleErrors: true });
 
   it("abre sem estourar a profundidade de atualização e mantém o path no WASM", async () => {
-    await openCanvas(fx.page, fx.url, "wasm");
-    expect(["cpu", "webgpu"]).toContain(await fx.page.getByTestId("renderer-toggle").getAttribute("data-backend"));
+    await openCanvas(fx.page, fx.url, "cpu");
+    expect(["cpu", "webgpu"]).toContain(await layerAttr(fx.page, "data-backend"));
     expect(await fx.page.getByText("O canvas parou").count()).toBe(0);
     await fx.page.waitForTimeout(500);
     // The same answer after settling: no flip-flop between the layers.
@@ -678,12 +684,12 @@ describe.skipIf(!wasmBuilt)("E2E: traço de path em unidades do viewBox fica igu
 
   it("paths com caixa diferente do viewBox, traço fino e grosso, ficam iguais nos dois renderizadores", async () => {
     await openCanvas(fx.page, fx.url, "dom");
-    const dom = await fx.page.getByTestId("viewport").screenshot();
-    await openCanvas(fx.page, fx.url, "wasm");
-    expect(["cpu", "webgpu"]).toContain(await fx.page.getByTestId("renderer-toggle").getAttribute("data-backend"));
+    const dom = await viewportShot(fx.page);
+    await openCanvas(fx.page, fx.url, "cpu");
+    expect(["cpu", "webgpu"]).toContain(await layerAttr(fx.page, "data-backend"));
     for (const id of ["small", "wordmark", "large", "thin", "wide", "origin"])
       expect(await fx.page.locator(`[data-paprika-id="${id}"] path`).count(), id).toBe(0);
-    const wasm = await fx.page.getByTestId("viewport").screenshot();
+    const wasm = await viewportShot(fx.page);
     expect(await diffRatio(fx.page, dom, wasm, 60)).toBeLessThan(0.005);
     expect(fx.errors.filter((e) => !/WebSocket|adapters/i.test(e))).toEqual([]);
   });
@@ -703,7 +709,7 @@ describe.skipIf(!wasmBuilt)("E2E: caixas do WASM são exatas com bordas e auto-l
 
   async function geometry(): Promise<Geometry> {
     return fx.page.evaluate(() => {
-      const world = document.querySelector<HTMLElement>(".world")!;
+      const world = document.querySelector<HTMLElement>('[data-testid="canvas-world"]')!;
       const boxes = (world as unknown as { __paprikaBoxes: Map<string, { x: number; y: number; w: number; h: number }> }).__paprikaBoxes;
       const wr = world.getBoundingClientRect();
       const zoom = Number(world.style.transform.match(/scale\(([^)]+)\)/)![1]);
@@ -736,16 +742,16 @@ describe.skipIf(!wasmBuilt)("E2E: caixas do WASM são exatas com bordas e auto-l
   }
 
   it("a caixa entregue ao displayList bate com o layout do DOM a 0,1 px, em zoom 1 e ampliado", async () => {
-    await openCanvas(fx.page, fx.url, "wasm");
-    expect(["cpu", "webgpu"]).toContain(await fx.page.getByTestId("renderer-toggle").getAttribute("data-backend"));
+    await openCanvas(fx.page, fx.url, "cpu");
+    expect(["cpu", "webgpu"]).toContain(await layerAttr(fx.page, "data-backend"));
     for (let zoomIns = 0; zoomIns < 3; zoomIns++) {
       if (zoomIns) {
         await fx.page.getByRole("button", { name: "Aumentar zoom" }).click();
-        const toggle = fx.page.getByTestId("renderer-toggle");
-        await toggle.click();
-        await expect.poll(() => toggle.getAttribute("data-backend")).toBe("dom");
-        await toggle.click();
-        await expect.poll(() => toggle.getAttribute("data-backend")).toMatch(/^(cpu|webgpu)$/);
+        await chooseRenderer(fx.page, "dom");
+        await expect.poll(() => layerAttr(fx.page, "data-requested")).toBe("dom");
+        await chooseRenderer(fx.page, "cpu");
+        await expect.poll(() => layerAttr(fx.page, "data-backend")).toMatch(/^(cpu|webgpu)$/);
+        await expect.poll(() => fx.page.locator(WORLD).getAttribute("data-wasm-active")).toBe("1");
         await fx.page.waitForTimeout(200);
       }
       const g = await geometry();
@@ -756,7 +762,7 @@ describe.skipIf(!wasmBuilt)("E2E: caixas do WASM são exatas com bordas e auto-l
   });
 
   it("os valores batem com a conta feita à mão: borda de 1+2+3 px e preenchimento de 7,5 px acumulam", async () => {
-    await openCanvas(fx.page, fx.url, "wasm");
+    await openCanvas(fx.page, fx.url, "cpu");
     const g = await geometry();
     expect(g.boxes.board!.x).toBeCloseTo(0, 1);
     expect(g.boxes.l1!.x).toBeCloseTo(3 + 11.5, 1);
@@ -770,10 +776,10 @@ describe.skipIf(!wasmBuilt)("E2E: caixas do WASM são exatas com bordas e auto-l
 
   it("DOM e WASM ficam iguais pixel a pixel e o rótulo do botão fica centrado", async () => {
     await openCanvas(fx.page, fx.url, "dom");
-    const dom = await fx.page.getByTestId("viewport").screenshot();
-    await openCanvas(fx.page, fx.url, "wasm");
+    const dom = await viewportShot(fx.page);
+    await openCanvas(fx.page, fx.url, "cpu");
     for (const id of ["l1", "l2", "l3", "button", "circle", "clipper", "square"]) expect((await geometry()).ids, id).toContain(id);
-    const wasm = await fx.page.getByTestId("viewport").screenshot();
+    const wasm = await viewportShot(fx.page);
     const shotDir = process.env.PAPRIKA_E2E_SHOTS;
     if (shotDir) {
       const { writeFile } = await import("node:fs/promises");
@@ -782,12 +788,14 @@ describe.skipIf(!wasmBuilt)("E2E: caixas do WASM são exatas com bordas e auto-l
     }
     expect(await diffRatio(fx.page, dom, wasm, 40, 1)).toBeLessThan(0.005);
     const off = await fx.page.evaluate(() => {
-      const world = document.querySelector<HTMLElement>(".world")!;
+      const world = document.querySelector<HTMLElement>('[data-testid="canvas-world"]')!;
       const boxes = (world as unknown as { __paprikaBoxes: Map<string, { x: number; y: number; w: number; h: number }> }).__paprikaBoxes;
       const wr = world.getBoundingClientRect();
       const lbl = document.querySelector<HTMLElement>('[data-paprika-id="buttonLabel"]')!.getBoundingClientRect();
       const b = boxes.get("button")!;
-      return { dx: lbl.left - wr.left + lbl.width / 2 - (b.x + b.w / 2), dy: lbl.top - wr.top + lbl.height / 2 - (b.y + b.h / 2) };
+      // The camera opens fitted, not at 1:1: the screen distance goes back to world units, as `geometry()` does.
+      const zoom = Number(world.style.transform.match(/scale\(([^)]+)\)/)![1]);
+      return { dx: (lbl.left - wr.left + lbl.width / 2) / zoom - (b.x + b.w / 2), dy: (lbl.top - wr.top + lbl.height / 2) / zoom - (b.y + b.h / 2) };
     });
     expect(Math.abs(off.dx)).toBeLessThan(0.1);
     expect(Math.abs(off.dy)).toBeLessThan(0.1);
@@ -840,13 +848,13 @@ describe.skipIf(!wasmBuilt)("E2E: measureBoxes escala linear e não força layou
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     const cdp = await page.context().newCDPSession(page);
     await cdp.send("Performance.enable");
-    await openCanvas(page, server.url, "wasm");
-    await page.waitForFunction(() => !!(document.querySelector(".world") as unknown as { __paprikaMeasure?: unknown })?.__paprikaMeasure, undefined, { timeout: 60_000 });
+    await openCanvas(page, server.url, "cpu");
+    await page.waitForFunction(() => !!(document.querySelector('[data-testid="canvas-world"]') as unknown as { __paprikaMeasure?: unknown })?.__paprikaMeasure, undefined, { timeout: 60_000 });
     await page.waitForTimeout(800);
     const layouts = async () => ((await cdp.send("Performance.getMetrics")).metrics.find((m) => m.name === "LayoutCount")?.value ?? 0);
     const before = await layouts();
     const r = await page.evaluate(() => {
-      const world = document.querySelector<HTMLElement>(".world")! as unknown as { __paprikaMeasure: () => Map<string, unknown> };
+      const world = document.querySelector<HTMLElement>('[data-testid="canvas-world"]')! as unknown as { __paprikaMeasure: () => Map<string, unknown> };
       const times: number[] = [];
       let size = 0;
       for (let i = 0; i < 7; i++) {
