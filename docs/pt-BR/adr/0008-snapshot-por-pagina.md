@@ -2,6 +2,8 @@
 
 # ADR 0008: Abrir o workspace uma página por vez
 
+> **Nota (2026-11):** o app descrito aqui, o `web-legacy`, foi substituído pelo `apps/web` e removido da árvore; os caminhos para ele abaixo são históricos e não existem mais.
+
 - **Status:** Proposto
 - **Data:** 2026-11-26
 - **Código:** `server/internal/server` (`serveWS`, outbox, delta), `web-legacy/src/useDocument.ts` e quem lê `doc.nodes`

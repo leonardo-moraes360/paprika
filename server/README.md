@@ -53,7 +53,7 @@ paprika completion fish > ~/.config/fish/completions/paprika.fish
 
 An unknown command exits with code 2 and suggests the closest one; a bad flag or any runtime error exits with code 1.
 
-Defaults: `--db` is `./paprika.db` (or `$PAPRIKA_DB`); `--doc` is the most recently updated document, and an empty one is created when the database is empty. `--web` (a folder whose entry is `_shell.html` or `index.html`) falls back to `$PAPRIKA_WEB_ROOT` and then to the new app (`apps/web/dist/client`, or `web` next to the binary), and only then to the old one (`web-legacy/dist`).
+Defaults: `--db` is `./paprika.db` (or `$PAPRIKA_DB`); `--doc` is the most recently updated document, and an empty one is created when the database is empty. `--web` (a folder whose entry is `_shell.html` or `index.html`) falls back to `$PAPRIKA_WEB_ROOT` and then to the app (`apps/web/dist/client`, or `web` next to the binary).
 
 ## Storage
 

@@ -2,6 +2,8 @@
 
 # ADR 0005: shadcn components on Paprika's closed theme
 
+> **Note (2026-11):** the app described here, `web-legacy`, was replaced by `apps/web` and removed from the tree; paths to it below are historical and no longer resolve.
+
 - **Status:** Accepted
 - **Date:** 2026-11-22
 - **Amends:** [ADR 0003: Tailwind CSS for the canvas app UI](0003-tailwind-css.md) (the constraints stay; this ADR adds how a component library lives under them)

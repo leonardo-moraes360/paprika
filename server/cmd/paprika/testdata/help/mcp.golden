@@ -10,4 +10,4 @@ Opções:
       --host string   Interface de bind. Expor fora do loopback não tem autenticação (default "127.0.0.1")
       --no-ui         Não sobe o canvas HTTP
   -p, --port int      Porta HTTP (0 = aleatória) (default 4777)
-      --web string    Pasta do app web (entrada _shell.html ou index.html); sem ele, $PAPRIKA_WEB_ROOT ou detectado (apps/web/dist/client, depois web-legacy/dist)
+      --web string    Pasta do app web (entrada _shell.html ou index.html); sem ele, $PAPRIKA_WEB_ROOT ou detectado (apps/web/dist/client)

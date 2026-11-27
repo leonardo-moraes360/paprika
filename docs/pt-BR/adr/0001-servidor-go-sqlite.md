@@ -2,6 +2,8 @@
 
 # ADR 0001: servidor em Go com armazenamento em SQLite
 
+> **Nota (2026-11):** o app descrito aqui, o `web-legacy`, foi substituído pelo `apps/web` e removido da árvore; os caminhos para ele abaixo são históricos e não existem mais.
+
 - Status: aceita (2026-11-21); emendada em 2026-11-21 (veja [Desdobramento](#desdobramento-servidor-typescript-removido))
 - Escopo: `server/` (novo). O servidor TypeScript (`packages/server`) e o core (`packages/core`) continuam como estão.
 

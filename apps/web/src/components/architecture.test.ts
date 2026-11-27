@@ -257,7 +257,7 @@ describe("architecture: imports of a frontend", () => {
     [`import { t } from "@/lib/theme";`, "lib module not allowed (@/lib/theme)"],
     [`import { router } from "@/router";`, "import @/router"],
     [`import { Route } from "@/routes/index";`, "import @/routes/index"],
-    [`import x from "../../../../web-legacy/src/api";`, "import ../../../../web-legacy/src/api"],
+    [`import x from "../../../../apps/site/src/api";`, "import ../../../../apps/site/src/api"],
     [`import { Other } from "../other";`, "import between frontends (../other)"],
     [`import { Other } from "@/components/frontends/other";`, "import between frontends (@/components/frontends/other)"],
     [`import { Other } from "../other/other";`, "import between frontends (../other/other)"],

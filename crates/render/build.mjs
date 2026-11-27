@@ -4,8 +4,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const crate = dirname(fileURLToPath(import.meta.url));
-// The artifact goes to both apps: each imports it from its own `src/wasm/` (gitignored).
-const outs = ["web-legacy", "apps/web"].map((app) => join(crate, "../..", app, "src/wasm"));
+// The artifact goes to `apps/web/src/wasm/` (gitignored), which the app imports.
+const outs = ["apps/web"].map((app) => join(crate, "../..", app, "src/wasm"));
 const want = readFileSync(join(crate, "Cargo.toml"), "utf8").match(/wasm-bindgen = "=([\d.]+)"/)?.[1];
 const require = process.env.PAPRIKA_REQUIRE_WASM === "1";
 

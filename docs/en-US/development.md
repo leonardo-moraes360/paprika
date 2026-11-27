@@ -28,7 +28,6 @@ pnpm --filter @paprika/e2e exec playwright install chromium
 packages/core     model (zod), atomic applyOps, History, nodeStyle, render/export, lint, outline
 server/        the server (Go + SQLite): MCP (stdio and HTTP), WebSocket, HTTP API, screenshot, CLI
 packages/e2e      black-box suites against the server binary: MCP/HTTP/WS API and canvas E2E (Playwright); fixtures/ holds the sample documents (demo generated over MCP by scripts/seed-demo.mjs)
-web-legacy       old React + Vite canvas (read-only), kept only because the `packages/e2e` suites still drive it; the e2e harness pins it with `--web web-legacy/dist`
 apps/web          the web app the server serves by default (TanStack Start SPA, build in `apps/web/dist/client`, entry `_shell.html`): routes `/` and `/w/$workspaceId` on the live data layer (`src/data/`)
 apps/site         landing page (drawn in Paprika) + docs site, published to paprika.js.org
 ```

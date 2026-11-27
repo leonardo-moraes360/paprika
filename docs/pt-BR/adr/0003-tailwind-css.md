@@ -2,6 +2,8 @@
 
 # ADR 0003: Tailwind CSS na interface do app do canvas
 
+> **Nota (2026-11):** o app descrito aqui, o `web-legacy`, foi substituído pelo `apps/web` e removido da árvore; os caminhos para ele abaixo são históricos e não existem mais.
+
 - **Status:** Aceito, emendado pelo ADR 0005
 - **Data:** 2026-11-21 (emendado 2026-11-22)
 - **Emendado por:** [ADR 0005: componentes shadcn sobre o tema fechado do Paprika](0005-shadcn-ui.md) — as restrições abaixo continuam valendo; aquele ADR acrescenta como uma biblioteca de componentes vive dentro delas.
