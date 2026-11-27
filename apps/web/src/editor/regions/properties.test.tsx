@@ -48,6 +48,18 @@ describe("Properties region", () => {
     view.unmount();
   });
 
+  it("remembers the collapsed sections under paprika.properties.sections (one prefix, not paprika.paprika.)", async () => {
+    const user = userEvent.setup();
+    window.localStorage.clear();
+    const view = await mount();
+    view.select([view.ids[0] as string]);
+    await user.click(screen.getByRole("button", { name: "Position and size" }));
+    expect(window.localStorage.getItem("paprika.properties.sections")).toBe(JSON.stringify({ position: false }));
+    expect(window.localStorage.getItem("paprika.paprika.properties.sections")).toBeNull();
+    window.localStorage.clear();
+    view.unmount();
+  });
+
   it("sends an edit as an `update` op with its label and follows the delta the server answers with", async () => {
     const user = userEvent.setup();
     const view = await mount();

@@ -15,7 +15,7 @@ import { usePanelActivity } from "./activity";
 
 const MemoPanel = memo(PropertiesPanel);
 
-const STORAGE_KEY = "paprika.properties.sections";
+const STORAGE_KEY = "properties.sections";
 const ERROR_TOAST_ID = "properties:error";
 
 /** Shortest gap between two renders of the panel caused by document deltas (a burst of edits to what it shows). */
