@@ -1204,3 +1204,10 @@ describe("Typed property names", () => {
     set({ widht: 1 });
   });
 });
+
+describe("PropertiesPanel activity time", () => {
+  it("accepts an element as the time, so the owner can give each row its own clock", () => {
+    setup({ activity: [{ id: "a", author: "claude", label: "mover", time: <time data-testid="own-clock">3 min</time> }] });
+    expect(screen.getByTestId("own-clock")).toHaveTextContent("3 min");
+  });
+});

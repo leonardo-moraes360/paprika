@@ -5,7 +5,7 @@ import { toneSurface, type AgentTone } from "./agent-tone";
 
 export type HistoryStepProps = Omit<ComponentProps<"div">, "children"> & {
   label: string;
-  time: string;
+  time: ReactNode;
   author?: string;
   tone?: AgentTone;
   undone?: boolean;

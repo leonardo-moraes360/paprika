@@ -9,7 +9,8 @@ export type ActivityEntry = {
   author: string;
   tone?: AgentTone;
   label: string;
-  time: string;
+  /** Text, or an element with its own clock so a ticking time never re-renders the panel. */
+  time: ReactNode;
   undone?: boolean;
   batch?: boolean;
 };

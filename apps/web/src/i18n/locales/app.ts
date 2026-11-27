@@ -93,6 +93,12 @@ export const appEn = {
   connection: {
     lost: "Connection lost. Changes cannot be sent until it is back.",
   },
+  properties: {
+    you: "You",
+    editFallback: "Edit",
+    applyFailed: "Could not apply the change",
+    ago: { now: "now", seconds: "{{count}}s", minutes: "{{count}} min", hours: "{{count}} h", days: "{{count}} d" },
+  },
 };
 
 export const appPtBR: typeof appEn = {
@@ -188,5 +194,11 @@ export const appPtBR: typeof appEn = {
   },
   connection: {
     lost: "Conexão perdida. As alterações não podem ser enviadas até ela voltar.",
+  },
+  properties: {
+    you: "Você",
+    editFallback: "Edição",
+    applyFailed: "Não foi possível aplicar a alteração",
+    ago: { now: "agora", seconds: "{{count}} s", minutes: "{{count}} min", hours: "{{count}} h", days: "{{count}} d" },
   },
 };
