@@ -69,8 +69,12 @@ describe("rendering of every kind of node", () => {
     const spans = [...title.children];
     expect(spans.map((s) => s.tagName)).toEqual(["SPAN", "SPAN", "SPAN", "A", "SPAN"].slice(0, spans.length));
     expect(title.querySelector("a")).toHaveAttribute("href", "https://example.com");
-    // The app resets an anchor to `color: inherit`; the link takes the browser's own colour back, as in the export (a colour of the run itself is inline and wins).
-    expect(title.querySelector("a")).toHaveClass("[color:revert]");
+    // A link with no colour of its own takes the colour of the text around it and is underlined the same way in the canvas, the editor and the export.
+    const link = title.querySelector("a") as HTMLElement;
+    expect(link.style.color).toBe("inherit");
+    expect(link.style.textDecorationLine).toBe("underline");
+    expect(link.style.textDecorationThickness).toBe("max(1px, 0.06em)");
+    expect(link.style.textUnderlineOffset).toBe("0.15em");
     expect(title.querySelector("span[style*='font-weight']")?.textContent).toBe("brave");
     expect(node(world, "plain")?.textContent).toBe("Just text");
     expect(node(world, "plain")?.children).toHaveLength(0);

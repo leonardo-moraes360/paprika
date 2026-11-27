@@ -20,6 +20,8 @@ import {
   strokeDasharray,
   strokePositionOf,
   strokeStyleOf,
+  LINK_UNDERLINE_OFFSET,
+  LINK_UNDERLINE_THICKNESS,
 } from "./style.js";
 import { shapePadding } from "./diagram.js";
 import { layout } from "./layout.js";
@@ -423,7 +425,10 @@ function richLineInner(
       if (p.run.color !== undefined) attrs.push(` fill="${escapeHtml(String(resolveValue(doc, p.run.color, mode)))}"`);
       if (p.run.fontSize !== undefined) attrs.push(` font-size="${f(numSize(doc, p.run.fontSize, 16, mode))}"`);
       if (p.run.italic) attrs.push(` font-style="italic"`);
-      if (p.run.href) attrs.push(` text-decoration="underline"`);
+      if (p.run.href) {
+        attrs.push(` text-decoration="underline"`);
+        attrs.push(` style="text-decoration-thickness:${LINK_UNDERLINE_THICKNESS.replace(", ", ",")};text-underline-offset:${LINK_UNDERLINE_OFFSET};text-decoration-skip-ink:auto"`);
+      }
       const inner = `<tspan${attrs.join("")}>${escapeHtml(p.text)}</tspan>`;
       if (p.run.href) return `<a href="${escapeHtml(p.run.href)}">${inner}</a>`;
       return inner;
