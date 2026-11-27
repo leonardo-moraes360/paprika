@@ -98,4 +98,29 @@ describe("the preview controller", () => {
     ctl.commit(["plain"], new Promise(() => undefined));
     expect(store.state.preview.plain).toBeUndefined();
   });
+
+  it("a patch that carries an outline stays until the document holds that same outline (by content), not only the same box", () => () => {
+    const { store, ctl, setDoc } = setup();
+    const x = (doc.nodes.plain as { x: number }).x;
+    ctl.set({ plain: { x, d: "M0 0 L9 9" } });
+    ctl.commit(["plain"], new Promise(() => undefined));
+    // before the ack: the box is already the document's but the outline is not
+    setDoc({ ...doc });
+    expect(store.state.preview.plain).toBeDefined();
+    setDoc({ ...doc, nodes: { ...doc.nodes, plain: { ...doc.nodes.plain!, d: "M0 0 L9 9" } as never } });
+    expect(store.state.preview.plain).toBeUndefined();
+  });
+
+  it("a refusal puts the preview back even after the controller was disposed once (StrictMode runs the cleanup of an effect once)", async () => {
+    const { store, ctl } = setup();
+    ctl.dispose();
+    ctl.set({ plain: { x: 40 } });
+    expect(store.state.preview.plain).toEqual({ x: 40 });
+    const answer = deferred();
+    ctl.commit(["plain"], answer.promise);
+    answer.resolve(false);
+    await answer.promise;
+    await Promise.resolve();
+    expect(store.state.preview.plain).toBeUndefined();
+  });
 });

@@ -1,5 +1,6 @@
 import type { Document, Node } from "@paprika/core";
 import type { CanvasActions, CanvasState } from "./region";
+import { deepEqual } from "./render-index";
 import type { PreviewPatch } from "./types";
 
 export type PreviewController = {
@@ -21,11 +22,13 @@ export type PreviewController = {
 type Held = { ids: Set<string>; base: Document; acked: boolean };
 
 const GEOMETRY = ["x", "y", "width", "height", "rotation"] as const;
+/** What a patch may change besides the geometry: the document must hold the same value (by content) for the patch to be done. */
+const CONTENT = ["d", "from", "to", "control", "layout"] as const;
 
 function showsPatch(node: Node | undefined, patch: PreviewPatch): boolean {
   if (!node) return true;
   const record = node as unknown as Record<string, unknown>;
-  return GEOMETRY.every((key) => patch[key] === undefined || record[key] === patch[key]);
+  return GEOMETRY.every((key) => patch[key] === undefined || record[key] === patch[key]) && CONTENT.every((key) => patch[key] === undefined || deepEqual(record[key], patch[key]));
 }
 
 export function createPreviewController(actions: Pick<CanvasActions, "setPreview" | "clearPreview">, read: () => { state: CanvasState; doc: Document }): PreviewController {
@@ -53,6 +56,8 @@ export function createPreviewController(actions: Pick<CanvasActions, "setPreview
 
   return {
     set: (patches) => {
+      // A canvas that is shown again after a simulated unmount (StrictMode runs the cleanup once) is alive: a gesture proves it.
+      disposed = false;
       const ids = Object.keys(patches);
       for (const entry of held) for (const id of ids) entry.ids.delete(id);
       held = held.filter((entry) => entry.ids.size > 0);
@@ -65,6 +70,7 @@ export function createPreviewController(actions: Pick<CanvasActions, "setPreview
       } else release(ids);
     },
     commit: (ids, result) => {
+      disposed = false;
       const entry: Held = { ids: new Set(ids), base: read().doc, acked: false };
       held.push(entry);
       const answer = (ok: boolean) => {
