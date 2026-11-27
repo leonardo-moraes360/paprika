@@ -1,5 +1,7 @@
-import type { StoreActionsFactory } from "@tanstack/react-store";
+import type { Document, Node } from "@paprika/core";
+import type { Store, StoreActionsFactory } from "@tanstack/react-store";
 import { createRegion } from "../_shared";
+import { linkedPatches, sameLinked, type Linked } from "./preview-node";
 import type { CanvasRenderer, CanvasTool, PreviewPatch } from "./types";
 
 /**
@@ -91,3 +93,138 @@ export const CanvasProvider = CanvasStateRegion.Provider;
 export const useCanvasState = CanvasStateRegion.useRegion;
 export const useCanvasActions = CanvasStateRegion.useRegionActions;
 export const useCanvasStore = CanvasStateRegion.useRegionStore;
+
+/** What one node asks of the canvas state: its flags, its own preview and the previews of what a connector follows. */
+export type NodeSlice = { flags: number; patch: PreviewPatch | undefined; linked: Linked };
+export const SELECTED = 1;
+export const HOVERED = 2;
+export const EDITING = 4;
+export const PAINTED = 8;
+
+const sameSlice = (a: NodeSlice, b: NodeSlice) => a.flags === b.flags && a.patch === b.patch && sameLinked(a.linked, b.linked);
+
+export type NodeSlices = {
+  /** Listens to ONE node: it is called only when a write to the canvas state changed that node's slice. Returns the way to stop. */
+  subscribe: (id: string, listener: () => void) => () => void;
+  /** The node's slice for the state as it is: same object until the answer changes. `node` is what the node is in the document (a connector asks about what it follows). */
+  read: (id: string, node: Node | null | undefined) => NodeSlice;
+  /** How many slices were computed so far (what a test counts: a hover over 5 000 nodes must compute two). */
+  evaluations: () => number;
+};
+
+/**
+ * Per-node view of the canvas state. A write to the store is diffed once against the one before it (the selection, the hovered
+ * and edited ids, the painted set and the preview by key) and only the nodes whose slice may have changed are told, so the cost of
+ * a hover or a `pointermove` of a drag follows what changed, not how many nodes the page has. A connector is also told when a node it
+ * follows (an end or one of the ends' ancestors) is previewed, through an index that is built once per document.
+ */
+export function createNodeSlices(store: Pick<Store<CanvasState>, "state" | "subscribe">, doc: () => Document): NodeSlices {
+  const listeners = new Map<string, Set<() => void>>();
+  const cache = new Map<string, { state: CanvasState; node: Node | null | undefined; slice: NodeSlice }>();
+  let evaluations = 0;
+  let prev = store.state;
+  let watch: { unsubscribe: () => void } | null = null;
+  let indexed: Document | null = null;
+  let followers = new Map<string, string[]>();
+
+  /** For each node, the connectors that are routed from it: attached to it or to one of its descendants, or itself. */
+  const followersOf = (id: string): readonly string[] => {
+    const d = doc();
+    if (indexed !== d) {
+      indexed = d;
+      followers = new Map();
+      const add = (key: string, connector: string) => {
+        const list = followers.get(key);
+        if (!list) followers.set(key, [connector]);
+        else if (list[list.length - 1] !== connector) list.push(connector);
+      };
+      for (const key in d.nodes) {
+        const node = d.nodes[key]!;
+        if (node.type !== "connector") continue;
+        add(node.id, node.id);
+        for (const end of [node.from.nodeId, node.to.nodeId]) {
+          for (let at = end ?? null, depth = 0; at && depth < 1000; depth += 1) {
+            const held = d.nodes[at];
+            if (!held || held.type === "page") break;
+            add(at, node.id);
+            at = held.parentId;
+          }
+        }
+      }
+    }
+    return followers.get(id) ?? [];
+  };
+
+  const onState = (next: CanvasState) => {
+    const before = prev;
+    prev = next;
+    if (listeners.size === 0) return;
+    const hit = new Set<string>();
+    if (before.selected !== next.selected) {
+      for (const id of next.selected) if (!before.selected.has(id)) hit.add(id);
+      for (const id of before.selected) if (!next.selected.has(id)) hit.add(id);
+    }
+    if (before.hoveredId !== next.hoveredId) {
+      if (before.hoveredId !== null) hit.add(before.hoveredId);
+      if (next.hoveredId !== null) hit.add(next.hoveredId);
+    }
+    if (before.editingId !== next.editingId) {
+      if (before.editingId !== null) hit.add(before.editingId);
+      if (next.editingId !== null) hit.add(next.editingId);
+    }
+    if (before.painted !== next.painted) {
+      for (const id of next.painted) if (!before.painted.has(id)) hit.add(id);
+      for (const id of before.painted) if (!next.painted.has(id)) hit.add(id);
+    }
+    if (before.preview !== next.preview) {
+      const moved: string[] = [];
+      for (const id in next.preview) if (before.preview[id] !== next.preview[id]) moved.push(id);
+      for (const id in before.preview) if (!(id in next.preview)) moved.push(id);
+      for (const id of moved) {
+        hit.add(id);
+        for (const connector of followersOf(id)) hit.add(connector);
+      }
+    }
+    for (const id of hit) {
+      const set = listeners.get(id);
+      if (set) for (const listener of [...set]) listener();
+    }
+  };
+
+  return {
+    subscribe: (id, listener) => {
+      let set = listeners.get(id);
+      if (!set) listeners.set(id, (set = new Set()));
+      set.add(listener);
+      if (!watch) {
+        prev = store.state;
+        watch = store.subscribe(onState);
+      }
+      return () => {
+        set.delete(listener);
+        if (set.size > 0) return;
+        listeners.delete(id);
+        cache.delete(id);
+        if (listeners.size === 0) {
+          watch?.unsubscribe();
+          watch = null;
+        }
+      };
+    },
+    read: (id, node) => {
+      const state = store.state;
+      const have = cache.get(id);
+      if (have && have.state === state && have.node === node) return have.slice;
+      evaluations += 1;
+      const slice: NodeSlice = {
+        flags: (state.selected.has(id) ? SELECTED : 0) | (state.hoveredId === id ? HOVERED : 0) | (state.editingId === id ? EDITING : 0) | (state.painted.has(id) ? PAINTED : 0),
+        patch: state.preview[id],
+        linked: linkedPatches(state.preview, doc(), node),
+      };
+      const kept = have && sameSlice(have.slice, slice) ? have.slice : slice;
+      cache.set(id, { state, node, slice: kept });
+      return kept;
+    },
+    evaluations: () => evaluations,
+  };
+}
