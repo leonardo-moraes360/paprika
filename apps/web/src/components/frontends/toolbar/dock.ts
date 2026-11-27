@@ -11,13 +11,14 @@ export const dockCodec: PersistedCodec<ToolbarDock> = {
 type Box = { left: number; top: number; right: number; bottom: number };
 
 export function dockFromPoint(x: number, y: number, box: Box): ToolbarDock {
+  const first: [ToolbarDock, number] = ["left", x - box.left];
   const edges: [ToolbarDock, number][] = [
-    ["left", x - box.left],
+    first,
     ["right", box.right - x],
     ["top", y - box.top],
     ["bottom", box.bottom - y],
   ];
-  const nearest = edges.reduce((best, edge) => (edge[1] < best[1] ? edge : best), edges[0]);
+  const nearest = edges.reduce((best, edge) => (edge[1] < best[1] ? edge : best), first);
   return nearest[0];
 }
 
