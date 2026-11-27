@@ -1,4 +1,120 @@
-/** Skeleton of the `properties` region (owner: batch 3). Mounted by `editor.tsx` inside a `RegionProfiler`; renders nothing until its batch wires it. */
+import { useFormatForDisplay } from "@tanstack/react-hotkeys";
+import { memo, useCallback, useMemo, useRef, useSyncExternalStore } from "react";
+import { useTranslation } from "react-i18next";
+import { documentFonts } from "@/adapters/doc-fonts";
+import { panelInput, type PanelInput } from "@/adapters/properties";
+import { FontPicker } from "@/components/frontends/font-picker";
+import { PropertiesPanel, type FontPickerSlot, type PropertiesPanelProps, type PropertiesPanelShortcuts } from "@/components/frontends/properties-panel";
+import { useDocLint } from "@/data/lint";
+import { isOfflineError, shallow, useLive, useLiveActions, useLiveClient } from "@/data/live";
+import { showStatusToast } from "@/lib/notify";
+import { errorText } from "@/lib/use-async-action";
+import { useEditorActions, useEditorStore } from "../editor-store";
+import { usePanelActivity } from "./activity";
+
+const MemoPanel = memo(PropertiesPanel);
+
+const STORAGE_KEY = "paprika.properties.sections";
+const ERROR_TOAST_ID = "properties:error";
+
+/** The editor's selection and the live document, as one input that keeps its identity while the panel's view of them does not change. */
+function usePanelInput(): PanelInput {
+  const live = useLiveClient().store;
+  const editor = useEditorStore();
+  const held = useRef<PanelInput | null>(null);
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      const a = live.subscribe(listener);
+      const b = editor.subscribe(listener);
+      return () => {
+        a.unsubscribe();
+        b.unsubscribe();
+      };
+    },
+    [live, editor],
+  );
+  const snapshot = () => {
+    const next = panelInput(held.current, live.state.doc, editor.state.selection);
+    held.current = next;
+    return next;
+  };
+  return useSyncExternalStore(subscribe, snapshot, snapshot);
+}
+
+/** Font picker for the typography section: the document's families come from a memoized function of the live document. */
+function FontSlot({ value, onValueChange }: { value: string; onValueChange: (family: string) => void }) {
+  const fonts = useLive((state) => documentFonts(state.doc), shallow);
+  return <FontPicker value={value} onValueChange={onValueChange} documentFonts={fonts} />;
+}
+
+const renderFontPicker: FontPickerSlot = (props) => <FontSlot {...props} />;
+
+/** Hotkeys the panel hints at, as the platform spells them (`["Ctrl", "G"]`, `["⌘", "G"]`). */
+function usePanelShortcuts(): PropertiesPanelShortcuts {
+  const format = useFormatForDisplay();
+  return useMemo(
+    () => ({
+      group: format("Mod+G", { parts: true }),
+      ungroup: format("Mod+Shift+G", { parts: true }),
+      wrap: format("Mod+Alt+G", { parts: true }),
+      center: format("Alt+C", { parts: true }),
+    }),
+    [format],
+  );
+}
+
+/**
+ * Right panel of the editor: wires `PropertiesPanel` to the live document, the editor's selection and the server.
+ * The panel gets the whole document by contract, so what keeps it still is the input: it changes only when a delta
+ * touches something the panel shows (`adapters/properties`). Activity and lint feed the document panel only, and
+ * are not even read while something is selected.
+ */
 export function Properties() {
-  return null;
+  const { t } = useTranslation();
+  const { apply } = useLiveActions();
+  const { select } = useEditorActions();
+  const input = usePanelInput();
+  const documentView = input.selected.length === 0;
+  const { activity, marker } = usePanelActivity(documentView);
+  const lint = useDocLint(documentView);
+  const shortcuts = usePanelShortcuts();
+
+  // Strings that the stable callbacks read at call time.
+  const texts = useRef({ failed: "", offline: "" });
+  texts.current = { failed: t("app.properties.applyFailed"), offline: t("app.connection.lost") };
+
+  const report = useCallback((error: unknown) => {
+    // The panel hands its own `onError` the message of the rejection, and an offline one reads just "offline".
+    const description = isOfflineError(error) || errorText(error) === "offline" ? texts.current.offline : errorText(error);
+    // One id: a rejected promise reported both here and by the panel's own `onError` shows one toast.
+    showStatusToast({ status: "danger", id: ERROR_TOAST_ID, title: texts.current.failed, description: description || undefined });
+  }, []);
+
+  const onApply = useCallback<PropertiesPanelProps["onApply"]>(
+    (ops, label) => {
+      const result = apply(ops, label);
+      // The panel only awaits what it must (select after a group); a plain field edit would otherwise drop the rejection.
+      result.catch(report);
+      return result;
+    },
+    [apply, report],
+  );
+  const onError = useCallback((message: string) => report(message), [report]);
+
+  return (
+    <MemoPanel
+      doc={input.doc}
+      node={input.node}
+      selected={input.selected}
+      lint={lint?.top}
+      activity={activity}
+      activityMarker={marker}
+      renderFontPicker={renderFontPicker}
+      onApply={onApply}
+      onSelect={select}
+      onError={onError}
+      storageKey={STORAGE_KEY}
+      shortcuts={shortcuts}
+    />
+  );
 }

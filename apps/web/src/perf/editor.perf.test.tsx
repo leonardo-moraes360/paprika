@@ -38,7 +38,8 @@ describe("editor commits with a document of 5 000 nodes", () => {
     const after = view.rig.client.store.state.doc!;
     expect((after.nodes[target] as { x: number }).x).toBe(123);
     expect(after.nodes[Object.keys(before.nodes)[2501] as string]).toBe(before.nodes[Object.keys(before.nodes)[2501] as string]);
-    for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(0);
+    // With nothing selected the properties panel is the document panel, and it lists the new activity entry: one commit.
+    for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(id === "properties" ? 1 : 0);
     view.unmount();
   });
 
@@ -49,16 +50,18 @@ describe("editor commits with a document of 5 000 nodes", () => {
     view.rig.deliver(...Array.from({ length: 200 }, (_, i) => nodeDelta(before, keys[100 + i] as string, { x: i }, 2 + i)));
     expect(view.rig.client.store.state.version).toBe(201);
     view.rig.push({ type: "presence", agent: "s:1", actor: "agent:claude", tool: "update_nodes", nodes: [keys[100] as string], idle: 0 });
-    for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(0);
+    // The activity list (document panel) changes once for the whole burst; presence changes nothing.
+    for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(id === "properties" ? 1 : 0);
     view.unmount();
   });
 
-  it("control: what a region does depend on does commit it (renaming the document re-renders the header only)", async () => {
+  it("control: what a region does depend on does commit it (renaming the document re-renders the header and the document panel only)", async () => {
     const view = await openEditor();
     const before = view.rig.client.store.state.doc!;
     view.rig.deliver({ ...nodeDelta(before, Object.keys(before.nodes)[1] as string, {}, 2), nodes: undefined, name: "Renamed" });
     expect(view.log.commits("header")).toBe(1);
-    for (const id of editorRegionIds.filter((r) => r !== "header")) expect(view.log.commits(id), id).toBe(0);
+    // The document panel shows the name and the new activity entry: the properties region commits once, too.
+    for (const id of editorRegionIds.filter((r) => r !== "header")) expect(view.log.commits(id), id).toBe(id === "properties" ? 1 : 0);
     view.unmount();
   });
 
