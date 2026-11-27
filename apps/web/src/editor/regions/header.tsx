@@ -55,20 +55,24 @@ export function Header() {
   }, [t, name, pageName, navigate]);
 
   return (
-    <EditorHeader
-      path={path}
-      pins={pins}
-      onPinsClick={onPinsClick}
-      agents={connected ? agents : 0}
-      renderAgents={renderAgents}
-      team={team}
-      onTeamClick={onTeamClick}
-      connected={connected}
-      connectionLabel={connected ? t("app.shell.mcpOn") : undefined}
-      language={i18n.resolvedLanguage ?? "en"}
-      onLanguageChange={(language) => void i18n.changeLanguage(language)}
-      theme={theme}
-      onThemeChange={setTheme}
-    />
+    <>
+      {/* The page's one h1 is the workspace's name (the breadcrumb shows it as a plain item); the old app had it too. */}
+      <h1 className="sr-only">{name || t("app.untitled")}</h1>
+      <EditorHeader
+        path={path}
+        pins={pins}
+        onPinsClick={onPinsClick}
+        agents={connected ? agents : 0}
+        renderAgents={renderAgents}
+        team={team}
+        onTeamClick={onTeamClick}
+        connected={connected}
+        connectionLabel={connected ? t("app.shell.mcpOn") : undefined}
+        language={i18n.resolvedLanguage ?? "en"}
+        onLanguageChange={(language) => void i18n.changeLanguage(language)}
+        theme={theme}
+        onThemeChange={setTheme}
+      />
+    </>
   );
 }
