@@ -1,5 +1,5 @@
 import { nodeStyle, SHAPE_TEXT_CSS, type Node } from "@paprika/core";
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { TextArea } from "@/components/ui/text-area";
 import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
@@ -28,6 +28,8 @@ function ShapeSurface({ node }: { node: ShapeNode }) {
   const shell = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLTextAreaElement>(null);
   const done = useRef(false);
+  /** The text the document had last: what the field started from, or what another client wrote since. A change is measured against it. */
+  const base = useRef(initial.text);
 
   useLayoutEffect(() => {
     const box = rt.measure(initial.id);
@@ -43,11 +45,23 @@ function ShapeSurface({ node }: { node: ShapeNode }) {
     field.current?.select();
   }, [rt, initial]);
 
+  // Another client wrote the text while this one is open: a field nobody has touched shows it, one with typing in it keeps what was typed.
+  useEffect(() => {
+    const el = field.current;
+    const last = base.current;
+    if (!el || done.current || node.text === last) return;
+    base.current = node.text;
+    if (el.value !== last) return;
+    const { selectionStart, selectionEnd } = el;
+    el.value = node.text;
+    el.setSelectionRange(Math.min(selectionStart, node.text.length), Math.min(selectionEnd, node.text.length));
+  }, [node.text]);
+
   const finish = (refocus: boolean) => {
     if (done.current) return;
     done.current = true;
-    const value = field.current?.value ?? initial.text;
-    if (value !== initial.text) void rt.apply([{ op: "update", id: initial.id, props: { text: value } }], rt.text("history.editText"));
+    const value = field.current?.value ?? base.current;
+    if (value !== base.current) void rt.apply([{ op: "update", id: initial.id, props: { text: value } }], rt.text("history.editText"));
     rt.store.actions.setEditing(null);
     if (refocus) rt.viewport()?.focus({ preventScroll: true });
   };

@@ -1,5 +1,5 @@
 import { connectorLabelAttrs, connectorMidpoint, type Node } from "@paprika/core";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TextField } from "@/components/ui/text-field";
 import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
@@ -30,6 +30,8 @@ function LabelSurface({ node }: { node: ConnectorNode }) {
   const shell = useRef<HTMLDivElement>(null);
   const field = useRef<HTMLInputElement>(null);
   const done = useRef(false);
+  /** The label the document had last: what the field started from, or what another client wrote since. A change is measured against it. */
+  const base = useRef(initial.label ?? "");
   const at = connectorMidpoint(initial.d);
   const look = connectorLabelAttrs(rt.doc(), { ...initial, label: initial.label || " " });
 
@@ -44,11 +46,24 @@ function LabelSurface({ node }: { node: ConnectorNode }) {
     field.current?.select();
   }, [rt, initial, at]);
 
+  // Another client wrote the label while this one is open: a field nobody has touched shows it, one with typing in it keeps what was typed.
+  const label = node.label ?? "";
+  useEffect(() => {
+    const el = field.current;
+    const last = base.current;
+    if (!el || done.current || label === last) return;
+    base.current = label;
+    if (el.value !== last) return;
+    const { selectionStart, selectionEnd } = el;
+    el.value = label;
+    el.setSelectionRange(Math.min(selectionStart ?? label.length, label.length), Math.min(selectionEnd ?? label.length, label.length));
+  }, [label]);
+
   const finish = (commit: boolean, refocus: boolean) => {
     if (done.current) return;
     done.current = true;
     const value = field.current?.value ?? "";
-    if (commit && value.trim() !== (initial.label ?? "")) {
+    if (commit && value.trim() !== base.current) {
       void rt.apply([{ op: "update", id: initial.id, props: { label: value.trim() ? value.trim() : null } }], rt.text("history.editLabel"));
     }
     rt.store.actions.setEditing(null);
