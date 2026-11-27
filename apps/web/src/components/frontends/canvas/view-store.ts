@@ -38,6 +38,8 @@ export function createViewStore(initial: View = { x: 0, y: 0, zoom: 1 }): ViewSt
   let targets: ViewTargets | null = null;
   let frame = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  /** The camera the settle listeners were last told about. */
+  let settled = initial;
   const frames = new Set<(view: View) => void>();
   const settles = new Set<(view: View) => void>();
 
@@ -52,6 +54,15 @@ export function createViewStore(initial: View = { x: 0, y: 0, zoom: 1 }): ViewSt
     }
   };
 
+  const arm = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = undefined;
+      settled = applied;
+      for (const listener of [...settles]) listener(applied);
+    }, SETTLE_MS);
+  };
+
   const flush = () => {
     if (frame) cancelAnimationFrame(frame);
     frame = 0;
@@ -59,11 +70,7 @@ export function createViewStore(initial: View = { x: 0, y: 0, zoom: 1 }): ViewSt
     applied = target;
     paint(applied);
     for (const listener of [...frames]) listener(applied);
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      timer = undefined;
-      for (const listener of [...settles]) listener(applied);
-    }, SETTLE_MS);
+    arm();
   };
 
   return {
@@ -80,7 +87,12 @@ export function createViewStore(initial: View = { x: 0, y: 0, zoom: 1 }): ViewSt
     flush,
     attach: (next) => {
       targets = next;
+      if (!next) return;
       paint(applied);
+      // A remount (StrictMode runs the effects twice) must not lose what the first mount had in flight.
+      if (!sameView(target, applied)) {
+        if (!frame) frame = requestAnimationFrame(flush);
+      } else if (!sameView(applied, settled) && timer === undefined) arm();
     },
     onFrame: (listener) => {
       frames.add(listener);
@@ -95,8 +107,6 @@ export function createViewStore(initial: View = { x: 0, y: 0, zoom: 1 }): ViewSt
       frame = 0;
       clearTimeout(timer);
       timer = undefined;
-      frames.clear();
-      settles.clear();
       targets = null;
     },
   };

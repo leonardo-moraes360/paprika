@@ -68,6 +68,23 @@ describe("the view store", () => {
     expect(onFrame).not.toHaveBeenCalled();
   });
 
+  it("a dispose and attach again (a StrictMode remount) keeps the pending frame and the settle", () => {
+    const store = createViewStore();
+    const settled = vi.fn();
+    store.onSettled(settled);
+    store.attach(targets());
+    store.set({ x: 5, y: 0, zoom: 1 }, true);
+    store.set({ x: 9, y: 0, zoom: 1 });
+    store.attach(null);
+    store.dispose();
+    const t = targets();
+    store.attach(t);
+    vi.advanceTimersByTime(17);
+    expect(t.world.style.transform).toMatch(/translate\(9px/);
+    vi.advanceTimersByTime(SETTLE_MS);
+    expect(settled).toHaveBeenCalledWith({ x: 9, y: 0, zoom: 1 });
+  });
+
   it("paints a camera set before attach, and stops writing after dispose", () => {
     const store = createViewStore();
     store.set({ x: 3, y: 4, zoom: 2 }, true);
