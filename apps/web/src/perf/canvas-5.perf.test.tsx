@@ -5,6 +5,7 @@ import { editorRegionIds } from "@/editor/editor";
 import { stubLayout } from "@/test/canvas-fixtures";
 import { fakeWasm } from "@/test/fake-wasm";
 import { nodeDelta, renderEditorRig, serveDocument } from "@/test/live-harness";
+import { letRealTimersRun } from "@/test/real-settle";
 
 /**
  * Batch 5 of the canvas (the WASM layer) with a document of 5 000 nodes on one page. Counts are commits of the React Profiler and
@@ -35,6 +36,7 @@ async function open() {
   serveDocument(view.rig, view.doc);
   await screen.findByRole("banner");
   await screen.findByRole("tree", { name: "Layer tree" });
+  await letRealTimersRun();
   vi.useFakeTimers({ toFake: [...FAKED] });
   await elapse(300);
   const doc = view.rig.client.store.state.doc!;
@@ -59,6 +61,7 @@ async function choose(name: RegExp, settled: RegExp) {
   await user.click(screen.getByRole("menuitemradio", { name }));
   await screen.findByRole("button", { name: settled }, { timeout: 30_000 });
   await user.keyboard("{Escape}");
+  await letRealTimersRun();
   vi.useFakeTimers({ toFake: [...FAKED] });
   await elapse(300);
 }

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { relativeParts, type RelativeParts } from "@/lib/relative-time";
 
@@ -46,16 +46,17 @@ export function RelativeClockProvider({ clock, children }: { clock: RelativeCloc
 const key = (parts: RelativeParts) => `${parts.unit}:${parts.count}`;
 
 /**
- * "5 s", "2 min": a leaf, so the tick re-renders this span and nothing around it. The snapshot it reads is the text's
- * own key (unit and count), so a tick that does not change this row's text renders nothing (an old entry changes once a
- * minute). Without a provider the row has a clock of its own.
+ * "5 s", "2 min": a leaf, so the tick re-renders this span and nothing around it. It holds the text's own key (unit and
+ * count), so a tick that does not change this row's text sets the same state and renders nothing (an old entry changes
+ * once a minute), and a new row sets no state on mount. Without a provider the row has a clock of its own.
  */
 export function RelativeTime({ at }: { at: number }) {
   const { t } = useTranslation();
   const shared = useContext(ClockContext);
   const [own] = useState(() => (shared ? null : createRelativeClock()));
   const clock = shared ?? (own as RelativeClock);
-  const text = useSyncExternalStore(clock.subscribe, () => key(relativeParts(at, clock.now())));
+  const [text, setText] = useState(() => key(relativeParts(at, clock.now())));
+  useEffect(() => clock.subscribe(() => setText(key(relativeParts(at, clock.now())))), [clock, at]);
   const [unit, count] = text.split(":") as [RelativeParts["unit"], string];
   return <time dateTime={new Date(at).toISOString()}>{t(`app.properties.ago.${unit}`, { count: Number(count) })}</time>;
 }

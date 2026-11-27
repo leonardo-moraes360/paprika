@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { editorRegionIds } from "@/editor/editor";
 import { stubLayout } from "@/test/canvas-fixtures";
 import { nodeDelta, renderEditorRig, serveDocument } from "@/test/live-harness";
+import { letRealTimersRun } from "@/test/real-settle";
 
 /**
  * The canvas with a document of 5 000 nodes on one page (plan, section 4, goals 1, 2, 3 and 6). Counts commits per region and
@@ -33,6 +34,7 @@ async function open() {
   await screen.findByRole("banner");
   await screen.findByRole("tree", { name: "Layer tree" });
   const opened = performance.now() - started;
+  await letRealTimersRun();
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date", "requestAnimationFrame", "cancelAnimationFrame"] });
   await elapse(300);
   // The first edit flips "can undo" (the toolbar): settle it so the numbers below are about the action itself.
