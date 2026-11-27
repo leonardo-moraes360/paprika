@@ -4,6 +4,7 @@ import type { Node } from "@paprika/core";
 import { editorRegionIds } from "@/editor/editor";
 import { stubLayout } from "@/test/canvas-fixtures";
 import { deltaMessage, nodeDelta, renderEditorRig, serveDocument } from "@/test/live-harness";
+import { letRealTimersRun } from "@/test/real-settle";
 
 /**
  * Batch 4 of the canvas (presence, pins, the build replay) with a document of 5 000 nodes on one page and up to 64 agents: what it
@@ -19,8 +20,10 @@ const regions = [...editorRegionIds, "canvas"];
 /**
  * Commits of the same scenarios at the base commit of the batch (28a0c02, before the canvas drew presence), measured with this file's
  * scenarios on that tree: what `layers` and `properties` already did for them. The canvas must add nothing to them.
+ * `build.properties` was 4 at the base: the activity rows' own clocks ticking while a row still said "now" (the text cannot change for 5 s).
+ * The rows share one clock now and a tick that leaves the text as it is renders nothing, so the walk of two seconds commits 0.
  */
-const BASE = { delta: { properties: 1, layers: 0 }, idle20: { properties: 2, layers: 0 }, build: { properties: 4 } } as const;
+const BASE = { delta: { properties: 1, layers: 0 }, idle20: { properties: 2, layers: 0 }, build: { properties: 0 } } as const;
 
 let restoreLayout: () => void;
 beforeAll(() => {
@@ -42,6 +45,7 @@ async function open() {
   serveDocument(view.rig, view.doc);
   await screen.findByRole("banner");
   await screen.findByRole("tree", { name: "Layer tree" });
+  await letRealTimersRun();
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date", "requestAnimationFrame", "cancelAnimationFrame"] });
   await elapse(300);
   const doc = view.rig.client.store.state.doc!;

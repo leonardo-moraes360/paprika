@@ -9,6 +9,7 @@ import { useDocLint } from "@/data/lint";
 import { shallow, useLive, useLiveActions, useLiveClient } from "@/data/live";
 import { showStatusToast } from "@/lib/notify";
 import { useEditorActions, useEditorStore } from "../editor-store";
+import { createRelativeClock, RelativeClockProvider } from "../relative-time";
 import { useFailureText } from "../use-apply";
 import { usePanelActivity } from "./activity";
 
@@ -106,6 +107,8 @@ export function Properties({ header }: { header?: ReactNode } = {}) {
   const { activity, marker } = usePanelActivity(documentView);
   const lint = useDocLint(documentView);
   const shortcuts = usePanelShortcuts();
+  // One clock for the relative times of the activity rows: they tick together, in one commit.
+  const [clock] = useState(() => createRelativeClock());
 
   // What the stable callbacks read at call time.
   const failure = useFailureText();
@@ -131,21 +134,23 @@ export function Properties({ header }: { header?: ReactNode } = {}) {
   const onError = useCallback((message: string) => report(message), [report]);
 
   return (
-    <MemoPanel
-      doc={input.doc}
-      node={input.node}
-      selected={input.selected}
-      lint={lint?.top}
-      activity={activity}
-      activityMarker={marker}
-      header={header}
-      renderFontPicker={renderFontPicker}
-      onApply={onApply}
-      onSelect={select}
-      onError={onError}
-      onSampleColor={beginSampling}
-      storageKey={STORAGE_KEY}
-      shortcuts={shortcuts}
-    />
+    <RelativeClockProvider clock={clock}>
+      <MemoPanel
+        doc={input.doc}
+        node={input.node}
+        selected={input.selected}
+        lint={lint?.top}
+        activity={activity}
+        activityMarker={marker}
+        header={header}
+        renderFontPicker={renderFontPicker}
+        onApply={onApply}
+        onSelect={select}
+        onError={onError}
+        onSampleColor={beginSampling}
+        storageKey={STORAGE_KEY}
+        shortcuts={shortcuts}
+      />
+    </RelativeClockProvider>
   );
 }

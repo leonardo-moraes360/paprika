@@ -4,6 +4,7 @@ import { NoticeCard } from "@/components/ui/notice-card";
 import { Spinner } from "@/components/ui/spinner";
 import { useLive } from "@/data/live";
 import { Editor } from "./editor";
+import { ShellWarmup } from "./shell-warmup";
 import { useWorkspaceView } from "./use-workspace-view";
 
 /** Keeps `document.title` at the document's name; a leaf, so a rename re-renders only this. */
@@ -24,6 +25,7 @@ export function OpeningWorkspace() {
   const connected = useLive((s) => s.connected);
   return (
     <main className="min-h-dvh bg-bg px-10 py-7">
+      <ShellWarmup />
       <NoticeCard
         variant="band"
         status="neutral"

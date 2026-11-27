@@ -152,6 +152,26 @@ describe("properties region commits with a document of 5 000 nodes", () => {
     view.unmount();
   });
 
+  it("20 isolated deltas on a node that is not selected, 200 ms apart, cost one commit each plus one per second of clock (not one per row per second)", async () => {
+    // The relative times of the activity rows tick every second; each row used to have its own interval, so 20 rows committed 20 times a second.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+    const view = await mount(5000);
+    const ids = keys(view);
+    expect(screen.getByTestId("document-panel")).toBeInTheDocument();
+    await settle();
+    view.log.reset();
+    const frame = 20;
+    for (let i = 0; i < 20; i += 1) {
+      view.rig.deliver(nodeDelta(view.rig.client.store.state.doc!, ids[400] as string, { x: 40 + i }, 2 + i));
+      // The gap goes frame by frame: each timer of a real browser is its own task, so each one that changes the panel is its own commit.
+      for (let elapsed = 0; elapsed < 200; elapsed += frame) await elapse(frame);
+    }
+    const seconds = 4;
+    expect(view.rig.client.store.state.version).toBe(21);
+    expect(commits(view)).toBeLessThanOrEqual(20 + seconds + 1);
+    view.unmount();
+  });
+
   it("selecting a node switches the panel in one commit", async () => {
     const view = await mount(5000);
     const ids = keys(view);

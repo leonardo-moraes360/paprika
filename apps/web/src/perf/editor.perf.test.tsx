@@ -2,6 +2,7 @@ import { act, screen } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { alwaysMountedRegionIds, editorRegionIds } from "@/editor/editor";
 import { docMessage, nodeDelta, renderEditorRig, serveDocument } from "@/test/live-harness";
+import { letRealTimersRun } from "@/test/real-settle";
 
 const NODES = 5000;
 
@@ -22,6 +23,7 @@ async function openEditor() {
   // The layers mount in a transition right after the first paint: wait for them, then let the regions' own mount effects
   // (toolbar, hotkeys, persisted state) and the panels' refresh intervals pass. Only what a delta causes is counted.
   await screen.findByRole("tree", { name: "Layer tree" });
+  await letRealTimersRun();
   useClock();
   await elapse(300);
   view.log.reset();

@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { editorRegionIds } from "@/editor/editor";
 import { stubLayout } from "@/test/canvas-fixtures";
 import { nodeDelta, renderEditorRig, serveDocument } from "@/test/live-harness";
+import { letRealTimersRun } from "@/test/real-settle";
 
 /**
  * Creation and text editing on a page of 5 000 nodes (plan, section 4, goal 4 for the creation gesture; the editors are the
@@ -31,6 +32,7 @@ async function open() {
   serveDocument(view.rig, view.doc);
   await screen.findByRole("banner");
   await screen.findByRole("tree", { name: "Layer tree" });
+  await letRealTimersRun();
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date", "requestAnimationFrame", "cancelAnimationFrame"] });
   await elapse(300);
   const doc = view.rig.client.store.state.doc!;

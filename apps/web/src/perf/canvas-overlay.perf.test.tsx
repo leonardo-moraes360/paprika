@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { editorRegionIds } from "@/editor/editor";
 import { stubLayout } from "@/test/canvas-fixtures";
 import { nodeDelta, renderEditorRig, serveDocument } from "@/test/live-harness";
+import { letRealTimersRun } from "@/test/real-settle";
 
 /**
  * What only an overlay shows (the ghost of a creation, the pen's draft, an arrow being drawn, the area of a pin, the marquee) is
@@ -34,6 +35,7 @@ async function open() {
   serveDocument(view.rig, view.doc);
   await screen.findByRole("banner");
   await screen.findByRole("tree", { name: "Layer tree" });
+  await letRealTimersRun();
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date", "requestAnimationFrame", "cancelAnimationFrame"] });
   await elapse(300);
   const doc = view.rig.client.store.state.doc!;

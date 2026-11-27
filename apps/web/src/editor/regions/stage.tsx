@@ -141,7 +141,7 @@ export function Stage() {
   useEditorShortcuts();
   return (
     <div className="relative h-full min-h-0 flex-1 bg-canvas">
-      <div ref={stage} tabIndex={0} role="region" aria-label={t("app.stage")} data-workspace={id} className="absolute inset-0 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-select">
+      <div ref={stage} tabIndex={0} role="region" aria-label={t("app.stage")} data-workspace={id} className="absolute inset-0 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid focus-visible:outline-select">
         <RegionProfiler id="canvas">
           <CanvasRegion />
         </RegionProfiler>

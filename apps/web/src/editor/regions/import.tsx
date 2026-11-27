@@ -66,7 +66,7 @@ export async function convert(t: TFunction, language: string, entry: ImportedFil
       if (src.length > IMAGE_DATA_URI_CHARS) return { error: t("app.collab.import.dataUri", { name, limit: IMAGE_DATA_URI_CHARS }) };
       const size = await naturalSize(src).catch(() => null);
       if (!size) return { error: t("app.collab.import.invalidImage", { name }) };
-      return { name, group: [imageNode(file, src, size)], warnings: [] };
+      return { name, group: [imageNode(file, src, size, t("app.canvas.input.imageName"))], warnings: [] };
     }
     if (kind === "svg" || kind === "html") {
       const text = entry.text ?? (await file.text());

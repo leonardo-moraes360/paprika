@@ -2,6 +2,7 @@ import { act, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { editorRegionIds } from "@/editor/editor";
 import { createLiveRig, nodeDelta, renderEditorRig, serveDocument } from "@/test/live-harness";
+import { letRealTimersRun } from "@/test/real-settle";
 
 /**
  * Batch 4 (agents, team, notice, pins, export, import): presence of up to 64 agents, the roster's clock, the team status and
@@ -73,6 +74,7 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
   it("the roster's clock ticks inside the roster: ten seconds commit it and no other region", async () => {
     const view = await openEditor();
     // From here on time is the test's (the editor opened on real timers, which `findBy*` needs); the roster's interval is created below, on the fake ones.
+    await letRealTimersRun();
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
     const ids = nodeIds(view);
     view.rig.push(...Array.from({ length: AGENTS }, (_, i) => presence(i, ids)));
@@ -94,6 +96,7 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
     const view = await renderEditorRig({ nodes: NODES, client: rig });
     serveDocument(view.rig, view.doc);
     await screen.findByRole("banner");
+    await letRealTimersRun();
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
     const ids = nodeIds(view);
     view.rig.push(presence(0, ids, "update_nodes"));

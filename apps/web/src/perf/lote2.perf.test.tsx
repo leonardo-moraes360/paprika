@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { editorRegionIds } from "@/editor/editor";
 import { deltaMessage, nodeDelta, renderEditorRig, serveDocument } from "@/test/live-harness";
+import { letRealTimersRun } from "@/test/real-settle";
 
 /** Commits of the shell regions (header, pages, layers, stage, history) with a document of 5 000 nodes. Durations are jsdom's: information only. */
 
@@ -24,6 +25,7 @@ async function open() {
   serveDocument(view.rig, view.doc);
   await screen.findByRole("banner");
   await screen.findByRole("tree", { name: "Layer tree" });
+  await letRealTimersRun();
   vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
   await elapse(300);
   // The first edit flips "can undo" (the toolbar); settle that (and the document panel's refresh interval) so the numbers below are about the edit itself.

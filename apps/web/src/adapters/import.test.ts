@@ -37,6 +37,11 @@ describe("pictures", () => {
     expect(node).toMatchObject({ type: "image", name: "logo.final", width: 480, height: 240, src: "data:image/png;base64,AA", fit: "contain", alt: "logo.final.png" });
     expect(typeof node.id).toBe("string");
   });
+
+  it("names a picture that came without a name with the default the caller gives (the language of the interface)", () => {
+    expect(imageNode({ name: "" }, "data:image/png;base64,AA", { width: 10, height: 10 }, "imagem")).toMatchObject({ name: "imagem", alt: "" });
+    expect(imageNode({ name: ".png" }, "data:image/png;base64,AA", { width: 10, height: 10 }, "imagem")).toMatchObject({ name: "imagem" });
+  });
 });
 
 describe("parseMarkup", () => {
