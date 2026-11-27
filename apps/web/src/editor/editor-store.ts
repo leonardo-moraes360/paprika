@@ -14,7 +14,8 @@ export type EditorTool = (typeof editorTools)[number];
 export const editorRightTabs = ["properties", "team"] as const;
 export type EditorRightTab = (typeof editorRightTabs)[number];
 
-export type EditorRenderer = "dom" | "wasm";
+/** `cpu` and `gpu` are the WASM renderer with that backend forced; the old single `wasm` value is read by `renderer-preference`. */
+export type EditorRenderer = "dom" | "cpu" | "gpu";
 
 /** Panels and dialogs that open over the editor. `agents` is the roster popover; the team is a tab of the right panel (`rightTab`), not a dialog. */
 export const editorDialogs = ["history", "pins", "export", "import", "agents"] as const;

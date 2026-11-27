@@ -42,8 +42,8 @@ afterEach(() => {
 
 const elapse = (ms = 20) => act(async () => void (await vi.advanceTimersByTimeAsync(ms)));
 
-function mount(options: { doc?: Document; renderer?: "dom" | "wasm"; loader?: typeof fakeWasm.loader | null; strict?: boolean; selection?: string[] } = {}) {
-  const feed = createCanvasFeed({ doc: options.doc ?? everyKindDocument(), pageId: "page", renderer: options.renderer ?? "wasm", selection: options.selection ?? [] });
+function mount(options: { doc?: Document; renderer?: "dom" | "cpu" | "gpu"; loader?: typeof fakeWasm.loader | null; strict?: boolean; selection?: string[] } = {}) {
+  const feed = createCanvasFeed({ doc: options.doc ?? everyKindDocument(), pageId: "page", renderer: options.renderer ?? "cpu", selection: options.selection ?? [] });
   const statuses: CanvasRendererStatus[] = [];
   const errors: string[] = [];
   const onApply = vi.fn(() => Promise.resolve(true));
@@ -110,14 +110,13 @@ describe("loading and the backend", () => {
     expect(backends(statuses)).toEqual(["loading", "cpu"]);
     const canvas = layer(viewport)!;
     expect(canvas).toHaveAttribute("data-backend", "cpu");
-    expect(canvas.dataset.detail).toBe("no adapter · no hardware adapter");
+    expect(canvas.dataset.detail).toBe("no adapter · forced by mode=cpu");
     expect(canvas.dataset.creates).toBe("1");
     expect(canvas).toHaveAttribute("aria-hidden", "true");
   });
 
   it("reports webgpu with the adapter when the module has a hardware one", async () => {
-    fakeWasm.backend = "webgpu";
-    const { viewport, statuses } = mount();
+    const { viewport, statuses } = mount({ renderer: "gpu" });
     await elapse();
     expect(statuses.at(-1)).toEqual({ backend: "webgpu", detail: "fake adapter" });
     expect(layer(viewport)).toHaveAttribute("data-backend", "webgpu");
@@ -200,7 +199,7 @@ describe("the handover from the DOM", () => {
     const { world, feed } = mount({ renderer: "dom" });
     await elapse();
     const before = nodeRenders(world);
-    feed.update({ renderer: "wasm" });
+    feed.update({ renderer: "cpu" });
     await elapse();
     const rendered = nodeRenders(world) - before;
     const painted = Object.values(fakeWasm.last!.scenes.at(-1)!.data).length / DISPLAY_STRIDE;
@@ -221,7 +220,7 @@ describe("going back and forth", () => {
     expect(before).toMatch(/rgb\(255, 0, 0\)|#ff0000/);
     const warn = vi.spyOn(console, "error").mockImplementation(() => {});
     for (let round = 0; round < 2; round++) {
-      feed.update({ renderer: "wasm" });
+      feed.update({ renderer: "cpu" });
       await elapse();
       expect(colour()).toBe("transparent");
       feed.update({ renderer: "dom" });
@@ -252,7 +251,7 @@ describe("going back and forth", () => {
     fireEvent.wheel(viewport, { deltaX: 5, deltaY: 5 });
     await elapse();
     expect(fakeWasm.last!.renders.length).toBe(drawsAtRest);
-    feed.update({ renderer: "wasm" });
+    feed.update({ renderer: "cpu" });
     await elapse();
     // (The test runs in StrictMode, which boots twice at the start and frees the first; the toggles add nothing.)
     expect(fakeWasm.loads).toBe(loaded);
@@ -295,7 +294,7 @@ describe("a failure goes back to the DOM and says so", () => {
     feed.update({ renderer: "dom" });
     await elapse();
     fakeWasm.failCreate = null;
-    feed.update({ renderer: "wasm" });
+    feed.update({ renderer: "cpu" });
     await elapse();
     expect(backends(statuses).slice(-2)).toEqual(["loading", "cpu"]);
     expect(errors).toHaveLength(1);
@@ -320,8 +319,7 @@ describe("a failure goes back to the DOM and says so", () => {
   });
 
   it("a lost WebGPU device (reported after the frame) gives the nodes back", async () => {
-    fakeWasm.backend = "webgpu";
-    const { world, errors, statuses } = mount();
+    const { world, errors, statuses } = mount({ renderer: "gpu" });
     await elapse();
     expect(statuses.at(-1)?.backend).toBe("webgpu");
     expect(domPaints(node(world, "btn"))).toBe(false);
@@ -437,5 +435,51 @@ describe("what a gesture shows", () => {
     await elapse();
     const end = records(fakeWasm.last!.scenes.at(-1)!.data).find((r) => r[3] === 120 && r[4] === 40)!;
     expect(end[1]).toBe(start[1]);
+  });
+  it("asks the module for the mode of the request: cpu for cpu, gpu for gpu", async () => {
+    const { viewport } = mount({ renderer: "gpu" });
+    await elapse();
+    expect(fakeWasm.asked).toEqual(["gpu"]);
+    expect(layer(viewport)).toHaveAttribute("data-mode", "gpu");
+  });
+
+  it("going from cpu to gpu frees the renderer, hands the nodes to the DOM and boots the other one on a new canvas", async () => {
+    const { world, viewport, feed } = mount({ renderer: "cpu" });
+    await elapse();
+    const first = layer(viewport) as HTMLCanvasElement;
+    expect(fakeWasm.asked).toEqual(["cpu"]);
+    feed.update({ renderer: "gpu" });
+    await elapse();
+    expect(fakeWasm.asked).toEqual(["cpu", "gpu"]);
+    expect(fakeWasm.renderers[0]?.freed).toBe(true);
+    const second = layer(viewport) as HTMLCanvasElement;
+    expect(second).not.toBe(first);
+    expect(second).toHaveAttribute("data-backend", "webgpu");
+    expect(fakeWasm.renderers.filter((r) => !r.freed)).toHaveLength(1);
+    expect(domPaints(node(world, "btn"))).toBe(false);
+  });
+
+  it("while the other backend boots the DOM paints, with no frame of the new one yet", async () => {
+    const { world, feed } = mount({ renderer: "cpu" });
+    await elapse();
+    fakeWasm.hold = true;
+    feed.update({ renderer: "gpu" });
+    await elapse();
+    expect(world.dataset.wasmActive).toBe("0");
+    expect(domPaints(node(world, "btn"))).toBe(true);
+    fakeWasm.hold = false;
+    fakeWasm.release();
+    await elapse();
+    expect(world.dataset.wasmActive).toBe("1");
+  });
+
+  it("a gpu that cannot start reports the failure with the mode and does not try again", async () => {
+    fakeWasm.failGpu = "no WebGPU adapter";
+    const { statuses, errors, world } = mount({ renderer: "gpu" });
+    await elapse();
+    expect(errors).toEqual(["no WebGPU adapter"]);
+    expect(statuses.at(-1)).toEqual({ backend: "error", detail: "no WebGPU adapter" });
+    expect(fakeWasm.asked).toEqual(["gpu"]);
+    expect(domPaints(node(world, "btn"))).toBe(true);
   });
 });

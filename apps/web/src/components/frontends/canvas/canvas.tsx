@@ -83,7 +83,7 @@ function CanvasBody(props: CanvasProps) {
       rt,
       loader: () => latest.current.wasm,
       onStatus: (status) => latest.current.onRendererStatus?.(status),
-      onError: (message) => latest.current.onRendererError?.(message),
+      onError: (message, mode) => latest.current.onRendererError?.(message, mode),
     }),
   );
 
@@ -137,7 +137,7 @@ function CanvasBody(props: CanvasProps) {
     let fitSeen = last.fitRequest;
     let zoomSeen = last.zoom;
     let focusSeen = last.focusRequest ?? null;
-    wasm.setRequested(last.renderer === "wasm");
+    wasm.setRequested(last.renderer === "dom" ? null : last.renderer);
     const viewport = viewportRef.current;
     if (viewport) viewport.dataset.tool = last.tool;
     const arm = (on: boolean) => {
@@ -169,7 +169,7 @@ function CanvasBody(props: CanvasProps) {
       if ((next.sampling === true) !== samplingRef.current) arm(next.sampling === true);
       if (next.renderer !== before.renderer) {
         store.actions.setRenderer(next.renderer);
-        wasm.setRequested(next.renderer === "wasm");
+        wasm.setRequested(next.renderer === "dom" ? null : next.renderer);
       }
       store.actions.setSelection(next.selection);
       store.actions.setHovered(next.hoveredId);

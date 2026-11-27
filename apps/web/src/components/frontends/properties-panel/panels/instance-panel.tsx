@@ -28,7 +28,7 @@ export function InstancePanel({ doc, node, set, onApply, onSelect }: NodePanelBa
         note={
           <p className="text-xs text-muted">
             {t("frontends.propertiesPanel.instance.of")}{" "}
-            <button type="button" className="cursor-pointer font-semibold text-select-ink underline focus-visible:outline-2 focus-visible:outline-select" onClick={() => onSelect([node.instanceOf])}>
+            <button type="button" className="cursor-pointer font-semibold text-select-ink underline focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-select" onClick={() => onSelect([node.instanceOf])}>
               {component?.name || node.instanceOf}
             </button>
             {overrides > 0 ? ` · ${t("frontends.propertiesPanel.instance.overrideCount", { count: overrides })}` : null}

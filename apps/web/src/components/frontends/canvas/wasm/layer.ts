@@ -3,7 +3,7 @@ import { patchedDocument } from "../preview-node";
 import { NO_PAINTED } from "../region";
 import type { CanvasRuntime } from "../runtime";
 import { measureBoxes } from "./measure";
-import type { CanvasRendererStatus, WasmLoader, WasmRenderer } from "./types";
+import type { CanvasRendererStatus, WasmLoader, WasmMode, WasmRenderer } from "./types";
 
 export type WasmLayerOptions = {
   rt: CanvasRuntime;
@@ -11,13 +11,16 @@ export type WasmLayerOptions = {
   loader: () => WasmLoader | null | undefined;
   /** The status changed (loading, the backend, an error). Called only when it differs from the last one. */
   onStatus: (status: CanvasRendererStatus) => void;
-  /** The renderer failed and the DOM paints again. Called once per failure. */
-  onError: (message: string) => void;
+  /** The renderer failed and the DOM paints again. Called once per failure, with the mode that failed. */
+  onError: (message: string, mode: WasmMode) => void;
 };
 
 export type WasmLayer = {
-  /** The owner's choice (DOM or WASM). Turning it on boots the renderer once and keeps it alive when it goes off again. */
-  setRequested: (on: boolean) => void;
+  /**
+   * The owner's choice: `null` for the DOM, `cpu` or `gpu` for WASM. Turning it on boots the renderer once and keeps it alive when it goes
+   * off again; going from one backend to the other frees it and boots the other on the new `<canvas>` (a canvas keeps its first context type).
+   */
+  setRequested: (mode: WasmMode | null) => void;
   /** The `<canvas>` the layer draws on (a ref callback). It stays mounted after the first use so the device is not made again. */
   setCanvas: (canvas: HTMLCanvasElement | null) => void;
   /** The canvas is on screen (an effect); `stop` frees the renderer. Safe to run twice (StrictMode). */
@@ -49,10 +52,12 @@ const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
  * adapter, a lost device, a render that throws) frees the renderer and gives every node back to the DOM at once.
  */
 export function createWasmLayer({ rt, loader, onStatus, onError }: WasmLayerOptions): WasmLayer {
-  let requested = false;
+  let requested: WasmMode | null = null;
   let live = false;
   let canvas: HTMLCanvasElement | null = null;
   let renderer: WasmRenderer | null = null;
+  /** The mode the live renderer was made for. */
+  let rendererMode: WasmMode | null = null;
   let booting = false;
   /** A failure holds the layer off until the owner asks again (turns WASM off and on). */
   let failed = false;
@@ -73,6 +78,7 @@ export function createWasmLayer({ rt, loader, onStatus, onError }: WasmLayerOpti
     canvas.dataset.backend = status.backend;
     canvas.dataset.detail = status.detail;
     canvas.dataset.creates = String(creates);
+    canvas.dataset.requested = requested ?? "dom";
   };
   const setStatus = (next: CanvasRendererStatus) => {
     if (next.backend === status.backend && next.detail === status.detail) return;
@@ -123,10 +129,12 @@ export function createWasmLayer({ rt, loader, onStatus, onError }: WasmLayerOpti
   const release = () => {
     renderer?.free();
     renderer = null;
+    rendererMode = null;
   };
 
   const fail = (message: string) => {
     if (failed) return;
+    const mode = requested;
     failed = true;
     epoch += 1;
     booting = false;
@@ -134,7 +142,7 @@ export function createWasmLayer({ rt, loader, onStatus, onError }: WasmLayerOpti
     release();
     handBack();
     setStatus({ backend: "error", detail: message });
-    onError(message);
+    if (mode) onError(message, mode);
   };
 
   const draw = (): boolean => {
@@ -245,6 +253,9 @@ export function createWasmLayer({ rt, loader, onStatus, onError }: WasmLayerOpti
 
   const boot = () => {
     if (!live || !requested || failed || booting || renderer || !canvas) return;
+    // The canvas is of the other backend (the owner swapped modes and React has not mounted the new one yet): `setCanvas` boots again.
+    if (canvas.dataset.mode !== requested) return;
+    const mode = requested;
     const load = loader();
     if (!load) {
       // Said once per request, even if it was already the status: the owner must take the choice back.
@@ -261,13 +272,19 @@ export function createWasmLayer({ rt, loader, onStatus, onError }: WasmLayerOpti
     setStatus({ backend: "loading", detail: "" });
     sizeCanvas();
     load()
-      .then((mod) => mod.createRenderer(target, "auto"))
+      .then((mod) => mod.createRenderer(target, mode))
       .then((r) => {
         if (mine !== epoch || canvas !== target) {
           r.free();
           return;
         }
         booting = false;
+        if (mode === "gpu" && r.backend !== "webgpu") {
+          r.free();
+          fail(r.fallbackReason || "WebGPU is not available");
+          return;
+        }
+        rendererMode = mode;
         r.setBackground(0, 0, 0, 0);
         renderer = r;
         creates += 1;
@@ -283,12 +300,21 @@ export function createWasmLayer({ rt, loader, onStatus, onError }: WasmLayerOpti
   };
 
   return {
-    setRequested: (on) => {
-      if (on === requested) return;
-      requested = on;
-      if (on) {
+    setRequested: (mode) => {
+      if (mode === requested) return;
+      requested = mode;
+      if (canvas) canvas.dataset.requested = mode ?? "dom";
+      if (mode) {
         failed = false;
         toldUnavailable = false;
+        if (renderer && rendererMode !== mode) {
+          // The other backend: the DOM paints while it boots, and the nodes are handed over again after its first frame.
+          epoch += 1;
+          booting = false;
+          detach();
+          release();
+          handBack();
+        }
         if (renderer) activate();
         else boot();
         return;

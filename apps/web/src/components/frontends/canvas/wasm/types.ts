@@ -15,8 +15,11 @@ export interface WasmRenderer {
   free(): void;
 }
 
+/** What `createRenderer` is asked for: the CPU rasteriser forced, or WebGPU (an error when there is none; never a silent fallback). */
+export type WasmMode = "cpu" | "gpu";
+
 export interface WasmModule {
-  createRenderer(canvas: HTMLCanvasElement, mode: string): Promise<WasmRenderer>;
+  createRenderer(canvas: HTMLCanvasElement, mode: WasmMode): Promise<WasmRenderer>;
 }
 
 /** Resolves the module with its binary already instantiated. A rejection means the module cannot run here. */

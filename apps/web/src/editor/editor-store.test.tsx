@@ -99,12 +99,12 @@ describe("editor store", () => {
     const { store, actions } = result.current;
     act(() => {
       actions.setTool("rect");
-      actions.setRenderer("wasm");
+      actions.setRenderer("gpu");
       actions.setRightTab("team");
       actions.setHovered("n1");
       actions.setPin("pin1");
     });
-    expect(store.state).toMatchObject({ tool: "rect", renderer: "wasm", rightTab: "team", hoveredId: "n1", pinId: "pin1" });
+    expect(store.state).toMatchObject({ tool: "rect", renderer: "gpu", rightTab: "team", hoveredId: "n1", pinId: "pin1" });
   });
 
   it("a component re-renders only for the slice it reads, and each editor has its own state", () => {

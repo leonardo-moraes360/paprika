@@ -5,7 +5,7 @@ import { Toolbar, type ToolbarTool } from "@/components/frontends/toolbar";
 import { ZoomBar, type ZoomRenderer } from "@/components/frontends/zoom-bar";
 import { useLive, useLiveActions } from "@/data/live";
 import { RegionProfiler } from "@/perf";
-import { writeRendererPreference } from "../renderer-preference";
+import { hasWebGpu, writeRendererPreference } from "../renderer-preference";
 import { editorTools, MAX_ZOOM, MIN_ZOOM, useEditor, useEditorActions, type EditorRenderer, type EditorTool } from "../editor-store";
 import { toolHotkeys, useEditorShortcuts } from "../shortcuts";
 import { useHistoryActions } from "../use-history-actions";
@@ -79,15 +79,15 @@ const StageToolbar = memo(function StageToolbar() {
   );
 });
 
-const isRenderer = (id: string): id is EditorRenderer => id === "dom" || id === "wasm";
+const isRenderer = (id: string): id is EditorRenderer => id === "dom" || id === "cpu" || id === "gpu";
 
 /**
  * Zoom lives in the editor store: the canvas reads the bar's commands from it (zoom in and out, fit) and writes its own zoom
- * back once the camera rests. The renderer menu has the two modes of the old app (DOM and WASM): the choice goes to the
- * store, to `paprika.renderer` (the old app's key) and, as a `hello`, to the server, which shows it to the agents
+ * back once the camera rests. The renderer menu has three modes: DOM, WASM on the CPU and WASM on the GPU: the choice goes to the
+ * store, to `paprika.renderer` (the old app's key) and, as a `hello` (`dom` or `wasm`), to the server, which shows it to the agents
  * (`get_context`) and uses it for `render_screenshot`. The canvas reports the renderer's state to the store (`rendererStatus`):
- * the menu reads it to say loading, GPU or CPU, and to disable WASM with the reason when this build has no renderer. A failure
- * takes the choice back to DOM (the canvas already paints with it) and the `hello` follows.
+ * the menu reads it to say it is switching, and disables the WASM modes with the reason when this build has no renderer (and the GPU
+ * one when the browser has no WebGPU). A failure takes the choice back to the mode that worked before, or DOM (see the canvas region).
  */
 const StageZoom = memo(function StageZoom() {
   const { t } = useTranslation();
@@ -96,15 +96,17 @@ const StageZoom = memo(function StageZoom() {
   const backend = useEditor((s) => s.rendererStatus.backend);
   const editor = useEditorActions();
   const live = useLiveActions();
-  // The menu names what WASM is doing: loading (the bar says it is switching), the backend that draws (GPU or CPU), or why it cannot be chosen.
   const renderers = useMemo<ZoomRenderer[]>(() => {
-    const wasm: ZoomRenderer = !wasmAvailable
-      ? { id: "wasm", label: t("app.shell.renderers.wasm"), icon: <Cpu />, disabled: true, reason: t("app.shell.renderers.wasmUnavailable") }
-      : { id: "wasm", label: backend === "webgpu" ? t("app.shell.renderers.wasmGpu") : backend === "cpu" ? t("app.shell.renderers.wasmCpu") : t("app.shell.renderers.wasm"), icon: <Cpu /> };
-    return [{ id: "dom", label: t("app.shell.renderers.dom"), icon: <Monitor /> }, wasm];
-  }, [t, backend]);
+    const webGpu = hasWebGpu();
+    const wasmReason = t("app.shell.renderers.wasmUnavailable");
+    return [
+      { id: "gpu", label: t("app.shell.renderers.gpu"), icon: <Cpu />, disabled: !wasmAvailable || !webGpu, reason: !wasmAvailable ? wasmReason : t("app.shell.renderers.noWebGpu") },
+      { id: "cpu", label: t("app.shell.renderers.cpu"), icon: <Cpu />, disabled: !wasmAvailable, reason: wasmReason },
+      { id: "dom", label: t("app.shell.renderers.domMenu"), shortLabel: t("app.shell.renderers.dom"), icon: <Monitor /> },
+    ];
+  }, [t]);
   // The `hello` goes on mount (as the old app did on every open) and on every change; the client repeats it after a reconnection.
-  useEffect(() => live.setRenderer(renderer), [live, renderer]);
+  useEffect(() => live.setRenderer(renderer === "dom" ? "dom" : "wasm"), [live, renderer]);
   const onRendererChange = useCallback(
     (id: string) => {
       if (!isRenderer(id)) return;
@@ -123,7 +125,7 @@ const StageZoom = memo(function StageZoom() {
       onFit={editor.fit}
       renderers={renderers}
       renderer={renderer}
-      switching={renderer === "wasm" && backend === "loading"}
+      switching={renderer !== "dom" && backend === "loading"}
       onRendererChange={onRendererChange}
       className="absolute bottom-3 end-3 z-10"
     />

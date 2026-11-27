@@ -65,7 +65,7 @@ async function choose(name: RegExp, settled: RegExp) {
   vi.useFakeTimers({ toFake: [...FAKED] });
   await elapse(300);
 }
-const chooseWasm = (_view: View) => choose(/^WASM/, /^Renderer: WASM · CPU$/);
+const chooseWasm = (_view: View) => choose(/^WASM · CPU$/, /^Renderer: WASM · CPU$/);
 const chooseDom = () => choose(/^DOM/, /^Renderer: DOM$/);
 
 describe("the WASM layer with 5 000 nodes", { timeout: 60_000 }, () => {
