@@ -7,6 +7,7 @@ import { ColorField } from "@/components/ui/color-field";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { TokenChip } from "@/components/ui/token-chip";
 import { CommitTextField } from "./commit-text-field";
+import { useSampleColor } from "../sample-context";
 import { colorPickerLabels } from "./color-labels";
 
 export type ColorValueFieldProps = {
@@ -38,6 +39,7 @@ export function sameColor(next: string, current: string | null): boolean {
 export function ColorValueField({ doc, mode, label, value, clearable = true, showLabel = false, onCommit, className }: ColorValueFieldProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const sample = useSampleColor();
   const preview = resolvedColor(doc, value, mode);
   const isToken = typeof value === "string" && value.startsWith("$");
   const pickerValue = preview ?? FALLBACK;
@@ -61,6 +63,17 @@ export function ColorValueField({ doc, mode, label, value, clearable = true, sho
           <ColorPicker
             labels={colorPickerLabels(t)}
             defaultValue={pickerValue}
+            onSampleScreen={
+              sample
+                ? () => {
+                    // The popover would cover the canvas: it closes, and the colour of the next click lands as if it had been picked.
+                    setOpen(false);
+                    sample((next) => {
+                      if (!sameColor(next, preview)) onCommit(next);
+                    });
+                  }
+                : undefined
+            }
             onValueCommit={(next) => {
               if (!sameColor(next, preview)) onCommit(next);
             }}

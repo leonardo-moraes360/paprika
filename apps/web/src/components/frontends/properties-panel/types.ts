@@ -38,6 +38,8 @@ export type PropertiesPanelProps = {
   onApply: (ops: Op[], label: string) => ApplyResult;
   onSelect: (ids: string[]) => void;
   onError?: (message: string) => void;
+  /** Lets a colour picker read a colour from the canvas when the browser has no eyedropper of its own (the picker closes and the next click on the canvas is the colour). */
+  onSampleColor?: (onColor: (color: string) => void) => void;
   storageKey?: string;
   shortcuts?: PropertiesPanelShortcuts;
   store?: PropertiesPanelStore;
