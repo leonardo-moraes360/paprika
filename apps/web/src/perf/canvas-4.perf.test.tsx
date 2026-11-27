@@ -113,6 +113,27 @@ describe("goal: presence on the canvas with 5 000 nodes and 64 agents", () => {
     view.unmount();
   });
 
+  it("one agent of 64 changing what it touches measures the boxes of that agent only (a flush of presence is not a re-measure of everyone)", async () => {
+    const view = await open();
+    view.rig.push(...Array.from({ length: AGENTS }, (_, i) => presence(i, view.ids)));
+    await elapse(50);
+    view.log.reset();
+    const reads = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect");
+    reads.mockClear();
+    view.rig.push({ ...presence(7, view.ids, "update_nodes"), nodes: [view.ids[3000] as string] });
+    await elapse(16);
+    const measured = reads.mock.calls.length;
+    process.stderr.write(`[perf canvas-4 jsdom] one of ${AGENTS} agents moves: ${measured} box reads\n`);
+    // Its one node, the frame it writes in and the boxes the rest of the canvas measures; before the fix every agent was read again (64 x 3 nodes and their frames).
+    expect(measured).toBeLessThanOrEqual(6);
+    expect(document.querySelectorAll("[data-testid='agent-cursor']")).toHaveLength(AGENTS);
+    // And the agent that moved is placed at its new node.
+    const mine = document.querySelector<HTMLElement>("[data-agent='s:7'] [data-agent-box]");
+    expect(mine?.dataset.agentBox).toBe(view.ids[3000]);
+    expect(mine?.style.display).toBe("block");
+    view.unmount();
+  });
+
   it("a delta on ONE node with 64 agents on screen renders that node and commits the canvas once; layers and properties as they were", async () => {
     const view = await open();
     view.rig.push(...Array.from({ length: AGENTS }, (_, i) => presence(i, view.ids)));

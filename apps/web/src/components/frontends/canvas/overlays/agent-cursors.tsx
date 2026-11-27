@@ -128,13 +128,24 @@ export function AgentCursors() {
     return entry;
   }, []);
 
+  // What was read last for each agent, with what it was read for: a flush of presence measures the agents that changed (or came), and
+  // only a new document (a node may have moved or grown) measures them all again.
+  const known = useRef(new Map<string, { key: string; measured: Measured }>());
+  const seen = useRef(-1);
+
   useLayoutEffect(() => {
     const doc = rt.doc();
     const live = new Set(agents.map((agent) => agent.id));
     for (const id of [...all.current.keys()]) if (!live.has(id)) all.current.delete(id);
+    for (const id of [...known.current.keys()]) if (!live.has(id)) known.current.delete(id);
+    const documentMoved = seen.current !== docVersion;
+    seen.current = docVersion;
     // Read every box first, write after (one layout).
-    const measured = new Map<string, Measured>();
+    const fresh = new Set<string>();
     for (const agent of agents) {
+      const key = `${agent.activity}|${agent.idle}|${agent.nodes.join(",")}`;
+      const have = known.current.get(agent.id);
+      if (have && have.key === key && !documentMoved) continue;
       const outlines: Box[] = [];
       for (const id of agent.nodes.length > MAX_OUTLINES ? agent.nodes.slice(0, MAX_OUTLINES) : agent.nodes) {
         const box = rt.measure(id);
@@ -152,26 +163,30 @@ export function AgentCursors() {
           }
         }
       }
-      measured.set(agent.id, { outlines, frame });
+      known.current.set(agent.id, { key, measured: { outlines, frame } });
+      fresh.add(agent.id);
     }
     const stacked = new Map<string, number>();
     for (const agent of agents) {
       const mine = all.current.get(agent.id);
-      const m = measured.get(agent.id);
+      const m = known.current.get(agent.id)?.measured;
       if (!mine || !m) continue;
       const present = m.outlines.filter((b) => !Number.isNaN(b.x));
-      m.outlines.forEach((b, i) => {
-        const el = mine.outlines[i];
-        if (!el) return;
-        const ok = !Number.isNaN(b.x);
-        show(el, ok);
-        if (ok) Object.assign(el.style, { left: `${b.x}px`, top: `${b.y}px`, width: `${b.width}px`, height: `${b.height}px` });
-      });
-      show(mine.cursor, present.length > 0);
-      show(mine.tag, present.length > 0);
-      if (mine.frame) {
-        show(mine.frame, !!m.frame);
-        if (m.frame) Object.assign(mine.frame.style, { left: `${m.frame.x}px`, top: `${m.frame.y}px`, width: `${m.frame.width}px`, height: `${m.frame.height}px` });
+      // The elements of an agent that did not change are as they were left: only the stack (who shares a spot) is worked out again for all.
+      if (fresh.has(agent.id)) {
+        m.outlines.forEach((b, i) => {
+          const el = mine.outlines[i];
+          if (!el) return;
+          const ok = !Number.isNaN(b.x);
+          show(el, ok);
+          if (ok) Object.assign(el.style, { left: `${b.x}px`, top: `${b.y}px`, width: `${b.width}px`, height: `${b.height}px` });
+        });
+        show(mine.cursor, present.length > 0);
+        show(mine.tag, present.length > 0);
+        if (mine.frame) {
+          show(mine.frame, !!m.frame);
+          if (m.frame) Object.assign(mine.frame.style, { left: `${m.frame.x}px`, top: `${m.frame.y}px`, width: `${m.frame.width}px`, height: `${m.frame.height}px` });
+        }
       }
       if (present.length === 0) continue;
       const box = union(present);
@@ -181,8 +196,10 @@ export function AgentCursors() {
       const zoom = rt.view.get().zoom;
       const tipX = box.x + box.width - Math.min(cornerGap / zoom, box.width / 4) + (stack * 10) / zoom;
       const tipY = box.y + box.height - Math.min(cornerGap / zoom, box.height / 4) + (stack * 24) / zoom;
-      if (mine.cursor) mine.cursor.style.translate = `${tipX}px ${tipY}px`;
-      if (mine.tag) mine.tag.style.translate = `${box.x}px ${box.y - (stack * 18) / zoom - 4 / zoom}px`;
+      const cursorAt = `${tipX}px ${tipY}px`;
+      const tagAt = `${box.x}px ${box.y - (stack * 18) / zoom - 4 / zoom}px`;
+      if (mine.cursor && mine.cursor.style.translate !== cursorAt) mine.cursor.style.translate = cursorAt;
+      if (mine.tag && mine.tag.style.translate !== tagAt) mine.tag.style.translate = tagAt;
     }
   }, [rt, agents, docVersion]);
 
