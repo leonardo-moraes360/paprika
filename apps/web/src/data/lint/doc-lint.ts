@@ -10,6 +10,9 @@ export const inlineTransport: TransportFactory = (emit) => {
   return { post: (request) => runner.receive(request), close: () => runner.dispose() };
 };
 
+/** A transport that lints nothing and never answers (tests that count commits: no lint result arrives to commit anything). */
+export const nullTransport: TransportFactory = () => ({ post: () => {}, close: () => {} });
+
 /** The worker holds its own copy of the document and lints it off the main thread; no `Worker`, or one that will not start, falls back to inline. */
 export const workerTransport: TransportFactory = (emit) => {
   if (typeof Worker === "undefined") return inlineTransport(emit);
@@ -29,6 +32,9 @@ const sameSummary = (a: LintSummary, b: LintSummary) =>
     return other !== undefined && issue.nodeId === other.nodeId && issue.rule === other.rule && issue.message === other.message && issue.severity === other.severity;
   });
 
+/** The longest the first `reset` waits for an idle moment. */
+export const IDLE_TIMEOUT_MS = 1500;
+
 export type DocLintStats = { posts: number; resets: number; patchedNodes: number };
 
 /**
@@ -43,6 +49,7 @@ export class DocLint {
   private listeners = new Set<() => void>();
   private queued: Document | null = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
+  private idle: number | undefined;
   readonly stats: DocLintStats = { posts: 0, resets: 0, patchedNodes: 0 };
 
   constructor(
@@ -61,12 +68,22 @@ export class DocLint {
   update(doc: Document): void {
     if (this.sent === doc || this.queued === doc) return;
     this.queued = doc;
-    if (this.timer === undefined) this.timer = setTimeout(() => this.flush(), this.coalesceMs);
+    if (this.timer !== undefined || this.idle !== undefined) return;
+    // The first document is a `reset` (a structured clone of all of it): it waits for an idle moment (at most `IDLE_TIMEOUT_MS`) so
+    // opening the workspace paints first. Later updates keep the plain coalescing timer.
+    if (this.sent === null && typeof requestIdleCallback === "function") this.idle = requestIdleCallback(() => this.flush(), { timeout: IDLE_TIMEOUT_MS });
+    else this.timer = setTimeout(() => this.flush(), this.coalesceMs);
+  }
+
+  private cancelScheduled(): void {
+    clearTimeout(this.timer);
+    this.timer = undefined;
+    if (this.idle !== undefined && typeof cancelIdleCallback === "function") cancelIdleCallback(this.idle);
+    this.idle = undefined;
   }
 
   flush(): void {
-    clearTimeout(this.timer);
-    this.timer = undefined;
+    this.cancelScheduled();
     const doc = this.queued;
     this.queued = null;
     if (!doc || this.sent === doc) return;
@@ -98,8 +115,7 @@ export class DocLint {
   }
 
   dispose(): void {
-    clearTimeout(this.timer);
-    this.timer = undefined;
+    this.cancelScheduled();
     this.queued = null;
     this.transport?.close();
     this.transport = null;
