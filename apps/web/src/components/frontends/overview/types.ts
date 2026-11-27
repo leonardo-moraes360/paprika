@@ -50,6 +50,8 @@ export type OverviewProps = {
   onChangeCover: (id: string, file: File | null) => ActionResult;
   onMoveToProject: (id: string, projectId: string | null) => ActionResult;
   onCreateProject?: () => void;
+  /** Offers the name field of a new project in the sidebar (the "+" opens it); resolves when the project exists, rejects to keep the field open and show the failure. */
+  onSubmitProject?: (name: string) => ActionResult;
   onOpenImport?: () => void;
   onOpenProfile?: () => void;
   className?: string;

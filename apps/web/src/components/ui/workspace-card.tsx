@@ -57,7 +57,11 @@ export function WorkspaceCard({
     else onRename?.(value);
   };
   const commit = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter" && !event.nativeEvent.isComposing) finish(event.currentTarget.value);
+    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+      // The commit hands focus back to the card's button inside this keydown: without this the same Enter would then click it and open the workspace.
+      event.preventDefault();
+      finish(event.currentTarget.value);
+    }
     if (event.key === "Escape") finish(null);
   };
   return (

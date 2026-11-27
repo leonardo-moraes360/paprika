@@ -23,6 +23,7 @@ export const overviewEn = {
     archived: "Archived",
     projects: "Projects",
     newProject: "New project",
+    projectName: "New project name",
     projectList: "Projects",
     community: "Community",
     explore: "Explore",
@@ -70,6 +71,7 @@ export const overviewEn = {
     restore: "Could not restore the workspace: {{reason}}",
     cover: "Could not change the cover: {{reason}}",
     move: "Could not move the workspace: {{reason}}",
+    project: "Could not create the project: {{reason}}",
   },
   delete: {
     title: "Delete “{{name}}”?",
@@ -106,6 +108,7 @@ export const overviewPtBR = {
     archived: "Arquivados",
     projects: "Projetos",
     newProject: "Novo projeto",
+    projectName: "Nome do novo projeto",
     projectList: "Projetos",
     community: "Comunidade",
     explore: "Explorar",
@@ -153,6 +156,7 @@ export const overviewPtBR = {
     restore: "Não foi possível restaurar o workspace: {{reason}}",
     cover: "Não foi possível trocar a capa: {{reason}}",
     move: "Não foi possível mover o workspace: {{reason}}",
+    project: "Não foi possível criar o projeto: {{reason}}",
   },
   delete: {
     title: "Excluir “{{name}}”?",

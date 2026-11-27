@@ -15,6 +15,7 @@ export const appEn = {
   overview: {
     loadFailed: "Could not load the workspaces.",
     openFailed: "Could not open the workspace.",
+    coverConvertFailed: "The image could not be converted.",
   },
   connection: {
     lost: "Connection lost. Changes cannot be sent until it is back.",
@@ -37,6 +38,7 @@ export const appPtBR: typeof appEn = {
   overview: {
     loadFailed: "Não foi possível carregar os workspaces.",
     openFailed: "Não foi possível abrir o workspace.",
+    coverConvertFailed: "Não foi possível converter a imagem.",
   },
   connection: {
     lost: "Conexão perdida. As alterações não podem ser enviadas até ela voltar.",

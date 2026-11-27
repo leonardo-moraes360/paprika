@@ -28,7 +28,7 @@ export function Overview(props: OverviewProps) {
   );
 }
 
-type FailureKind = "create" | "rename" | "delete" | "archive" | "restore" | "cover" | "move";
+type FailureKind = "create" | "rename" | "delete" | "archive" | "restore" | "cover" | "move" | "project";
 type PendingFocus = { removedId: string; targetId: string | null };
 
 const staleFocusMs = 1000;
@@ -56,6 +56,7 @@ function OverviewView({
   onChangeCover,
   onMoveToProject,
   onCreateProject,
+  onSubmitProject,
   onOpenImport,
   onOpenProfile,
   className,
@@ -195,6 +196,7 @@ function OverviewView({
         onViewChange={changeView}
         onOpen={onOpen}
         onCreateProject={onCreateProject}
+        onSubmitProject={onSubmitProject ? (name) => run("project", () => onSubmitProject(name)) : undefined}
         onOpenImport={onOpenImport}
         onOpenProfile={onOpenProfile}
       />

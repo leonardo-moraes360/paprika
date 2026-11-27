@@ -152,6 +152,16 @@ describe("Overview", () => {
       expect(openButton("Site and docs")).toHaveFocus();
     });
 
+    it("committing the name with Enter does not also open the workspace", async () => {
+      const user = userEvent.setup();
+      const { onRename, onOpen } = setup();
+      openButton("Site and docs").focus();
+      await user.keyboard("{F2}");
+      await user.keyboard("{Control>}a{/Control}Landing{Enter}");
+      expect(onRename).toHaveBeenCalledWith("w2", "Landing");
+      expect(onOpen).not.toHaveBeenCalled();
+    });
+
     it("renames from the menu and cancels with Escape", async () => {
       const user = userEvent.setup();
       const { onRename } = setup();

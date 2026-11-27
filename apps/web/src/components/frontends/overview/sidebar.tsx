@@ -1,6 +1,6 @@
 import { useFormatForDisplay } from "@tanstack/react-hotkeys";
 import { Archive, Briefcase, Globe, Layers, Network, Plus, Upload } from "lucide-react";
-import { useState, type RefObject } from "react";
+import { useRef, useState, type FormEvent, type KeyboardEvent, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Avatar } from "@/components/ui/avatar";
 import { IconButton } from "@/components/ui/icon-button";
@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { SearchField } from "@/components/ui/search-field";
 import { SectionHeader } from "@/components/ui/section-header";
 import { Tooltip } from "@/components/ui/tooltip";
+import { TextField } from "@/components/ui/text-field";
 import { sameView } from "./model";
 import type { OverviewProfile, OverviewView, ProjectEntry, WorkspaceEntry } from "./types";
 
@@ -24,6 +25,7 @@ export type SidebarProps = {
   onViewChange: (view: OverviewView) => void;
   onOpen: (id: string) => void;
   onCreateProject?: () => void;
+  onSubmitProject?: (name: string) => Promise<boolean>;
   onOpenImport?: () => void;
   onOpenProfile?: () => void;
 };
@@ -39,12 +41,33 @@ export function Sidebar({
   onViewChange,
   onOpen,
   onCreateProject,
+  onSubmitProject,
   onOpenImport,
   onOpenProfile,
 }: SidebarProps) {
   const { t } = useTranslation();
   const formatForDisplay = useFormatForDisplay();
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set(view.kind === "project" ? [view.id] : []));
+  const [projectName, setProjectName] = useState<string | null>(null);
+  const [savingProject, setSavingProject] = useState(false);
+  const plusButton = useRef<HTMLButtonElement>(null);
+  const closeProjectForm = () => {
+    setProjectName(null);
+    requestAnimationFrame(() => plusButton.current?.focus());
+  };
+  const submitProject = async (event: FormEvent) => {
+    event.preventDefault();
+    const name = (projectName ?? "").trim();
+    if (!onSubmitProject || savingProject) return;
+    if (!name) return closeProjectForm();
+    setSavingProject(true);
+    const ok = await onSubmitProject(name);
+    setSavingProject(false);
+    if (ok) closeProjectForm();
+  };
+  const onProjectKey = (event: KeyboardEvent) => {
+    if (event.key === "Escape") closeProjectForm();
+  };
   const live = workspaces.filter((workspace) => workspace.archived !== true);
   const archivedCount = workspaces.length - live.length;
   const toggle = (id: string) =>
@@ -88,15 +111,38 @@ export function Sidebar({
         title={t("frontends.overview.sidebar.projects")}
         headingLevel={2}
         actions={
-          onCreateProject ? (
+          onCreateProject || onSubmitProject ? (
             <Tooltip content={t("frontends.overview.sidebar.newProject")} side="bottom">
-              <IconButton size="xs" aria-label={t("frontends.overview.sidebar.newProject")} onClick={onCreateProject}>
+              <IconButton
+                ref={plusButton}
+                size="xs"
+                aria-label={t("frontends.overview.sidebar.newProject")}
+                onClick={() => {
+                  onCreateProject?.();
+                  if (onSubmitProject) setProjectName("");
+                }}
+              >
                 <Plus aria-hidden="true" />
               </IconButton>
             </Tooltip>
           ) : undefined
         }
       />
+      {projectName !== null ? (
+        <form className="px-2.5 pb-2" onSubmit={submitProject} onKeyDown={onProjectKey}>
+          <TextField
+            autoFocus
+            aria-label={t("frontends.overview.sidebar.projectName")}
+            placeholder={t("frontends.overview.sidebar.projectName")}
+            value={projectName}
+            onValueChange={setProjectName}
+            maxLength={120}
+            autoComplete="off"
+            disabled={savingProject}
+            className="h-8 text-sm"
+          />
+        </form>
+      ) : null}
       <ScrollArea className="min-h-0 shrink">
         <nav aria-label={t("frontends.overview.sidebar.projectList")} className="flex flex-col gap-0.5 px-2.5 pb-2">
           {projects.map((project) => {
