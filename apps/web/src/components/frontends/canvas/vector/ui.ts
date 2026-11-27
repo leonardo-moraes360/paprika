@@ -3,7 +3,7 @@ import type { AnchorRef, Subpath } from "@paprika/core";
 import type { CanvasRuntime, Pt } from "../types";
 import type { PenDraft } from "./pen";
 
-/** The keys of `region.ui` this batch writes (one each, named after the piece). */
+/** The keys of the overlay bus (`rt.overlay`) the vector tools write: one each, named after the piece. */
 export const UI_PEN = "pen";
 export const UI_PATH_EDIT = "pathEdit";
 export const UI_LINK = "link";
@@ -18,5 +18,5 @@ export type GradientUi = { id: string; gradient: Gradient; acked: boolean; /** T
 
 type Slots = { [UI_PEN]: PenDraft | null; [UI_PATH_EDIT]: PathEditUi | null; [UI_LINK]: LinkUi | null; [UI_GRADIENT]: GradientUi | null };
 
-export const readUi = <K extends keyof Slots>(rt: Pick<CanvasRuntime, "store">, key: K): Slots[K] => (rt.store.state.ui[key] as Slots[K] | undefined) ?? null;
-export const writeUi = <K extends keyof Slots>(rt: Pick<CanvasRuntime, "store">, key: K, value: Slots[K]) => rt.store.actions.setUi(key, value);
+export const readUi = <K extends keyof Slots>(rt: Pick<CanvasRuntime, "overlay">, key: K): Slots[K] => (rt.overlay.get<Slots[K]>(key) as Slots[K] | undefined) ?? null;
+export const writeUi = <K extends keyof Slots>(rt: Pick<CanvasRuntime, "overlay">, key: K, value: Slots[K]) => rt.overlay.set(key, value);

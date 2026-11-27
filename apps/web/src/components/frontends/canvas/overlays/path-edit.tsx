@@ -1,8 +1,9 @@
 import { insertAnchor, nearestOnPath, pathAttrs, removeAnchor, serializePath, subpathsToPath, toggleSmooth, type PathNode, type Subpath } from "@paprika/core";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { commitPath, PATH_LABELS, startPathEdit, subsFor } from "../gestures/path-edit";
+import { commitPath, PATH_LABELS, subsFor } from "../gestures/path-edit";
 import { withPatch } from "../preview-node";
+import { useOverlayValue } from "../overlay-bus";
 import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
 import { pathHit, screenMatrix, subpathsOf, toSvgPoint, viewBoxScale } from "../vector/path-edit";
@@ -18,14 +19,14 @@ const pin = (x: number, y: number) => ({ transform: `translate(${x}px, ${y}px) s
 
 /**
  * The edit layer of a path: its outline (a wide invisible stroke takes the clicks), every anchor and handle, the selected
- * anchor filled. It sits over the node, in the node's own coordinates, so a `viewBox` is honoured. The gestures are in
- * `gestures/path-edit.ts`; this component keeps the mode (entering by double click, leaving by Esc, Enter or by the
- * selection changing) and the double clicks inside it (toggle smooth, insert a point).
+ * anchor filled. It sits over the node, in the node's own coordinates, so a `viewBox` is honoured. The gestures and the double
+ * clicks (enter the mode, toggle smooth, insert a point) are in `gestures/path-edit.ts`; this component keeps the mode (leaving by
+ * Esc, Enter or by the selection changing).
  */
 export function PathEditOverlay() {
   const rt = useCanvasRuntime();
   const { t } = useTranslation();
-  const state: PathEditUi | null = useCanvasState((s) => (s.ui[UI_PATH_EDIT] as PathEditUi | null | undefined) ?? null);
+  const state: PathEditUi | null = useOverlayValue<PathEditUi>(UI_PATH_EDIT);
   const id = state?.id ?? null;
   const patch = useCanvasState((s) => (id === null ? undefined : s.preview[id]));
   const tool = useCanvasState((s) => s.tool);
@@ -69,39 +70,6 @@ export function PathEditOverlay() {
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [rt, active]);
-
-  // A double click enters the mode on a selected path, and inside the mode toggles a point or inserts one.
-  useEffect(() => {
-    const viewport = rt.viewport();
-    if (!viewport) return;
-    const onDouble = (e: MouseEvent) => {
-      if (rt.tool() !== "select") return;
-      const current = readUi(rt, UI_PATH_EDIT);
-      if (current) {
-        const hit = pathHit(e.target);
-        const el = (e.target as Element).closest<SVGSVGElement>("svg[data-path-edit]");
-        const matrix = el && screenMatrix(el);
-        if (!hit || !matrix) return;
-        const from = subsFor(rt, current.id);
-        if (hit.kind === "anchor") {
-          commitPath(rt, toggleSmooth(from, hit.ref), PATH_LABELS.toggleSmooth);
-          writeUi(rt, UI_PATH_EDIT, { ...(readUi(rt, UI_PATH_EDIT) ?? current), sel: hit.ref });
-        } else if (hit.kind === "outline") {
-          const near = nearestOnPath(from, toSvgPoint(matrix, e.clientX, e.clientY));
-          if (!near) return;
-          const inserted = insertAnchor(from, near.ref, near.t);
-          commitPath(rt, inserted.subs, PATH_LABELS.insertPoint);
-          writeUi(rt, UI_PATH_EDIT, { ...(readUi(rt, UI_PATH_EDIT) ?? current), sel: inserted.ref });
-        }
-        return;
-      }
-      const target = rt.nodeAt(e.target);
-      const found = target ? rt.doc().nodes[target] : undefined;
-      if (found?.type === "path" && rt.selection().includes(found.id)) startPathEdit(rt, found);
-    };
-    viewport.addEventListener("dblclick", onDouble);
-    return () => viewport.removeEventListener("dblclick", onDouble);
-  }, [rt]);
 
   if (!id || !node || !subs) return null;
   const outline = serializePath(subpathsToPath(subs));

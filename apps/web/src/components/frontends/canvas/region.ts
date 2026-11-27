@@ -16,8 +16,6 @@ export type CanvasState = {
   preview: Readonly<Record<string, PreviewPatch>>;
   /** The node whose content an editor (text, label) is painting over: the node hides its own so it does not show twice. */
   editingId: string | null;
-  /** Free slots for gestures and overlays that must see each other (a marquee, a drop marker, a pen draft): one key each, named after the piece. */
-  ui: Readonly<Record<string, unknown>>;
 };
 
 export type CanvasActions = {
@@ -29,7 +27,6 @@ export type CanvasActions = {
   /** Removes the patches of `ids`, or all of them. */
   clearPreview: (ids?: readonly string[]) => void;
   setEditing: (id: string | null) => void;
-  setUi: (key: string, value: unknown) => void;
 };
 
 const samePatch = (a: PreviewPatch, b: PreviewPatch) => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height && a.rotation === b.rotation && a.inert === b.inert && a.d === b.d && a.from === b.from && a.to === b.to && a.control === b.control && a.layout === b.layout;
@@ -68,14 +65,13 @@ export const canvasActions: StoreActionsFactory<CanvasState, CanvasActions> = ({
       return touched ? { ...s, preview: next } : s;
     }),
   setEditing: (editingId) => setState((s) => (s.editingId === editingId ? s : { ...s, editingId })),
-  setUi: (key, value) => setState((s) => (Object.is(s.ui[key], value) ? s : { ...s, ui: { ...s.ui, [key]: value } })),
 });
 
 export const CanvasStateRegion = createRegion<CanvasState, CanvasActions>("Canvas", canvasActions);
 
 export const initialCanvasState = (overrides: Partial<Pick<CanvasState, "selection" | "hoveredId" | "tool">> = {}): CanvasState => {
   const selection = overrides.selection ?? [];
-  return { selection, selected: new Set(selection), hoveredId: overrides.hoveredId ?? null, tool: overrides.tool ?? "select", preview: {}, editingId: null, ui: {} };
+  return { selection, selected: new Set(selection), hoveredId: overrides.hoveredId ?? null, tool: overrides.tool ?? "select", preview: {}, editingId: null };
 };
 
 export const CanvasProvider = CanvasStateRegion.Provider;

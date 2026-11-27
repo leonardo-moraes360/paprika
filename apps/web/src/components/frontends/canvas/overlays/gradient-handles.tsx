@@ -4,6 +4,7 @@ import { nodeGradient } from "@paprika/core";
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { commitGradient, gradientNode, shownGradient, showLive } from "../gestures/gradient-handle";
+import { useOverlayValue } from "../overlay-bus";
 import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
 import { readUi, UI_GRADIENT, writeUi, type GradientUi } from "../vector/ui";
@@ -25,7 +26,7 @@ export function GradientHandles() {
   const rt = useCanvasRuntime();
   const { t } = useTranslation();
   const id = useCanvasState((s) => (s.selection.length === 1 ? s.selection[0]! : null));
-  const draft: GradientUi | null = useCanvasState((s) => (s.ui[UI_GRADIENT] as GradientUi | null | undefined) ?? null);
+  const draft: GradientUi | null = useOverlayValue<GradientUi>(UI_GRADIENT);
   const patch = useCanvasState((s) => (id === null ? undefined : s.preview[id]));
   const version = useDocVersion();
   const box = useRef<HTMLDivElement>(null);

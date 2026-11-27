@@ -4,7 +4,7 @@ import { PinBadge } from "@/components/ui/pin-bubble";
 import type { AgentColor } from "@/components/ui/agent-tone";
 import { useCollab, type CanvasPin } from "../collab";
 import { PIN_DRAG_KEY } from "../gestures/pin-place";
-import { useCanvasState } from "../region";
+import { useOverlayValue } from "../overlay-bus";
 import { useCanvasRuntime, type CanvasRuntime } from "../runtime";
 import { coveredBox } from "../geometry";
 import type { Box } from "../types";
@@ -110,7 +110,7 @@ export function Pins() {
  */
 export function PinDraft() {
   const rt = useCanvasRuntime();
-  const drag = useCanvasState((s) => s.ui[PIN_DRAG_KEY] as Box | null | undefined);
+  const drag = useOverlayValue<Box>(PIN_DRAG_KEY);
   const draft = useCollab(rt.collab, (c) => c.pinDraft);
   const docVersion = useDocVersion();
   const outline = useRef<HTMLDivElement>(null);

@@ -3,7 +3,7 @@ import { toLocal } from "../geometry";
 import { creationNode, draftBox, isDraftTool, isShapeTool, nameKey, nextNumber, type DraftTool } from "../labels";
 import type { Gesture } from "../types";
 
-/** What the ghost shows, kept in `region.ui.create`: the box in the units of the parent, and where the parent's corner is in the world. */
+/** What the ghost shows, kept in the overlay bus under `create`: the box in the units of the parent, and where the parent's corner is in the world. */
 export type CreateDraft = { tool: DraftTool; x: number; y: number; width: number; height: number; clicked: boolean; origin: { x: number; y: number } };
 
 export const CREATE_KEY = "create";
@@ -33,11 +33,11 @@ export const create: Gesture = {
     const show = (clientX: number, clientY: number) => {
       const box = draftBox(tool, a, local(clientX, clientY));
       const origin = rt.toWorld(corner.left, corner.top);
-      rt.store.actions.setUi(CREATE_KEY, { tool, ...box, origin } satisfies CreateDraft);
+      rt.overlay.set(CREATE_KEY, { tool, ...box, origin } satisfies CreateDraft);
       return box;
     };
     show(event.clientX, event.clientY);
-    const clear = () => rt.store.actions.setUi(CREATE_KEY, null);
+    const clear = () => rt.overlay.set(CREATE_KEY, null);
     return {
       move: (e) => void show(e.clientX, e.clientY),
       up: (e) => {

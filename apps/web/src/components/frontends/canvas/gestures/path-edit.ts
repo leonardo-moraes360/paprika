@@ -1,5 +1,5 @@
-import { copyOwner, moveAnchor, moveHandle, parsePath, pathEditProps, type PathNode, type Subpath } from "@paprika/core";
-import type { CanvasRuntime, Gesture, PreviewPatch } from "../types";
+import { copyOwner, insertAnchor, moveAnchor, moveHandle, nearestOnPath, parsePath, pathEditProps, toggleSmooth, type PathNode, type Subpath } from "@paprika/core";
+import type { CanvasRuntime, DoubleClickHandler, Gesture, PreviewPatch } from "../types";
 import { withPatch } from "../preview-node";
 import { isAbsolute, pathHit, screenMatrix, subpathsOf, toSvgPoint } from "../vector/path-edit";
 import { readUi, UI_PATH_EDIT, writeUi } from "../vector/ui";
@@ -17,7 +17,7 @@ export const PATH_LABELS = {
 /** A press moves a point only after the pointer went this far (screen px). */
 const DRAG_PX = 3;
 
-/** Puts a path in edit mode (not a locked one, a copy inside an instance, or one whose outline does not parse). */
+/** Puts a path that is selected in edit mode (not a locked one, a copy inside an instance, or one whose outline does not parse). */
 export function startPathEdit(rt: CanvasRuntime, node: PathNode): boolean {
   if (node.locked || copyOwner(rt.doc(), node)) return false;
   try {
@@ -26,7 +26,6 @@ export function startPathEdit(rt: CanvasRuntime, node: PathNode): boolean {
     return false;
   }
   writeUi(rt, UI_PATH_EDIT, { id: node.id, sel: null, draft: null });
-  rt.select([node.id]);
   return true;
 }
 
@@ -116,4 +115,35 @@ export const pathEditHold: Gesture = {
     return rt.nodeAt(event.target) === state.id;
   },
   start: () => undefined,
+};
+
+/**
+ * The double click of a path: inside the edit mode on a point it toggles corner and smooth, on the outline it inserts a point
+ * (a double click anywhere else on the path does nothing, and nothing below it runs); outside the mode, on a path that is
+ * already selected, it enters the mode. The first handler of `double-click.ts`.
+ */
+export const editPath: DoubleClickHandler = (rt, event) => {
+  if (rt.tool() !== "select") return false;
+  const current = readUi(rt, UI_PATH_EDIT);
+  if (current) {
+    const hit = pathHit(event.target);
+    const svg = event.target instanceof Element ? event.target.closest<SVGSVGElement>("svg[data-path-edit]") : null;
+    const matrix = svg && screenMatrix(svg);
+    if (!hit || !matrix) return rt.nodeAt(event.target) === current.id;
+    const from = subsFor(rt, current.id);
+    if (hit.kind === "anchor") {
+      commitPath(rt, toggleSmooth(from, hit.ref), PATH_LABELS.toggleSmooth);
+      writeUi(rt, UI_PATH_EDIT, { ...(readUi(rt, UI_PATH_EDIT) ?? current), sel: hit.ref });
+    } else if (hit.kind === "outline") {
+      const near = nearestOnPath(from, toSvgPoint(matrix, event.clientX, event.clientY));
+      if (!near) return true;
+      const inserted = insertAnchor(from, near.ref, near.t);
+      commitPath(rt, inserted.subs, PATH_LABELS.insertPoint);
+      writeUi(rt, UI_PATH_EDIT, { ...(readUi(rt, UI_PATH_EDIT) ?? current), sel: inserted.ref });
+    }
+    return true;
+  }
+  const target = rt.nodeAt(event.target);
+  const found = target ? rt.doc().nodes[target] : undefined;
+  return found?.type === "path" && rt.selection().includes(found.id) && startPathEdit(rt, found);
 };

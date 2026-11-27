@@ -2,6 +2,7 @@ import { connectorCurveHandle, connectorEndPoints, type ConnectorNode, type Docu
 import { useTranslation } from "react-i18next";
 import { editableConnector } from "../gestures/connector-edit";
 import { linkedPatches, patchedDocument, sameLinked, withPatch } from "../preview-node";
+import { useOverlayValue } from "../overlay-bus";
 import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
 import type { LinkUi } from "../vector/ui";
@@ -58,7 +59,7 @@ export function ConnectorHandles() {
 
 /** The dashed line of the arrow being drawn with the connector tool. */
 export function LinkDraft() {
-  const link: LinkUi | null = useCanvasState((s) => (s.ui[UI_LINK] as LinkUi | null | undefined) ?? null);
+  const link: LinkUi | null = useOverlayValue<LinkUi>(UI_LINK);
   if (!link) return null;
   return (
     <svg data-testid="link-draft" aria-hidden="true" className="pointer-events-none absolute top-0 left-0 size-px overflow-visible">

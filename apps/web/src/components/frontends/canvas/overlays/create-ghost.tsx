@@ -2,7 +2,7 @@ import { nodeStyle, shapeAttrs, SHAPE_SVG_CSS, SHAPE_TEXT_CSS } from "@paprika/c
 import type { CSSProperties } from "react";
 import { CREATE_KEY, type CreateDraft } from "../gestures/create";
 import { ghostDocument, ghostNode } from "../labels";
-import { useCanvasState } from "../region";
+import { useOverlayValue } from "../overlay-bus";
 import { useCanvasRuntime } from "../runtime";
 
 const GHOST_OPACITY = 0.45;
@@ -16,7 +16,7 @@ const DRAG_SIZE = 4;
  */
 export function CreateGhost() {
   const rt = useCanvasRuntime();
-  const draft = useCanvasState((s) => s.ui[CREATE_KEY] as CreateDraft | null | undefined);
+  const draft = useOverlayValue<CreateDraft>(CREATE_KEY);
   if (!draft) return null;
   const { tool, x, y, width, height, origin, clicked } = draft;
   const doc = rt.doc();

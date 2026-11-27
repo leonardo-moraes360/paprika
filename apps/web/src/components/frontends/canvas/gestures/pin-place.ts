@@ -41,7 +41,7 @@ function worldBox(rt: CanvasRuntime, el: HTMLElement): Box {
 
 /**
  * The pin tool ("Point for the AI"): a click on an element points at it, a drag marks an area, a click on nothing a spot. While
- * the area is being dragged only the overlay draws it (a slot of the canvas store); the point goes out once, on release.
+ * the area is being dragged only the overlay draws it (a value of the overlay bus); the point goes out once, on release.
  */
 export const pinPlace: Gesture = {
   id: "pin-place",
@@ -52,12 +52,12 @@ export const pinPlace: Gesture = {
     const x0 = event.clientX;
     const y0 = event.clientY;
     let moved = false;
-    const clear = () => rt.store.actions.setUi(PIN_DRAG_KEY, null);
+    const clear = () => rt.overlay.set(PIN_DRAG_KEY, null);
     return {
       move: (e) => {
         if (!moved && Math.hypot(e.clientX - x0, e.clientY - y0) < PIN_DRAG_PX) return;
         moved = true;
-        rt.store.actions.setUi(PIN_DRAG_KEY, rounded(p0, rt.toWorld(e.clientX, e.clientY)));
+        rt.overlay.set(PIN_DRAG_KEY, rounded(p0, rt.toWorld(e.clientX, e.clientY)));
       },
       up: (e) => {
         clear();

@@ -1,6 +1,7 @@
 import { anchorsToPath, serializePath, type Anchor } from "@paprika/core";
 import { useEffect, useMemo, useRef } from "react";
 import { finishPen } from "../gestures/pen";
+import { useOverlayValue } from "../overlay-bus";
 import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
 import { withoutDoublePress, type PenDraft } from "../vector/pen";
@@ -31,7 +32,7 @@ function Anchors({ anchors }: { anchors: readonly Anchor[] }) {
  */
 export function PenDraftOverlay() {
   const rt = useCanvasRuntime();
-  const draft: PenDraft | null = useCanvasState((s) => (s.ui.pen as PenDraft | null | undefined) ?? null);
+  const draft: PenDraft | null = useOverlayValue<PenDraft>(UI_PEN);
   const tool = useCanvasState((s) => s.tool);
   const elastic = useRef<SVGLineElement>(null);
   const active = draft !== null;

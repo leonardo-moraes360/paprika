@@ -53,7 +53,7 @@ export function finishPen(rt: CanvasRuntime, closed: boolean, draft = readUi(rt,
 
 /**
  * The pen: a press adds an anchor, dragging out of it pulls mirrored bezier handles (past 3 px), a press on the first anchor of
- * a path of three or more points closes it (within 8 px). The draft is in `region.ui` for the overlay; Enter, Esc and the double
+ * a path of three or more points closes it (within 8 px). The draft is in the overlay bus; Enter, Esc and the double
  * click end it, Backspace and Delete take the last point back (`overlays/pen-draft.tsx`).
  */
 export const pen: Gesture = {
