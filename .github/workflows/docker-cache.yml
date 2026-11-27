@@ -13,7 +13,6 @@ on:
       - Dockerfile
       - .dockerignore
       - packages/core/**
-      - web-legacy/**
       - apps/web/**
       - crates/render/**
       - crates/sync/**
