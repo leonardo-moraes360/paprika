@@ -261,7 +261,7 @@ describe("stage", () => {
       view.unmount();
     });
 
-    it("reopens on the saved choice (and the URL wins) and sends it again after a reconnection", async () => {
+    it("reopens on the saved choice and announces it with a hello", async () => {
       window.localStorage.setItem("paprika.renderer", "wasm");
       const view = await openShell();
       expect(screen.getByRole("button", { name: "Renderer: WASM" })).toBeInTheDocument();
