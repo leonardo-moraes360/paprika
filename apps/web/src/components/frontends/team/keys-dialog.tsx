@@ -42,7 +42,7 @@ export function KeysDialog({ team, rejected, lastRejectedReason, onInvite, onRem
       closeLabel={t("frontends.team.close")}
       title={t("frontends.team.keysTitle")}
       description={t("frontends.team.keysLead")}
-      className="w-215"
+      className="w-250"
       footer={
         team.member ? (
           <Button pendingAnnouncement="" onClick={onInvite}>

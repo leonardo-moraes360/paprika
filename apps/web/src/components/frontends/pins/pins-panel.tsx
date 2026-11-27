@@ -44,11 +44,7 @@ export function PinsPanel({ pins, now: nowProp, clock, filter, defaultFilter = "
       <div className="flex items-center gap-2">
         <h2 className="text-sm font-bold text-fg">{t("frontends.pins.title")}</h2>
         {shortcut ? (
-          <span className="flex gap-1">
-            {shortcut.map((key) => (
-              <Kbd key={key}>{key}</Kbd>
-            ))}
-          </span>
+          <Kbd>{shortcut.join(" ")}</Kbd>
         ) : null}
         <span className="flex-1" />
         {onClose ? (

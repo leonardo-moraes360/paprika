@@ -1,7 +1,7 @@
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { bindDrag, dragThreshold } from "@ui-sdk/core";
 import { createMenuController } from "@ui-sdk/react/menu";
-import { Ellipsis, GripVertical, Redo2, Undo2 } from "lucide-react";
+import { Ellipsis, GripVertical } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Menu, MenuContent, MenuGroup, MenuGroupLabel, MenuItem, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
@@ -193,10 +193,10 @@ export function Toolbar({
               </MenuTrigger>
             </Tooltip>
             <MenuContent side={side} align="center">
-              <MenuItem value="undo" icon={<Undo2 />} shortcut="mod+z" disabled={!canUndo}>
+              <MenuItem value="undo" shortcut="mod+z" disabled={!canUndo}>
                 {t("frontends.toolbar.undo")}
               </MenuItem>
-              <MenuItem value="redo" icon={<Redo2 />} shortcut="mod+y" disabled={!canRedo}>
+              <MenuItem value="redo" shortcut="mod+y" disabled={!canRedo}>
                 {t("frontends.toolbar.redo")}
               </MenuItem>
               {onHistory || onImport || onExport ? <MenuSeparator /> : null}

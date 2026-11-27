@@ -3,6 +3,7 @@ import { layout, type Document } from "@paprika/core";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { NewPinForm, PinCard, PinsPanel, type NewPinInput, type PinTarget } from "@/components/frontends/pins";
+import { pageOfNode } from "@/adapters/agents";
 import { pinActors, toPinEntries } from "@/adapters/pins";
 import { useLive, useLiveClient } from "@/data/live";
 import { useOpenPinCount, usePinActions, usePins, usePinsLiveSync, type PinRegion, type ServerPin } from "@/data/queries/pins";
@@ -11,7 +12,6 @@ import { useAgentTones, useAssignTones } from "../collab";
 import { useEditor, useEditorActions } from "../editor-store";
 
 const NO_PINS: readonly ServerPin[] = [];
-const shortcut = ["Shift", "I"] as const;
 
 /** What the header's pins chip needs: how many pins are not resolved, and a click that opens the panel. Safe to call from the header: it reads the same cached query as the panel. */
 export function usePinsHeader() {
@@ -20,16 +20,6 @@ export function usePinsHeader() {
   const { toggleDialog } = useEditorActions();
   const onPinsClick = useCallback(() => toggleDialog("pins"), [toggleDialog]);
   return { pins, onPinsClick };
-}
-
-/** The page that holds a node (`null` when the document has no pages). */
-function pageOf(doc: Document, nodeId: string): string | null {
-  let node = doc.nodes[nodeId];
-  for (let guard = 0; node && guard < 1000; guard += 1) {
-    if (node.type === "page") return node.id;
-    node = node.parentId ? doc.nodes[node.parentId] : undefined;
-  }
-  return null;
 }
 
 /**
@@ -53,7 +43,7 @@ function NewPin({ docId }: { docId: string }) {
   const client = useLiveClient();
   const format = useFormatForDisplay();
   // The platform's own spelling of the send key (`Ctrl Enter`, `⌘ Enter`), like the properties panel's hints.
-  const submitShortcut = useMemo(() => format("Mod+Enter", { parts: true }), [format]);
+  const submitShortcut = useMemo(() => format("Mod+Enter", { parts: true }).map((key) => (key === "↵" ? "Enter" : key)), [format]);
   const { setTool, setPin } = useEditorActions();
   const nodeId = useEditor((s) => s.selection[s.selection.length - 1] ?? null);
   const name = useLive((s) => (nodeId ? (s.doc?.nodes[nodeId]?.name ?? null) : null));
@@ -65,7 +55,7 @@ function NewPin({ docId }: { docId: string }) {
     async (input: NewPinInput) => {
       const doc = client.store.state.doc;
       if (!doc || !nodeId || !doc.nodes[nodeId]) throw new Error(t("app.collab.pins.nodeGone"));
-      const pin = await actions.create({ workspaceId: docId, pageId: pageOf(doc, nodeId), nodeId, region: nodeRegion(doc, nodeId), text: input.text });
+      const pin = await actions.create({ workspaceId: docId, pageId: pageOfNode(doc, nodeId), nodeId, region: nodeRegion(doc, nodeId), text: input.text });
       setTool("select");
       setPin(pin.id);
     },
@@ -78,6 +68,8 @@ function NewPin({ docId }: { docId: string }) {
 
 function PinsPanels({ docId }: { docId: string }) {
   const { t } = useTranslation();
+  const format = useFormatForDisplay();
+  const shortcut = useMemo(() => format("Shift+I", { parts: true }), [format]);
   const query = usePins(docId);
   const pins = query.data ?? NO_PINS;
   const actions = usePinActions(docId);
@@ -115,7 +107,7 @@ function PinsPanels({ docId }: { docId: string }) {
   }, [client, pins, pinId, select, setPage]);
 
   return (
-    <div className="fixed start-66 top-14 z-30 flex max-h-[calc(100dvh-4.5rem)] w-85 max-w-[calc(100vw-1.5rem)] flex-col gap-3 overflow-y-auto" data-testid="pins-region">
+    <div className="fixed start-66 top-30 z-30 flex max-h-[calc(100dvh-8.5rem)] w-85 max-w-[calc(100vw-1.5rem)] flex-col gap-3 overflow-y-auto" data-testid="pins-region">
       <PinsPanel pins={entries} selectedId={selectedId} onSelectPin={onSelectPin} onClose={onClose} shortcut={shortcut} />
       {selected ? <PinCard pin={selected} onReply={onReply} onSetStatus={onSetStatus} onDelete={onDelete} onShow={onShow} onClose={onCloseCard} /> : null}
     </div>
@@ -145,6 +137,29 @@ function useForgetDeletedPin(docId: string) {
   }, [selectedId, listed, query.isSuccess, setPin]);
 }
 
+/** The width from which the pins panel (264 + 340) and the new-pin form (360 + the 320 right column + 16) fit side by side. */
+const SIDE_BY_SIDE_MIN = 1320;
+
+/** On a narrow window the pins panel and the new-pin form would overlap: the one that opens last closes the other. */
+function useOneAtATime(open: boolean, pinning: boolean) {
+  const { closeDialog, setTool } = useEditorActions();
+  const before = useRef({ open, pinning });
+  useEffect(() => {
+    const prev = before.current;
+    before.current = { open, pinning };
+    if (!open || !pinning || window.innerWidth >= SIDE_BY_SIDE_MIN) return;
+    if (!prev.pinning) closeDialog("pins");
+    else setTool("select");
+  }, [open, pinning, closeDialog, setTool]);
+  // A window made narrower while both are open: the panel (the older of the two) goes.
+  useEffect(() => {
+    if (!open || !pinning) return;
+    const onResize = () => window.innerWidth < SIDE_BY_SIDE_MIN && closeDialog("pins");
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [open, pinning, closeDialog]);
+}
+
 /**
  * Pins: the panel opens by the editor flag (`dialogs.pins`), the card shows the selected pin, and the new-pin form
  * (tool `pin`) points at the selected node. Pointing at an area waits for the canvas. The server announces a pins
@@ -154,6 +169,7 @@ export function Pins() {
   const docId = useLive((s) => s.doc?.id ?? "");
   const open = useEditor((s) => s.dialogs.pins);
   const pinning = useEditor((s) => s.tool === "pin");
+  useOneAtATime(open, pinning);
   usePinsLiveSync(docId);
   useForgetDeletedPin(docId);
   if (!docId) return null;
@@ -161,7 +177,7 @@ export function Pins() {
     <>
       {open ? <PinsPanels docId={docId} /> : null}
       {pinning ? (
-        <div className="fixed end-84 top-14 z-30 w-90 max-w-[calc(100vw-1.5rem)]" data-testid="new-pin-region">
+        <div className="fixed end-84 top-30 z-30 w-90 max-w-[calc(100vw-1.5rem)]" data-testid="new-pin-region">
           <NewPin docId={docId} />
         </div>
       ) : null}

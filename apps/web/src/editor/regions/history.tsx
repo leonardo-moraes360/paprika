@@ -1,3 +1,4 @@
+import { useFormatForDisplay } from "@tanstack/react-hotkeys";
 import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { HistoryPanel } from "@/components/frontends/history-panel";
@@ -11,8 +12,6 @@ import { useAgentTones, useAssignTones } from "../collab";
 import { useEditor, useEditorActions, useEditorStore } from "../editor-store";
 import { useHistoryActions } from "../use-history-actions";
 
-const historyShortcut = ["Ctrl", "H"] as const;
-
 /**
  * The panel itself, mounted only while it is open. It reads the workspace id and the roster, never the document version:
  * `useHistory` follows the version through the store without rendering, so a stream of deltas does not re-render the panel.
@@ -24,6 +23,8 @@ function HistoryOpen() {
   const store = useEditorStore();
   const history = useHistoryActions();
   const workspaceId = useLive((s) => s.doc?.id ?? "");
+  const format = useFormatForDisplay();
+  const historyShortcut = useMemo(() => format("Mod+H", { parts: true }), [format]);
   const tones = useAgentTones();
   const query = useHistory(workspaceId);
   const steps = useMemo(() => toHistorySteps(query.data?.steps, tones), [query.data, tones]);
@@ -51,8 +52,8 @@ function HistoryOpen() {
   );
 
   return (
-    <div className="fixed end-4 top-16 bottom-4 z-30 flex max-w-[calc(100vw-2rem)]">
-      <HistoryPanel steps={steps} loading={query.isPending} onUndoStep={history.undoStep} onRedoStep={history.redoStep} onSelectNodes={onSelectNodes} onClose={onClose} shortcut={historyShortcut} />
+    <div className="fixed end-2 top-14 bottom-16 z-30 flex w-76 max-w-[calc(100vw-1rem)]">
+      <HistoryPanel steps={steps} loading={query.isPending} onUndoStep={history.undoStep} onRedoStep={history.redoStep} onSelectNodes={onSelectNodes} onClose={onClose} shortcut={historyShortcut} className="w-full" />
     </div>
   );
 }

@@ -188,6 +188,9 @@ describe("Toolbar", () => {
     const { onUndo, onRedo, onHistory } = setup({ canRedo: false });
     await user.click(tool("More actions"));
     expect(await screen.findByRole("menuitem", { name: "Redo" })).toHaveAttribute("aria-disabled", "true");
+    // The design's menu has no icons on undo and redo, and each key of the shortcut is a frame of its own.
+    expect(screen.getByRole("menuitem", { name: "Undo" }).querySelector("svg")).toBeNull();
+    expect([...screen.getByRole("menuitem", { name: "Undo" }).querySelectorAll("kbd")].map((key) => key.textContent)).toEqual(["Ctrl", "Z"]);
     await user.click(screen.getByRole("menuitem", { name: "Undo" }));
     expect(onUndo).toHaveBeenCalledOnce();
     expect(tool("More actions")).toHaveFocus();

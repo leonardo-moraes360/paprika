@@ -4,7 +4,7 @@ import type { ComponentProps } from "react";
 import { slot } from "@/lib/utils";
 import { iconButtonClasses } from "./icon-button";
 
-const size = "[&_svg]:size-[18px]";
+const size = "text-fg [&_svg]:size-[18px]";
 
 export type ToolbarButtonProps = Omit<ComponentProps<typeof ToolbarButtonPrimitive>, "aria-label"> & {
   "aria-label": string;

@@ -130,6 +130,23 @@ describe("PinsPanel", () => {
   });
 });
 
+describe("PinCard as drawn", () => {
+  it("has Reply as the outlined secondary button, a readable disabled state, and Resolve as a plain primary button without an icon", () => {
+    card();
+    const reply = screen.getByRole("button", { name: "Reply" });
+    expect(reply.className).toContain("border-field");
+    expect(reply.className).toContain("data-disabled:opacity-100");
+    const resolve = screen.getByRole("button", { name: /resolved|resolve/i });
+    expect(resolve.querySelector("svg:not(.hidden)")).toBeNull();
+    expect(resolve.className).not.toContain("w-full");
+  });
+
+  it("shows the shortcut of the panel as one key frame", () => {
+    panel({ shortcut: ["Shift", "I"] });
+    expect(screen.getByText("Shift I").tagName).toBe("KBD");
+  });
+});
+
 describe("PinCard", () => {
   it("shows text, status, target, work in progress and the thread", () => {
     card();

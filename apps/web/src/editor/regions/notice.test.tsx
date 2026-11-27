@@ -2,6 +2,8 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { renderRegions, serve } from "@/test/collab-harness";
+import { toneFor } from "@/adapters/agents";
+import { toneDot } from "@/components/ui/agent-tone";
 import { Notice } from "./notice";
 
 const op = (actor: string, kind: string, workspaceId: string, detail = {}) => ({ type: "workspaceOp" as const, op: { at: 1, actor, op: kind, workspaceId, workspaceName: "Old project", detail } });
@@ -16,7 +18,8 @@ describe("Notice region", () => {
     const card = notice.closest("[role=status]") as HTMLElement;
     expect(within(card).getByText(/deleted/i)).toBeInTheDocument();
     expect(within(card).getByText(/12/)).toBeInTheDocument();
-    expect(view.handle.current!.state.agentTones["agent:claude"]).toBe("agent-1");
+    // The tone is the stable pick from the name, the same one the overview shows for this agent.
+    expect(card.innerHTML).toContain(toneDot[toneFor("agent:claude", {})]);
     await userEvent.setup().click(within(card).getByRole("button", { name: /workspaces/i }));
     await waitFor(() => expect(view.rig.client.store.state.workspaceNotice).toBeNull());
     await waitFor(() => expect(screen.queryByText("claude")).toBeNull());

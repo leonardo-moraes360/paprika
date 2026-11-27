@@ -38,7 +38,7 @@ export function Agents({
   const section = (title: string, list: AgentEntry[], isIdle: boolean) =>
     list.length === 0 ? null : (
       <section aria-labelledby={`agents-${isIdle ? "idle" : "active"}`} className="flex flex-col gap-1">
-        <h3 id={`agents-${isIdle ? "idle" : "active"}`} className="px-2 text-xs font-bold tracking-[0.8px] text-muted uppercase">
+        <h3 id={`agents-${isIdle ? "idle" : "active"}`} className="text-xs font-bold tracking-[0.8px] text-muted uppercase">
           {title}
         </h3>
         <ul className="m-0 flex list-none flex-col gap-0.5 p-0">

@@ -115,6 +115,7 @@ export const appEn = {
       noFrame: "Select a frame, or open a page with a frame, to export its code.",
       codeFailed: "Could not generate the code.",
       pngInactive: "PNG needs this workspace to be the one the server has open, and this one is not. Open it from the workspace list, or export SVG, which does not need the server.",
+      pngFailed: "The server could not make the PNG. Server detail: {{reason}}",
     },
     import: {
       destination: "{{name}}",
@@ -137,6 +138,7 @@ export const appEn = {
       notSent: "{{name}}: not sent, the connection was down.",
       mayBeApplied: "{{name}}: the connection dropped while sending, so it may have been applied. Check the canvas.",
       tooBigToSend: "{{name}}: too big to send to the server in one message (the limit is about {{limit}} MB).",
+      unreadable: "{{name}}: could not read the file.",
       notes: {
         transformInvalid: "The transform \"{{name}}\" is invalid and was skipped.",
         opacityColor: "The opacity of \"{{color}}\" was skipped (unrecognized color).",
@@ -302,6 +304,7 @@ export const appPtBR: typeof appEn = {
       noFrame: "Selecione um frame, ou abra uma página com um frame, para exportar o código.",
       codeFailed: "Não foi possível gerar o código.",
       pngInactive: "O PNG precisa que este workspace seja o que o servidor tem aberto, e este não é. Abra-o pela lista de workspaces, ou exporte SVG, que não depende do servidor.",
+      pngFailed: "O servidor não conseguiu gerar o PNG. Detalhe do servidor: {{reason}}",
     },
     import: {
       destination: "{{name}}",
@@ -324,6 +327,7 @@ export const appPtBR: typeof appEn = {
       notSent: "{{name}}: não enviado, a conexão estava fora do ar.",
       mayBeApplied: "{{name}}: a conexão caiu durante o envio, então pode ter sido aplicado. Confira o canvas.",
       tooBigToSend: "{{name}}: grande demais para enviar ao servidor numa só mensagem (o limite é de cerca de {{limit}} MB).",
+      unreadable: "{{name}}: não foi possível ler o arquivo.",
       notes: {
         transformInvalid: "A transformação \"{{name}}\" é inválida e foi ignorada.",
         opacityColor: "A opacidade de \"{{color}}\" foi ignorada (cor não reconhecida).",

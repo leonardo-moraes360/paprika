@@ -32,6 +32,6 @@ export const editorHeaderPtBR = {
   team: "{{name}} · {{count}} online",
   teamShow: "Mostrar o time {{name}}",
   connected: "Conectado",
-  disconnected: "Desconectado",
+  disconnected: "desconectado",
   languageCurrent: "Idioma: {{code}}",
 };

@@ -9,13 +9,17 @@ import { isInterruptedError, isOfflineError, useLiveActions, useLiveClient } fro
 import { showStatusToast } from "@/lib/notify";
 import { useEditor, useEditorActions, useEditorStore } from "../editor-store";
 
-const accept = [".svg", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".html", ".htm", ".paprika.json"];
+/** What the dialog offers. A `.paprika.json` is not in the list: it is a whole document and is always refused (`refusalFor`), so offering it would only lead to an error. */
+const accept = [".svg", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".html", ".htm"];
+
+/** The browser could not read the file (`FileReader` failed). */
+class UnreadableFile extends Error {}
 
 const readDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error("read"));
+    reader.onerror = () => reject(new UnreadableFile());
     reader.readAsDataURL(file);
   });
 
@@ -71,6 +75,7 @@ async function convert(t: TFunction, language: string, entry: ImportedFilePayloa
     }
     return { error: t("app.collab.import.unsupported", { name }) };
   } catch (error) {
+    if (error instanceof UnreadableFile) return { error: t("app.collab.import.unreadable", { name }) };
     if (error instanceof MarkupError) {
       return { error: error.notes.length === 0 ? t("app.collab.import.nothing", { name }) : t("app.collab.import.failed", { name, reason: listOf(language, error.notes.map((note) => noteText(t, note))) }) };
     }

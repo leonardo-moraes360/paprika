@@ -1,4 +1,4 @@
-import { Check, Crosshair, RotateCcw, Trash2, X } from "lucide-react";
+import { Crosshair, Trash2, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,6 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { relativeParts } from "@/lib/relative-time";
 import { useAsyncAction } from "@/lib/use-async-action";
 import { useNow } from "@/lib/use-now";
-import { cn } from "@/lib/utils";
 import { targetLabel } from "./pin-target";
 import type { PinAuthor, PinCardProps } from "./types";
 import { usePinHotkeys } from "./use-pin-hotkeys";
@@ -102,7 +101,7 @@ function PinCardBody({ pin, now: nowProp, clock, onReply, onSetStatus, onDelete,
           }}
         />
         <div className="flex items-center gap-1.5">
-          <Button size="sm" className="h-7.5" disabled={!draft.trim() || (busy && !reply.pending)} aria-busy={reply.pending || undefined} pendingAnnouncement={t("common.working")} onClick={sendReply}>
+          <Button variant="secondary" size="sm" className="h-7.5 data-disabled:border-line data-disabled:text-muted data-disabled:opacity-100" disabled={!draft.trim() || (busy && !reply.pending)} aria-busy={reply.pending || undefined} pendingAnnouncement={t("common.working")} onClick={sendReply}>
             {t("frontends.pins.reply")}
           </Button>
           {onShow ? (
@@ -129,12 +128,11 @@ function PinCardBody({ pin, now: nowProp, clock, onReply, onSetStatus, onDelete,
         </div>
         <Button
           variant={resolved ? "secondary" : "primary"}
-          className={cn("h-8 w-full")}
+          className="h-8 self-start"
           disabled={busy && !status.pending}
           pendingAnnouncement={t("common.working")}
           onClick={() => status.run(() => onSetStatus(resolved ? "open" : "resolved"))}
         >
-          {resolved ? <RotateCcw aria-hidden="true" /> : <Check aria-hidden="true" />}
           {resolved ? t("frontends.pins.reopen") : t("frontends.pins.resolve")}
         </Button>
         {error !== null ? (
