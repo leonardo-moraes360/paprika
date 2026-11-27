@@ -23,13 +23,17 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
   const select = async (id: string) => {
     await revealLayer(page, id);
     await page.locator(`[data-layer-id="${id}"]`).click();
-    await page.locator('[data-testid="inspector-section-position"]').waitFor({ state: "visible" });
+    await page.getByRole("heading", { name: "Conteúdo", exact: true }).waitFor({ state: "visible" });
   };
+  const horizontal = () => page.getByRole("radiogroup", { name: "Horizontal", exact: true });
+  const vertical = () => page.getByRole("radiogroup", { name: "Vertical", exact: true });
+  const centerButton = () => page.getByRole("button", { name: "Centralizar", exact: true });
+  const summary = async () => (await page.getByText(/^\d+ filhos?, /).innerText()).trim();
   const centerOffset = (inner: string, outer: string) =>
     page.evaluate(
       ([i, o]) => {
-        const a = document.querySelector<HTMLElement>(`.world [data-paprika-id="${i}"]`)!.getBoundingClientRect();
-        const b = document.querySelector<HTMLElement>(`.world [data-paprika-id="${o}"]`)!.getBoundingClientRect();
+        const a = document.querySelector<HTMLElement>(`[data-canvas-world] [data-paprika-id="${i}"]`)!.getBoundingClientRect();
+        const b = document.querySelector<HTMLElement>(`[data-canvas-world] [data-paprika-id="${o}"]`)!.getBoundingClientRect();
         return { dx: a.left + a.width / 2 - (b.left + b.width / 2), dy: a.top + a.height / 2 - (b.top + b.height / 2) };
       },
       [inner, outer] as const,
@@ -91,7 +95,7 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
         },
       ],
     });
-    await page.waitForSelector('.world [data-paprika-id="btn"]');
+    await page.waitForSelector('[data-canvas-world] [data-paprika-id="btn"]');
   }, 60_000);
 
   afterAll(async () => {
@@ -100,27 +104,25 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
 
   it("A1: a seção Conteúdo aparece com o resumo, os grupos sem nada ativo e o botão com o atalho", async () => {
     await select("btn");
-    const section = page.getByTestId("content-section");
-    await section.waitFor({ state: "visible" });
-    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("1 filho: texto “Começar”, posição manual (16, 10)");
-    await expect.poll(() => section.getByRole("radio", { checked: true }).count()).toBe(0);
-    await section.getByRole("radiogroup", { name: "Horizontal" }).waitFor({ state: "visible" });
-    await section.getByRole("radiogroup", { name: "Vertical" }).waitFor({ state: "visible" });
-    for (const name of ["Esquerda", "Centro", "Direita", "Topo", "Meio", "Base"]) await section.getByRole("radio", { name }).waitFor({ state: "visible" });
-    await expect.poll(async () => (await page.getByTestId("content-center").innerText()).trim()).toBe("Centralizar");
-    await expect.poll(() => section.getByTestId("key-hint").locator("kbd").allInnerTexts()).toEqual(["Alt", "C"]);
+    await expect.poll(() => summary()).toBe("1 filho, posicionado à mão");
+    await expect.poll(async () => (await horizontal().getByRole("radio", { checked: true }).count()) + (await vertical().getByRole("radio", { checked: true }).count())).toBe(0);
+    await horizontal().waitFor({ state: "visible" });
+    await vertical().waitFor({ state: "visible" });
+    for (const name of ["Esquerda", "Centralizar na horizontal", "Direita"]) await horizontal().getByRole("radio", { name }).waitFor({ state: "visible" });
+    for (const name of ["Topo", "Meio", "Base"]) await vertical().getByRole("radio", { name }).waitFor({ state: "visible" });
+    await expect.poll(async () => (await centerButton().innerText()).trim()).toBe("Centralizar");
+    await expect.poll(() => centerButton().locator("xpath=..").locator("kbd").allInnerTexts()).toEqual(["Alt", "C"]);
   });
 
   it("A2: Centralizar liga centro/meio, o texto vai ao centro e Ctrl+Z desfaz em um passo", async () => {
     const before = (await history()).length;
-    await page.getByTestId("content-center").click();
+    await centerButton().click();
     await expect.poll(async () => (await node("btn")).layout).toMatchObject({ mode: "row", justify: "center", align: "center", padding: 0 });
     expect((await node("btn")).type).toBe("frame");
     expect((await node("btn")).fill).toBe("#cc3322");
-    const section = page.getByTestId("content-section");
-    await expect.poll(() => section.getByRole("radio", { name: "Centro" }).isChecked()).toBe(true);
-    await expect.poll(() => section.getByRole("radio", { name: "Meio" }).isChecked()).toBe(true);
-    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("1 filho: texto “Começar”, centralizado");
+    await expect.poll(() => horizontal().getByRole("radio", { name: "Centralizar na horizontal" }).isChecked()).toBe(true);
+    await expect.poll(() => vertical().getByRole("radio", { name: "Meio" }).isChecked()).toBe(true);
+    await expect.poll(() => summary()).toBe("1 filho, centralizado");
     await expect.poll(async () => Math.abs((await centerOffset("btn-label", "btn")).dx)).toBeLessThan(1.5);
     expect(Math.abs((await centerOffset("btn-label", "btn")).dy)).toBeLessThan(1.5);
     const after = await history();
@@ -129,25 +131,23 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
 
     await page.keyboard.press("Control+z");
     await expect.poll(async () => (await node("btn")).layout).toBeUndefined();
-    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("1 filho: texto “Começar”, posição manual (16, 10)");
+    await expect.poll(() => summary()).toBe("1 filho, posicionado à mão");
   });
 
   it("A2: trocar um grupo mantém o outro, no mesmo layout do painel Layout auto", async () => {
-    await page.getByTestId("content-center").click();
+    await centerButton().click();
     await expect.poll(async () => (await node("btn")).layout?.justify).toBe("center");
-    await page.getByTestId("content-horizontal").getByRole("radio", { name: "Esquerda" }).click();
+    await horizontal().getByRole("radio", { name: "Esquerda" }).click();
     await expect.poll(async () => (await node("btn")).layout).toMatchObject({ mode: "row", justify: "start", align: "center" });
-    const section = page.getByTestId("content-section");
-    await expect.poll(() => section.getByRole("radio", { name: "Esquerda" }).isChecked()).toBe(true);
-    await expect.poll(() => section.getByRole("radio", { name: "Meio" }).isChecked()).toBe(true);
-    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("1 filho: texto “Começar”, alinhado");
+    await expect.poll(() => horizontal().getByRole("radio", { name: "Esquerda" }).isChecked()).toBe(true);
+    await expect.poll(() => vertical().getByRole("radio", { name: "Meio" }).isChecked()).toBe(true);
+    await expect.poll(() => summary()).toBe("1 filho, alinhado");
     await expect.poll(async () => Math.abs((await centerOffset("btn-label", "btn")).dx)).toBeGreaterThan(20);
 
-    await page.getByTestId("content-vertical").getByRole("radio", { name: "Base" }).click();
+    await vertical().getByRole("radio", { name: "Base" }).click();
     await expect.poll(async () => (await node("btn")).layout).toMatchObject({ justify: "start", align: "end" });
 
-    await page.getByTestId("inspector-section-frame-layout").getByRole("button").first().click();
-    await expect.poll(() => page.getByTestId("inspector-section-frame-layout").getByRole("combobox", { name: "Modo" }).innerText()).toBe("linha");
+    await expect.poll(() => page.getByRole("combobox", { name: "Modo" }).innerText()).toBe("linha");
     await page.keyboard.press("Control+z");
     await expect.poll(async () => (await node("btn")).layout?.align).toBe("center");
     await page.keyboard.press("Control+z");
@@ -156,8 +156,9 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
 
   it("os grupos andam pelo teclado, têm nomes e foco visível", async () => {
     await dismissToasts(page);
-    const horizontal = page.getByTestId("content-horizontal");
-    await horizontal.getByRole("radio", { name: "Centro" }).focus();
+    const group = horizontal();
+    await expect.poll(() => group.getByRole("radio", { name: "Centralizar na horizontal" }).isChecked()).toBe(true);
+    await group.getByRole("radio", { name: "Centralizar na horizontal" }).focus();
     await page.keyboard.press("Shift+Tab");
     await page.keyboard.press("Tab");
     const ring = await page.evaluate(() => {
@@ -166,50 +167,52 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
       return { name: a.getAttribute("aria-label"), visible: a.matches(":focus-visible"), style: css.outlineStyle, width: parseFloat(css.outlineWidth) };
     });
     expect(ring.visible).toBe(true);
-    expect(["Esquerda", "Centro", "Direita"]).toContain(ring.name);
+    expect(["Esquerda", "Centralizar na horizontal", "Direita"]).toContain(ring.name);
     expect(ring.style).not.toBe("none");
     expect(ring.width).toBeGreaterThan(0);
-    await page.keyboard.press("Home");
+    // Home/End não existem no padrão radio do ui-sdk (o antigo os tinha): as setas movem o foco e, no grupo, com laço (Esquerda <-> Direita)
+    await page.keyboard.press("ArrowLeft");
     await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("aria-label"))).toBe("Esquerda");
     await page.keyboard.press("Space");
     await expect.poll(async () => (await node("btn")).layout?.justify).toBe("start");
-    await page.keyboard.press("End");
+    await page.keyboard.press("ArrowLeft");
     await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("aria-label"))).toBe("Direita");
     await page.keyboard.press("Space");
     await expect.poll(async () => (await node("btn")).layout?.justify).toBe("end");
-    await page.getByTestId("content-center").click();
+    await centerButton().click();
     await expect.poll(async () => (await node("btn")).layout?.justify).toBe("center");
   });
 
   it("Alt+C no canvas alterna o conteúdo centralizado, um passo por vez", async () => {
     await page.getByTestId("viewport").click({ position: { x: 5, y: 5 } });
     await select("btn");
-    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toContain("centralizado");
+    await expect.poll(() => summary()).toContain("centralizado");
     const before = (await history()).length;
     await page.keyboard.press("Alt+c");
     await expect.poll(async () => (await node("btn")).layout).toBeUndefined();
     expect((await history()).length).toBe(before + 1);
-    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toContain("posição manual");
+    await expect.poll(() => summary()).toContain("posicionado à mão");
     await page.locator("body").press("Alt+c");
     await expect.poll(async () => (await node("btn")).layout).toMatchObject({ mode: "row", justify: "center", align: "center", padding: 0 });
     expect((await history()).length).toBe(before + 2);
-    expect(await page.getByRole("button", { name: "Cilindro" }).getAttribute("aria-pressed")).not.toBe("true");
+    // o atalho C de uma ferramenta não pode ser disparado pelo Alt+C: a ferramenta ativa segue sendo Selecionar
+    expect(await page.getByRole("button", { name: "Selecionar" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("A3: forma redonda com ícone usa o mesmo controle", async () => {
     await select("seal");
-    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("1 filho: ícone “Estrela”, posição manual (10, 10)");
-    await page.getByTestId("content-center").click();
+    await expect.poll(() => summary()).toBe("1 filho, posicionado à mão");
+    await centerButton().click();
     await expect.poll(async () => (await node("seal")).layout).toMatchObject({ mode: "row", justify: "center", align: "center" });
-    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("1 filho: ícone “Estrela”, centralizado");
+    await expect.poll(() => summary()).toBe("1 filho, centralizado");
     await expect.poll(async () => Math.abs((await centerOffset("seal-icon", "seal")).dx)).toBeLessThan(1.5);
   });
 
   it("vários filhos: o resumo conta e eles alinham juntos", async () => {
     await select("multi");
-    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("2 filhos: 2 textos, posição manual");
-    await page.getByTestId("content-center").click();
-    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("2 filhos: 2 textos, centralizado");
+    await expect.poll(() => summary()).toBe("2 filhos, posicionado à mão");
+    await centerButton().click();
+    await expect.poll(() => summary()).toBe("2 filhos, centralizado");
     const a = await centerOffset("multi-a", "multi");
     const b = await centerOffset("multi-b", "multi");
     expect(Math.abs((a.dy + b.dy) / 2)).toBeLessThan(2);
@@ -217,10 +220,10 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
 
   it("A4: forma sem filhos mostra só a dica, com os grupos desabilitados e sem o botão", async () => {
     await select("plain");
-    await expect.poll(async () => (await page.getByTestId("content-empty").innerText()).trim()).toBe("Adicione um texto ou ícone para alinhar");
-    await expect.poll(() => page.getByTestId("content-center").count()).toBe(0);
-    await expect.poll(() => page.getByTestId("content-horizontal").getByRole("radio", { name: "Esquerda" }).isDisabled()).toBe(true);
-    await expect.poll(() => page.getByTestId("content-vertical").getByRole("radio", { name: "Base" }).isDisabled()).toBe(true);
+    await expect.poll(() => page.getByText("Adicione um texto ou ícone para alinhar.").count()).toBe(1);
+    await expect.poll(() => centerButton().count()).toBe(0);
+    await expect.poll(() => horizontal().getByRole("radio", { name: "Esquerda" }).isDisabled()).toBe(true);
+    await expect.poll(() => vertical().getByRole("radio", { name: "Base" }).isDisabled()).toBe(true);
     const before = (await history()).length;
     await page.locator("body").press("Alt+c");
     expect((await history()).length).toBe(before);
@@ -230,7 +233,7 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
   it("A5: o menu de contexto oferece Centralizar conteúdo com o atalho e desfaz num passo", async () => {
     await select("btn");
     await expect.poll(async () => (await node("btn")).layout?.justify).toBe("center");
-    const box = await page.locator('.world [data-paprika-id="btn"]').boundingBox();
+    const box = await page.locator('[data-canvas-world] [data-paprika-id="btn"]').boundingBox();
     await page.mouse.click(box!.x + 3, box!.y + 3, { button: "right" });
     const item = page.getByTestId("center-content");
     await item.waitFor({ state: "visible" });
@@ -249,17 +252,17 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
     const original = await node("rbtn");
     expect(original.type).toBe("rect");
     await select("rbtn");
-    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("1 filho: texto “Salvar”, posição manual (30, 20)");
-    await expect.poll(() => page.getByTestId("content-horizontal").getByRole("radio", { name: "Esquerda" }).isDisabled()).toBe(false);
+    await expect.poll(() => summary()).toBe("1 filho, posicionado à mão");
+    await expect.poll(() => horizontal().getByRole("radio", { name: "Esquerda" }).isDisabled()).toBe(false);
     const before = (await history()).length;
-    await page.getByTestId("content-center").click();
+    await centerButton().click();
     await expect.poll(async () => (await node("rbtn")).type).toBe("frame");
     const frame = await node("rbtn");
     expect(frame).toMatchObject({ fill: "#7c3aed", radius: 12, children: ["rbtn-label"], layout: { mode: "row", justify: "center", align: "center", padding: 0 } });
     expect((await node("rbtn-label")).parentId).toBe("rbtn");
     await expect.poll(async () => Math.abs((await centerOffset("rbtn-label", "rbtn")).dx)).toBeLessThan(1.5);
     expect(Math.abs((await centerOffset("rbtn-label", "rbtn")).dy)).toBeLessThan(1.5);
-    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("1 filho: texto “Salvar”, centralizado");
+    await expect.poll(() => summary()).toBe("1 filho, centralizado");
     const after = await history();
     expect(after.length).toBe(before + 1);
     expect(after.at(-1)).toMatchObject({ actor: "user", label: "centralizar conteúdo" });
@@ -268,7 +271,7 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
     await expect.poll(async () => (await node("rbtn")).type).toBe("rect");
     expect(await node("rbtn")).toEqual(original);
     expect((await node("rbtn-label")).parentId ?? null).toBe(null);
-    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("1 filho: texto “Salvar”, posição manual (30, 20)");
+    await expect.poll(() => summary()).toBe("1 filho, posicionado à mão");
     await page.keyboard.press("Control+Shift+z");
     await expect.poll(async () => (await node("rbtn")).type).toBe("frame");
     await page.keyboard.press("Control+z");
@@ -278,14 +281,14 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
   it("B2: elipse redonda com ícone: vira frame com radius metade do tamanho, o ícone vai ao centro e Ctrl+Z restaura a elipse", async () => {
     const original = await node("selo");
     await select("selo");
-    await expect.poll(async () => (await page.getByTestId("content-summary").innerText()).trim()).toBe("1 filho: ícone “Raio”, posição manual (48, 48)");
-    await page.getByTestId("content-center").click();
+    await expect.poll(() => summary()).toBe("1 filho, posicionado à mão");
+    await centerButton().click();
     await expect.poll(async () => (await node("selo")).type).toBe("frame");
     expect(await node("selo")).toMatchObject({ radius: 60, fill: "#fbbf24", children: ["selo-icon"], layout: { justify: "center", align: "center" } });
     await expect.poll(async () => Math.abs((await centerOffset("selo-icon", "selo")).dx)).toBeLessThan(1.5);
     expect(Math.abs((await centerOffset("selo-icon", "selo")).dy)).toBeLessThan(1.5);
     await expect
-      .poll(() => page.evaluate(() => getComputedStyle(document.querySelector<HTMLElement>('.world [data-paprika-id="selo"]')!).borderRadius))
+      .poll(() => page.evaluate(() => getComputedStyle(document.querySelector<HTMLElement>('[data-canvas-world] [data-paprika-id="selo"]')!).borderRadius))
       .toBe("60px");
     await page.keyboard.press("Control+z");
     await expect.poll(async () => (await node("selo")).type).toBe("ellipse");
@@ -310,7 +313,7 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
     const original = await node("rmenu");
     await select("rmenu");
     await dismissToasts(page);
-    const box = await page.locator('.world [data-paprika-id="rmenu"]').boundingBox();
+    const box = await page.locator('[data-canvas-world] [data-paprika-id="rmenu"]').boundingBox();
     await page.mouse.click(box!.x + 3, box!.y + 3, { button: "right" });
     const item = page.getByTestId("center-content");
     await item.waitFor({ state: "visible" });
@@ -327,7 +330,7 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
 
   it("B5: converter e adotar sozinho não move o conteúdo (traço dentro compensado)", async () => {
     const rect = async (id: string) => page.evaluate((i) => {
-      const r = document.querySelector<HTMLElement>(`.world [data-paprika-id="${i}"]`)!.getBoundingClientRect();
+      const r = document.querySelector<HTMLElement>(`[data-canvas-world] [data-paprika-id="${i}"]`)!.getBoundingClientRect();
       return { x: r.left, y: r.top, w: r.width, h: r.height };
     }, id);
     const before = await rect("rraw-label");
@@ -347,9 +350,9 @@ describe.skipIf(!existsSync(webDist))("E2E: centralizar o conteúdo de uma forma
   it("A5: o item some quando só há uma forma sem filhos", async () => {
     await select("plain");
     await page.keyboard.press("Escape");
-    const box = await page.locator('.world [data-paprika-id="plain"]').boundingBox();
+    const box = await page.locator('[data-canvas-world] [data-paprika-id="plain"]').boundingBox();
     await page.mouse.click(box!.x + 3, box!.y + 3, { button: "right" });
-    await page.getByTestId("layer-menu").waitFor({ state: "visible" });
+    await page.getByRole("menu").waitFor({ state: "visible" });
     await expect.poll(() => page.getByTestId("center-content").count()).toBe(0);
   });
 });
