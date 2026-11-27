@@ -291,6 +291,52 @@ describe("the text editor", () => {
   });
 });
 
+describe("an editor whose node goes away", () => {
+  const without = (id: string) => applyOps(everyKindDocument(), [{ op: "delete", id }]).doc;
+  const handlesOf = (t: ReturnType<typeof mount>) => t.overlays.querySelectorAll("[data-handle]").length;
+
+  it.each([
+    ["a text", "title", () => ({ name: "Text" })],
+    ["a shape", "box", () => ({ name: "Shape text" })],
+    ["an arrow label", "arrow", () => ({ name: "Arrow label" })],
+  ])("%s: when another client deletes the node, the editor closes and the handles of the next selection come back", async (_kind, id) => {
+    const t = mount();
+    fireEvent.doubleClick(node(t.world, id));
+    expect(t.queryByTestId("text-editor") ?? t.queryByTestId("shape-text-editor") ?? t.queryByTestId("connector-label-editor")).not.toBeNull();
+    act(() => t.feed.update({ doc: without(id) }));
+    await flush();
+    expect(t.queryByTestId("text-editor") ?? t.queryByTestId("shape-text-editor") ?? t.queryByTestId("connector-label-editor")).toBeNull();
+    act(() => t.feed.update({ selection: ["end"] }));
+    await flush();
+    expect(handlesOf(t)).toBeGreaterThan(0);
+  });
+
+  it("a switch of page ends the edit too", async () => {
+    const doc = applyOps(everyKindDocument(), [{ op: "add_page", id: "other", name: "Other" } as unknown as Op]).doc;
+    const t = mount({}, doc);
+    fireEvent.doubleClick(node(t.world, "box"));
+    expect(t.queryByTestId("shape-text-editor")).not.toBeNull();
+    act(() => t.feed.update({ pageId: "other" }));
+    await flush();
+    expect(t.queryByTestId("shape-text-editor")).toBeNull();
+    act(() => t.feed.update({ pageId: "page", selection: ["end"] }));
+    await flush();
+    expect(t.queryByTestId("shape-text-editor")).toBeNull();
+    expect(handlesOf(t)).toBeGreaterThan(0);
+  });
+
+  it("a node that comes back with the same id does not reopen an editor", async () => {
+    const t = mount();
+    fireEvent.doubleClick(node(t.world, "box"));
+    act(() => t.feed.update({ doc: without("box") }));
+    await flush();
+    act(() => t.feed.update({ doc: everyKindDocument() }));
+    await flush();
+    expect(t.queryByTestId("shape-text-editor")).toBeNull();
+    expect(node(t.world, "box").style.visibility).not.toBe("hidden");
+  });
+});
+
 describe("the shape's text, the arrow's label and the frame's name", () => {
   it("commits the shape's text on Escape and on blur, only when it changed", async () => {
     const t = mount();

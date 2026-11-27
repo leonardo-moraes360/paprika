@@ -157,6 +157,9 @@ function CanvasBody(props: CanvasProps) {
       if (next.doc && (next.doc !== before.doc || next.pageId !== before.pageId)) {
         rt.index.setDoc(next.doc, next.pageId);
         rt.preview.reconcile(next.doc);
+        // An editor is open on a node that is gone (another client deleted it) or that is no longer in view (another page or document): the edit ends, or `editingId` would point at nothing and hide the handles of every selection.
+        const editing = store.state.editingId;
+        if (editing && (!next.doc.nodes[editing] || next.pageId !== before.pageId || next.doc.id !== before.doc?.id)) store.actions.setEditing(null);
       }
       const nextKey = keyOf(next);
       if (nextKey !== key) {

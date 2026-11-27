@@ -11,6 +11,9 @@ import type { Box, NodeBox } from "../types";
 import { UI_PATH_EDIT, type PathEditUi } from "../vector/ui";
 import { useDocVersion } from "./use-doc-version";
 
+/** The kinds with an editor drawn over the node (a frame's name is edited on its label, which hides nothing). */
+const EDITED_TYPES: ReadonlySet<string> = new Set(["text", "shape", "connector"]);
+
 /** The bounding box of a node that may be turned (its four corners). */
 function boundsOf(box: NodeBox): Box {
   if (!box.rotation) return box;
@@ -35,7 +38,7 @@ export function SelectionHandlesOverlay() {
   const lock = useOverlayValue<Lock>("lock");
   // The points of a path, and the editor of a text, a shape or an arrow, are drawn over the node: its resize corners and turning knob would sit on them. The size stays.
   const editingPath = useOverlayValue<PathEditUi>(UI_PATH_EDIT) !== null;
-  const editingContent = useCanvasState((s) => s.editingId !== null && rt.doc().nodes[s.editingId]?.type !== "frame");
+  const editingContent = useCanvasState((s) => s.editingId !== null && EDITED_TYPES.has(rt.doc().nodes[s.editingId]?.type ?? ""));
   const docVersion = useDocVersion();
   const doc = rt.doc();
   const single = selection.length === 1 ? doc.nodes[selection[0]!] : undefined;
