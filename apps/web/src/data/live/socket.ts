@@ -26,6 +26,20 @@ export class LiveOfflineError extends Error {
   }
 }
 
+/**
+ * An offline error for a request that WAS sent: the connection dropped before the answer, and the server may have
+ * applied it. It is still a `LiveOfflineError` (everything that handles "offline" keeps working); screens that can
+ * tell the two apart say "may have been applied" instead of "was not sent", so the person checks before sending again
+ * (a second `create` would duplicate).
+ */
+export class LiveInterruptedError extends LiveOfflineError {
+  readonly interrupted = true;
+  constructor() {
+    super();
+    this.name = "LiveInterruptedError";
+  }
+}
+
 export class LiveRequestError extends Error {
   readonly code = "request";
   constructor(message: string) {
@@ -35,6 +49,7 @@ export class LiveRequestError extends Error {
 }
 
 export const isOfflineError = (error: unknown): error is LiveOfflineError => error instanceof LiveOfflineError;
+export const isInterruptedError = (error: unknown): error is LiveInterruptedError => error instanceof LiveInterruptedError;
 
 export type SocketHandlers = {
   onOpen: () => void;
@@ -131,7 +146,7 @@ export class LiveSocket {
   private rejectAll() {
     const all = [...this.pending.values()];
     this.pending.clear();
-    for (const entry of all) entry.reject(new LiveOfflineError());
+    for (const entry of all) entry.reject(new LiveInterruptedError());
   }
 
   private open() {

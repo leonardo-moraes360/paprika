@@ -1,15 +1,15 @@
 import type { Op } from "@paprika/core";
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { isOfflineError, useLiveActions } from "@/data/live";
+import { isInterruptedError, isOfflineError, useLiveActions } from "@/data/live";
 import { showStatusToast } from "@/lib/notify";
 import { errorText } from "@/lib/use-async-action";
 
-/** The message a failed action shows: the connection text when offline, else the server's own words (or a generic line). */
+/** The message a failed action shows: the connection text when offline (and, when the request had already left, that it may have been applied), else the server's own words (or a generic line). */
 export function useFailureText() {
   const { t } = useTranslation();
   return useCallback(
-    (error: unknown) => (isOfflineError(error) ? t("app.connection.lost") : errorText(error).trim() || t("app.shell.actionFailed")),
+    (error: unknown) => (isInterruptedError(error) ? t("app.connection.interrupted") : isOfflineError(error) ? t("app.connection.lost") : errorText(error).trim() || t("app.shell.actionFailed")),
     [t],
   );
 }
