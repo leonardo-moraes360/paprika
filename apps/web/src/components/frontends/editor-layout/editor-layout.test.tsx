@@ -179,12 +179,12 @@ describe("EditorLayout", () => {
     it("follows the value from the owner and never persists", async () => {
       const { rerender } = await setup({ value: base, storageKey: "editor" });
       const initial = Number(sep(0).getAttribute("aria-valuenow"));
-      rerender(<EditorLayout left={<p>L</p>} center={<p>C</p>} right={<p>R</p>} value={{ ...base, left: 400 }} storageKey="layout" />);
+      rerender(<EditorLayout left={<p>L</p>} center={<p>C</p>} right={<p>R</p>} value={{ ...base, left: 400 }} storageKey="editor" />);
       await act(async () => {
         await Promise.resolve();
       });
       expect(Number(sep(0).getAttribute("aria-valuenow"))).toBeGreaterThan(initial);
-      rerender(<EditorLayout left={<p>L</p>} center={<p>C</p>} right={<p>R</p>} value={{ ...base, leftCollapsed: true }} storageKey="layout" />);
+      rerender(<EditorLayout left={<p>L</p>} center={<p>C</p>} right={<p>R</p>} value={{ ...base, leftCollapsed: true }} storageKey="editor" />);
       await act(async () => {
         await Promise.resolve();
       });

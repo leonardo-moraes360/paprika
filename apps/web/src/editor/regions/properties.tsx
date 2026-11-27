@@ -8,6 +8,7 @@ import { PropertiesPanel, type FontPickerSlot, type PropertiesPanelProps, type P
 import { useDocLint } from "@/data/lint";
 import { shallow, useLive, useLiveActions, useLiveClient } from "@/data/live";
 import { showStatusToast } from "@/lib/notify";
+import { readPersisted, writePersisted } from "@/lib/persist";
 import { useEditorActions, useEditorStore } from "../editor-store";
 import { createRelativeClock, RelativeClockProvider } from "../relative-time";
 import { useFailureText } from "../use-apply";
@@ -16,7 +17,16 @@ import { usePanelActivity } from "./activity";
 const MemoPanel = memo(PropertiesPanel);
 
 const STORAGE_KEY = "properties.sections";
+const LEGACY_STORAGE_KEY = "paprika.properties.sections";
 const ERROR_TOAST_ID = "properties:error";
+
+/** Moves the collapsed sections from the key that was stored under a doubled prefix to the current one, once. */
+export function migrateSectionsKey() {
+  const legacy = readPersisted(LEGACY_STORAGE_KEY);
+  if (legacy === null) return;
+  if (readPersisted(STORAGE_KEY) === null) writePersisted(STORAGE_KEY, legacy);
+  writePersisted(LEGACY_STORAGE_KEY, null);
+}
 
 /** Shortest gap between two renders of the panel caused by document deltas (a burst of edits to what it shows). */
 export const PANEL_REFRESH_MS = 100;
@@ -102,6 +112,7 @@ export function Properties({ header }: { header?: ReactNode } = {}) {
   const { t } = useTranslation();
   const { apply } = useLiveActions();
   const { select, beginSampling } = useEditorActions();
+  useState(migrateSectionsKey);
   const input = usePanelInput();
   const documentView = input.selected.length === 0;
   const { activity, marker } = usePanelActivity(documentView);

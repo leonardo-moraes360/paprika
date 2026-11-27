@@ -225,9 +225,9 @@ describe("Position and size", () => {
     await user.click(box("X"));
     await user.keyboard("{ArrowUp}");
     expect(onApply).toHaveBeenLastCalledWith([{ op: "update", id: "f1", props: { x: 121 } }], "move");
-    // the owner did not apply the first step, so the field is still at its value (120)
+    // the owner did not echo the first step yet, so the next one starts from the value the field emitted (121)
     await user.keyboard("{Shift>}{ArrowDown}{/Shift}");
-    expect(onApply).toHaveBeenLastCalledWith([{ op: "update", id: "f1", props: { x: 110 } }], "move");
+    expect(onApply).toHaveBeenLastCalledWith([{ op: "update", id: "f1", props: { x: 111 } }], "move");
   });
 
   it("steps with the stepper buttons", async () => {
