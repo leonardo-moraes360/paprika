@@ -1,5 +1,5 @@
 import { nodeStyle, type Node, type TextRun } from "@paprika/core";
-import { Bold, Italic, Link2 } from "lucide-react";
+import { Bold, Italic, Link2, Unlink } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { TextField } from "@/components/ui/text-field";
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/ui/toolbar-group";
@@ -208,6 +208,9 @@ function TextSurface({ node }: { node: TextNode }) {
           />
           <ToolbarButton aria-label={text("applyLink")} disabled={!linkOk(href)} onClick={() => change(marks.link(href))}>
             <Link2 aria-hidden="true" />
+          </ToolbarButton>
+          <ToolbarButton aria-label={text("removeLink")} onClick={() => change(marks.unlink)}>
+            <Unlink aria-hidden="true" />
           </ToolbarButton>
         </Toolbar>
       </div>

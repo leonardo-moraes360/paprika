@@ -1,11 +1,4 @@
-import { textPieces, type TextRun } from "@paprika/core";
-
-/**
- * A link inside a text has the browser's own link colour, as it has in the export and the screenshot (`nodeStyle` gives it an underline
- * and no colour). The app's Preflight resets an anchor to `color: inherit`; `revert` takes the user agent's rule back (visited and active included).
- * A colour the run sets itself is inline and wins.
- */
-export const LINK_CLASS = "[color:revert]";
+import { LINK_UNDERLINE_OFFSET, LINK_UNDERLINE_THICKNESS, textPieces, type TextRun } from "@paprika/core";
 
 /** A run carries a mark (weight, colour, size, italic or link): one that has none is no run at all. */
 export function runStyled(run: TextRun): boolean {
@@ -129,8 +122,11 @@ export function paintEditable(root: HTMLElement, text: string, runs: readonly Te
     }
     if (piece.run.href) {
       el.setAttribute("href", piece.run.href);
-      el.className = LINK_CLASS;
+      if (piece.run.color === undefined) el.style.color = "inherit";
       el.style.textDecoration = "underline";
+      el.style.textDecorationThickness = LINK_UNDERLINE_THICKNESS;
+      el.style.textUnderlineOffset = LINK_UNDERLINE_OFFSET;
+      el.style.textDecorationSkipInk = "auto";
     }
     el.textContent = piece.text;
     root.append(el);
@@ -201,6 +197,10 @@ export const marks = {
   },
   size: (fontSize: number) => (run: TextRun | undefined): TextRun => ({ start: 0, end: 0, ...(run ?? {}), fontSize }),
   color: (color: string) => (run: TextRun | undefined): TextRun => ({ start: 0, end: 0, ...(run ?? {}), color }),
+  unlink: (run: TextRun | undefined): TextRun | null => {
+    const { href: _href, ...rest } = { start: 0, end: 0, ...(run ?? {}) };
+    return runStyled(rest) ? rest : null;
+  },
   link: (href: string) => (run: TextRun | undefined): TextRun => ({ start: 0, end: 0, ...(run ?? {}), href }),
 };
 

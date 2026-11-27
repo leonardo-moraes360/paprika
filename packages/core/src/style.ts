@@ -373,7 +373,11 @@ export function nodeStyle(doc: Document, node: Node, opts: { asRoot?: boolean; v
   }
   if (node.rotation) css.transform = `rotate(${round(node.rotation)}deg)`;
   if (node.opacity !== 1) css.opacity = node.opacity;
-  if ((node.type === "frame" || node.type === "text") && node.href) css.cursor = "pointer";
+  if ((node.type === "frame" || node.type === "text") && node.href) {
+    css.cursor = "pointer";
+    css.textDecoration = "none";
+    if (node.type === "frame") css.color = "inherit";
+  }
   if (!vis) css.display = "none";
   if (node.type === "path") {
     css.overflow = "visible";
@@ -580,6 +584,9 @@ function textCss(
   return css;
 }
 
+export const LINK_UNDERLINE_THICKNESS = "max(1px, 0.06em)";
+export const LINK_UNDERLINE_OFFSET = "0.15em";
+
 export function textRunCSS(doc: Document, node: TextNode, run: TextRun, vars?: boolean): CSS {
   const css: CSS = {};
   const mode = modeOf(doc, node);
@@ -587,7 +594,13 @@ export function textRunCSS(doc: Document, node: TextNode, run: TextRun, vars?: b
   if (run.color !== undefined) css.color = String(paintValue(doc, run.color, mode, vars));
   if (run.fontSize !== undefined) css.fontSize = lengthCSS(doc, run.fontSize, mode, vars, "px");
   if (run.italic) css.fontStyle = "italic";
-  if (run.href) css.textDecoration = "underline";
+  if (run.href) {
+    if (run.color === undefined) css.color = "inherit";
+    css.textDecoration = "underline";
+    css.textDecorationThickness = LINK_UNDERLINE_THICKNESS;
+    css.textUnderlineOffset = LINK_UNDERLINE_OFFSET;
+    css.textDecorationSkipInk = "auto";
+  }
   return css;
 }
 

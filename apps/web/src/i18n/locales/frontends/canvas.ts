@@ -76,6 +76,7 @@ export const canvasEn = {
     color: "Color",
     link: "Link",
     applyLink: "Apply link",
+    removeLink: "Remove link",
   },
   editors: {
     shapeText: "Shape text",
@@ -173,6 +174,7 @@ export const canvasPtBR: typeof canvasEn = {
     color: "Cor",
     link: "Link",
     applyLink: "Aplicar link",
+    removeLink: "Remover link",
   },
   editors: {
     shapeText: "Texto da forma",

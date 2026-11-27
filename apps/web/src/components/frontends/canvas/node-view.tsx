@@ -13,7 +13,6 @@ import {
   type Node,
 } from "@paprika/core";
 import { createContext, memo, useCallback, useContext, useLayoutEffect, useSyncExternalStore, type CSSProperties } from "react";
-import { LINK_CLASS } from "./rich-text";
 import { hasContentPatch, routedConnector, withPatch } from "./preview-node";
 import { createNodeSlices, EDITING, HOVERED, PAINTED, SELECTED, useCanvasStore } from "./region";
 import type { RenderStore } from "./render-index";
@@ -36,7 +35,7 @@ function TextRuns({ doc, node }: { doc: Document; node: TextNode }) {
         const style = textRunCSS(doc, node, piece.run) as CSSProperties;
         if (piece.run.href) {
           return (
-            <a key={i} href={piece.run.href} className={LINK_CLASS} style={style} onClick={(e) => e.preventDefault()}>
+            <a key={i} href={piece.run.href} style={style} onClick={(e) => e.preventDefault()}>
               {piece.text}
             </a>
           );
