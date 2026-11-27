@@ -18,7 +18,7 @@ class FakeSocket implements SocketLike {
 function setup() {
   const sockets: FakeSocket[] = [];
   const socket = new LiveSocket({
-    url: "ws://test/ws",
+    url: "wss://test/ws",
     factory: () => {
       const fake = new FakeSocket();
       sockets.push(fake);

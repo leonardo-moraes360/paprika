@@ -132,7 +132,7 @@ export type LiveRig = {
 export function createLiveRig(options: LiveClientOptions = {}): LiveRig {
   const sockets = createFakeSockets();
   const scheduler = manualScheduler();
-  const client = createLiveClient({ socketFactory: sockets.factory, schedule: scheduler.schedule, url: "ws://test/ws", fetchTeam: () => Promise.resolve(null), ...options });
+  const client = createLiveClient({ socketFactory: sockets.factory, schedule: scheduler.schedule, url: "wss://test/ws", fetchTeam: () => Promise.resolve(null), ...options });
   return {
     client,
     sockets,

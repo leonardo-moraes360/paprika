@@ -25,7 +25,7 @@ describe("opening", () => {
     expect(rig.sockets.sockets).toHaveLength(0);
     rig.client.actions.setRenderer("dom");
     const socket = await rig.connect();
-    expect(socket.url).toBe("ws://test/ws");
+    expect(socket.url).toBe("wss://test/ws");
     expect(rig.client.store.state.connected).toBe(true);
     // Nobody asked for a workspace yet: the server sends the active one after its short wait, so no `view` goes out on open.
     expect(socket.sent.map((m) => m.type)).toEqual(["hello"]);

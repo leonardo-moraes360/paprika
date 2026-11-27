@@ -17,7 +17,7 @@ export function dockFromPoint(x: number, y: number, box: Box): ToolbarDock {
     ["top", y - box.top],
     ["bottom", box.bottom - y],
   ];
-  const nearest = edges.reduce((best, edge) => (edge[1] < best[1] ? edge : best));
+  const nearest = edges.reduce((best, edge) => (edge[1] < best[1] ? edge : best), edges[0]);
   return nearest[0];
 }
 

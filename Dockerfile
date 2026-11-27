@@ -307,7 +307,6 @@ mkdir -p "$R/etc/ssl/certs" && cp /etc/ssl/certs/ca-certificates.crt "$R/etc/ssl
 printf 'root:x:0:0:root:/root:/sbin/nologin\npaprika:x:65532:65532:paprika:/tmp:/sbin/nologin\n' > "$R/etc/passwd"
 printf 'root:x:0:\npaprika:x:65532:\n' > "$R/etc/group"
 printf 'hosts: files dns\n' > "$R/etc/nsswitch.conf"
-mkdir -p "$R/tmp" && chmod 1777 "$R/tmp"
 # package metadata, in the layout distroless uses, so image scanners can see what is inside
 cp /usr/lib/os-release "$R/usr/lib/os-release" && ln -s ../usr/lib/os-release "$R/etc/os-release" && cp /etc/lsb-release "$R/etc/lsb-release"
 mkdir -p "$R/var/lib/dpkg/status.d"
@@ -335,6 +334,8 @@ COPY --link --chmod=0555 --from=healthcheck /out/healthcheck /app/healthcheck
 COPY --link --from=web /src/apps/web/dist/client/ /app/web/
 COPY --link --chmod=0555 --from=server /out/paprika /app/paprika
 COPY --link --from=server --chown=65532:65532 --chmod=0700 /out/data /data
+# /tmp belongs to the only account of the image, so it needs no world-writable bit.
+COPY --link --from=server --chown=65532:65532 --chmod=0700 /out/data /tmp
 # HOME=/tmp: Chrome's profile and fontconfig's cache go to /tmp (a tmpfs with --read-only).
 ENV PAPRIKA_DB=/data/paprika.db PAPRIKA_WEB_ROOT=/app/web PAPRIKA_CHROMIUM=/opt/chrome/chrome-headless-shell HOME=/tmp
 USER 65532:65532
