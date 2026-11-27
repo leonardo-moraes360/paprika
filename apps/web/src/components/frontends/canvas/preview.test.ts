@@ -54,6 +54,19 @@ describe("the preview controller", () => {
     expect(store.state.preview.plain).toBeUndefined();
   });
 
+  it("after the ack, a document change that does not touch the node (another author's delta ahead of the echo) keeps the preview until the node itself changes", async () => {
+    const { store, ctl, setDoc } = setup();
+    const answer = deferred();
+    ctl.set({ plain: { x: 40.4 } });
+    ctl.commit(["plain"], answer.promise);
+    answer.resolve(true);
+    await answer.promise;
+    setDoc(moved(doc, "title", 1));
+    expect(store.state.preview.plain).toEqual({ x: 40.4 });
+    setDoc(moved(moved(doc, "title", 1), "plain", 40));
+    expect(store.state.preview.plain).toBeUndefined();
+  });
+
   it("does not clear on an unrelated document change before the ack", () => {
     const { store, ctl, setDoc } = setup();
     ctl.set({ plain: { x: 40 } });

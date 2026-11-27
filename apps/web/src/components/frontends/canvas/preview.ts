@@ -10,7 +10,7 @@ export type PreviewController = {
   clear: (ids?: readonly string[]) => void;
   /**
    * The gesture ended and `result` is the answer to its `onApply`. The preview stays until the document shows what it showed
-   * (or, once the server acked, until the document changes at all: the server may have rounded it) and goes at once when
+   * (or, once the server acked, until the node itself changes at all: the server may have rounded it; a delta that leaves the node alone, another author's ahead of the echo, does not drop it) and goes at once when
    * `result` is `false` or rejects, so the node jumps back instead of staying where nothing was saved.
    */
   commit: (ids: readonly string[], result: Promise<boolean>) => void;
@@ -50,7 +50,7 @@ export function createPreviewController(actions: Pick<CanvasActions, "setPreview
     for (const entry of held) {
       for (const id of entry.ids) {
         const patch = state.preview[id];
-        if (!patch || showsPatch(doc.nodes[id], patch) || (entry.acked && doc !== entry.base)) done.push(id);
+        if (!patch || showsPatch(doc.nodes[id], patch) || (entry.acked && doc.nodes[id] !== entry.base.nodes[id])) done.push(id);
       }
     }
     if (done.length > 0) release(done);
