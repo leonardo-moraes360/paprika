@@ -1,3 +1,5 @@
+import i18n from "i18next";
+
 /** The only HTTP entry point of the app: every request goes through here (rule: network only in `src/data/**`). */
 
 export type ApiErrorCode = "http" | "invalid-response" | "network";
@@ -18,6 +20,10 @@ export class ApiError extends Error {
 
 export const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
+/** The message of a server that cannot be reached: the request never got an answer, or a proxy in front answered 502, 503 or 504 (a body that is not the server's `{error}`). */
+export const noServer = () => i18n.t("app.connection.noServer");
+export const isGatewayStatus = (status: number) => status === 502 || status === 503 || status === 504;
+
 const isJson = (response: Response) => (response.headers.get("content-type") ?? "").includes("json");
 
 /**
@@ -30,7 +36,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
     response = await fetch(path, init);
   } catch (error) {
     if (init?.signal?.aborted) throw error;
-    throw new ApiError("network", errorText(error), 0, path);
+    throw new ApiError("network", noServer(), 0, path);
   }
   let body: unknown = null;
   if (isJson(response)) {
@@ -42,6 +48,8 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!response.ok) {
     const message = (body as { error?: unknown } | null)?.error;
+    // 4xx keep the server's own message; a gateway status means the server is not there.
+    if (isGatewayStatus(response.status)) throw new ApiError("network", noServer(), response.status, path);
     throw new ApiError("http", typeof message === "string" && message ? message : response.statusText || `HTTP ${response.status}`, response.status, path);
   }
   if (body === null) throw new ApiError("invalid-response", `Invalid response from ${path}`, response.status, path);

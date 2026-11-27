@@ -1,41 +1,45 @@
 import type { WorkspaceNoticeCounts, WorkspaceNoticeEntry, WorkspaceNoticeOp } from "@/components/frontends/workspace-notice";
+import type { WorkspaceNotice } from "@/data/live/protocol";
+import { agentLabel, toneFor, type AgentColor } from "./agents";
 
-/** Structurally the live store's `WorkspaceNotice` (adapters may only import types from `data/live/protocol`). */
-export type LiveNotice = { id: number; actor: string; op: string; workspaceName: string; detail: Record<string, unknown> };
-
-const tones = ["agent-1", "agent-2", "agent-3", "agent-4"] as const;
-const ops: readonly string[] = ["delete", "open", "rename"];
+const ops = new Set<WorkspaceNoticeOp>(["delete", "open", "rename"]);
 const countKeys = ["nodes", "pages", "frames", "images", "connectors", "historyEntries"] as const;
 
-/** The name an agent goes by: the server's actor without the `agent:` prefix. */
-export const actorName = (actor: string) => actor.replace(/^agent:/, "");
-
-/** Same actor, same tone (a hash of the name: the notice has no roster of its own). */
-export function actorTone(actor: string): (typeof tones)[number] {
-  let hash = 0;
-  for (const char of actor) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  return tones[hash % tones.length] ?? "agent-1";
-}
-
-function toCounts(detail: Record<string, unknown>): WorkspaceNoticeCounts | undefined {
+/** Counts a deleted workspace reports (`detail` of the `workspaceOp`); only positive whole numbers count. */
+export function noticeCounts(detail: Record<string, unknown>): WorkspaceNoticeCounts | undefined {
   const counts: WorkspaceNoticeCounts = {};
   for (const key of countKeys) {
     const value = Number(detail[key]);
-    if (Number.isFinite(value) && value > 0) counts[key] = value;
+    if (Number.isFinite(value) && value > 0) counts[key] = Math.floor(value);
   }
   return Object.keys(counts).length > 0 ? counts : undefined;
 }
 
-const entries = new WeakMap<LiveNotice, WorkspaceNoticeEntry | null>();
+const hashed = new WeakMap<WorkspaceNotice, WorkspaceNoticeEntry | null>();
 
-/** Live notice to the frontend's entry; an operation the frontend has no sentence for (`archive`…) gives `null`. Same notice, same entry. */
-export function toNoticeEntry(notice: LiveNotice | null): WorkspaceNoticeEntry | null {
+function build(notice: WorkspaceNotice, tones: Readonly<Record<string, AgentColor>>): WorkspaceNoticeEntry | null {
+  if (!ops.has(notice.op as WorkspaceNoticeOp)) return null;
+  const counts = notice.op === "delete" ? noticeCounts(notice.detail) : undefined;
+  return {
+    id: String(notice.id),
+    actor: { name: agentLabel(notice.actor), tone: toneFor(notice.actor, tones) },
+    op: notice.op as WorkspaceNoticeOp,
+    workspaceName: notice.workspaceName,
+    ...(counts ? { counts } : {}),
+  };
+}
+
+/**
+ * Live notice to the frontend's entry; `null` for no notice or an operation the frontend has no sentence for (`archive`...).
+ * `tones` are the editor's (the roster gives each agent client its tone). The overview has no editor state and passes none:
+ * the tone then is the stable pick from the agent's name (`toneFor`), and the same notice gives the same entry.
+ */
+export function toNoticeEntry(notice: WorkspaceNotice | null, tones?: Readonly<Record<string, AgentColor>>): WorkspaceNoticeEntry | null {
   if (!notice) return null;
-  const known = entries.get(notice);
+  if (tones) return build(notice, tones);
+  const known = hashed.get(notice);
   if (known !== undefined) return known;
-  const entry = ops.includes(notice.op)
-    ? { id: String(notice.id), actor: { name: actorName(notice.actor), tone: actorTone(notice.actor) }, op: notice.op as WorkspaceNoticeOp, workspaceName: notice.workspaceName, counts: toCounts(notice.detail) }
-    : null;
-  entries.set(notice, entry);
+  const entry = build(notice, {});
+  hashed.set(notice, entry);
   return entry;
 }

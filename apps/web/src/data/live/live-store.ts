@@ -13,8 +13,8 @@ import {
   type RendererMode,
   type ServerMessage,
   type StepResult,
+  type WorkspaceNotice,
   type WorkspaceOp,
-  type WorkspaceOpKind,
 } from "./protocol";
 import { isOfflineError, LiveSocket, type SocketFactory } from "./socket";
 
@@ -23,18 +23,14 @@ export type Activity = {
   id: number;
   actor: string;
   label: string;
+  /** The server's kind of step (`ops`, `undo`, `redo`, `reload`...), as the message brought it. */
+  kind: string;
   at: number;
   /** Ids of the nodes the change touched (empty for a silent reload). */
   changed: string[];
 };
 
-export type WorkspaceNotice = {
-  id: number;
-  actor: string;
-  op: WorkspaceOpKind;
-  workspaceName: string;
-  detail: Record<string, unknown>;
-};
+export type { WorkspaceNotice };
 
 /** Last presence of one agent, in order of arrival (the adapters give it a name and a tone). `at` is when it was last active. */
 export type AgentPresence = {
@@ -235,7 +231,7 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
 
   const record = (state: LiveState, doc: Document, message: DocMessage | DeltaMessage, changed: () => string[]): LiveState => {
     const quiet = message.kind === "reload" && message.actor === "server";
-    const entry: Activity = { id: message.version, actor: message.actor, label: message.label, at: now(), changed: quiet ? [] : changed() };
+    const entry: Activity = { id: message.version, actor: message.actor, label: message.label, kind: message.kind, at: now(), changed: quiet ? [] : changed() };
     return {
       ...state,
       doc,

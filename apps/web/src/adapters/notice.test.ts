@@ -1,33 +1,45 @@
 import { describe, expect, it } from "vitest";
-import { actorName, actorTone, toNoticeEntry } from "./notice";
-import type { LiveNotice } from "./notice";
+import type { WorkspaceNotice } from "@/data/live/protocol";
+import { noticeCounts, toNoticeEntry } from "./notice";
 
-const notice = (extra: Partial<LiveNotice> = {}): LiveNotice => ({ id: 3, actor: "agent:claude", op: "delete", workspaceName: "Checkout", detail: {}, ...extra });
+const notice = (over: Partial<WorkspaceNotice> = {}): WorkspaceNotice => ({
+  id: 3,
+  actor: "agent:claude",
+  op: "delete",
+  workspaceName: "Old",
+  detail: { nodes: 12, pages: 2, frames: 0, images: "3", connectors: -1, historyEntries: 40.7, other: 9 },
+  ...over,
+});
 
-describe("notice adapter", () => {
-  it("maps the live notice: id as text, the actor without the agent prefix, the workspace name", () => {
-    expect(toNoticeEntry(notice())).toMatchObject({ id: "3", actor: { name: "claude" }, op: "delete", workspaceName: "Checkout" });
-    expect(actorName("agent:claude")).toBe("claude");
-    expect(actorName("codex")).toBe("codex");
+describe("noticeCounts", () => {
+  it("keeps the positive counts the frontend knows, as whole numbers", () => {
+    expect(noticeCounts(notice().detail)).toEqual({ nodes: 12, pages: 2, images: 3, historyEntries: 40 });
+    expect(noticeCounts({})).toBeUndefined();
+  });
+});
+
+describe("toNoticeEntry", () => {
+  it("is null without a notice or for an operation it has no wording for", () => {
+    expect(toNoticeEntry(null)).toBeNull();
+    expect(toNoticeEntry(notice({ op: "create" }), {})).toBeNull();
+    expect(toNoticeEntry(notice({ op: "archive" }))).toBeNull();
   });
 
-  it("keeps only the positive counts the server sent, as numbers", () => {
-    const entry = toNoticeEntry(notice({ detail: { nodes: 12, pages: "2", frames: 0, images: "x", historyEntries: 5, other: 9 } }));
-    expect(entry?.counts).toEqual({ nodes: 12, pages: 2, historyEntries: 5 });
-    expect(toNoticeEntry(notice({ detail: {} }))?.counts).toBeUndefined();
+  it("names the agent with the tone the editor gave it and carries the counts only for a deletion", () => {
+    expect(toNoticeEntry(notice(), { "agent:claude": "agent-3" })).toEqual({
+      id: "3",
+      actor: { name: "claude", tone: "agent-3" },
+      op: "delete",
+      workspaceName: "Old",
+      counts: { nodes: 12, pages: 2, images: 3, historyEntries: 40 },
+    });
+    expect(toNoticeEntry(notice({ op: "rename" }), {})).not.toHaveProperty("counts");
   });
 
-  it("gives the same actor the same tone, one of the four", () => {
-    expect(actorTone("agent:claude")).toBe(actorTone("agent:claude"));
-    expect(["agent-1", "agent-2", "agent-3", "agent-4"]).toContain(actorTone("agent:other"));
-    const tones = new Set(["a", "b", "c", "d", "e", "f", "g", "h"].map((n) => actorTone(`agent:${n}`)));
-    expect(tones.size).toBeGreaterThan(1);
-  });
-
-  it("returns the same entry for the same notice object, and null for no notice or an operation with no sentence", () => {
+  it("without tones (the overview has no editor state) the tone is a stable pick from the name, and the same notice gives the same entry", () => {
     const n = notice();
     expect(toNoticeEntry(n)).toBe(toNoticeEntry(n));
-    expect(toNoticeEntry(null)).toBeNull();
-    expect(toNoticeEntry(notice({ op: "archive" }))).toBeNull();
+    expect(toNoticeEntry(n)?.actor.tone).toBe(toNoticeEntry(notice())?.actor.tone);
+    expect(["agent-1", "agent-2", "agent-3", "agent-4"]).toContain(toNoticeEntry(n)?.actor.tone);
   });
 });

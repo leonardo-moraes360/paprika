@@ -2,7 +2,7 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { renderRegions, serve } from "@/test/collab-harness";
-import { Agents, AgentsRoster, useAgentsHeader } from "./agents";
+import { AgentsRoster, useAgentsHeader } from "./agents";
 
 const presence = (agent: string, actor: string, tool: string, nodes: string[] = [], idle = 0) => ({ type: "presence" as const, agent, actor, tool, nodes, idle });
 
@@ -13,9 +13,9 @@ function HeaderProbe() {
 
 describe("Agents region", () => {
   it("shows nothing until an agent is present, then the roster trigger with the active count", async () => {
-    const view = await renderRegions({ regions: [["agents", <Agents key="a" />]] });
+    const view = await renderRegions({ regions: [["header", <HeaderProbe key="h" />]] });
     serve(view.rig, view.doc);
-    expect(screen.queryByTestId("agents-slot")).toBeNull();
+    expect(screen.getByTestId("header-agents")).toHaveTextContent("none");
     view.rig.push(presence("s:1", "agent:claude", "update_nodes", ["n3"]), presence("s:2", "agent:codex", "get_nodes"));
     expect(await screen.findByRole("button", { name: /2 active/i })).toBeInTheDocument();
   });

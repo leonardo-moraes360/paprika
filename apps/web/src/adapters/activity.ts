@@ -1,4 +1,5 @@
 import type { ActivityEntry } from "@/components/frontends/activity";
+import { toneFor, type AgentColor } from "./agents";
 
 /** One entry of the live `activity` (see `LiveState`); `kind` is the server's step kind (`undo`, `redo`, `ops`, ...) when the store keeps it. */
 export type ActivitySource = { id: number; actor: string; label: string; at: number; kind?: string };
@@ -21,33 +22,29 @@ export function actorName(actor: string): string {
 
 const isAgent = (actor: string) => actor.startsWith("agent");
 
-type AgentColor = "agent-1" | "agent-2" | "agent-3" | "agent-4";
-const colors: readonly AgentColor[] = ["agent-1", "agent-2", "agent-3", "agent-4"];
+export type ActivityTones = Readonly<Record<string, AgentColor>>;
 
-/** The same agent always gets the same of the four tones (a hash of its actor), whatever else is in the list. */
-export function agentTone(actor: string): AgentColor {
-  let hash = 0;
-  for (let i = 0; i < actor.length; i++) hash = (hash * 31 + actor.charCodeAt(i)) | 0;
-  return colors[Math.abs(hash) % colors.length] as AgentColor;
-}
+/** The distinct agent actors of the list, in order of appearance (they get their tones from the editor). */
+export const activityActors = (list: readonly ActivitySource[]): string[] => [...new Set(list.filter((item) => isAgent(item.actor)).map((item) => item.actor))];
 
-const cache = new WeakMap<readonly ActivitySource[], readonly ActivityEntry[]>();
+const cache = new WeakMap<readonly ActivitySource[], { tones: ActivityTones; entries: readonly ActivityEntry[] }>();
+const noTones: ActivityTones = {};
 
-/** Live activity (newest first) to the entries of the `activity` frontend. Memoized by list identity. */
-export function toActivityEntries(list: readonly ActivitySource[]): readonly ActivityEntry[] {
+/** Live activity (newest first) to the entries of the `activity` frontend. The tones are the editor's (the roster's); an actor without one gets the stable pick from its name. Memoized by list and tones identity. */
+export function toActivityEntries(list: readonly ActivitySource[], tones: ActivityTones = noTones): readonly ActivityEntry[] {
   const known = cache.get(list);
-  if (known) return known;
+  if (known && known.tones === tones) return known.entries;
   const entries = list.slice(0, ACTIVITY_LIMIT).map((item): ActivityEntry => {
     const you = item.actor === "user";
     return {
       id: String(item.id),
-      actor: you ? { name: "", you: true } : { name: actorName(item.actor), tone: isAgent(item.actor) ? agentTone(item.actor) : undefined },
+      actor: you ? { name: "", you: true } : { name: actorName(item.actor), tone: isAgent(item.actor) ? toneFor(item.actor, tones) : undefined },
       label: item.label,
       at: item.at,
       step: isStep(item),
     };
   });
-  cache.set(list, entries);
+  cache.set(list, { tones, entries });
   return entries;
 }
 

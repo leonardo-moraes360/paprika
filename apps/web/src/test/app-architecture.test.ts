@@ -48,7 +48,7 @@ describe("architecture of the app layers: the real tree", () => {
 
   it("every editor region exists, exports its component and is mounted inside its RegionProfiler", () => {
     const files = Object.fromEntries(Object.keys(editorRegions).map((name) => [name, read(`editor/regions/${name}`)]));
-    expect(checkEditorRegions(files, read("editor/editor.tsx") as string)).toEqual([]);
+    expect(checkEditorRegions(files, [read("editor/editor.tsx"), read("editor/regions/right-panel.tsx"), read("editor/regions/agents.tsx")].join("\n"))).toEqual([]);
   });
 
   it("data/ is where the socket and the fetch live (the rule is not vacuous)", () => {
@@ -212,7 +212,7 @@ describe("architecture of the app layers: editor regions", () => {
 
   it("fails on a missing file, a missing export and a region mounted without its profiler", () => {
     expect(checkEditorRegions({ ...ok, "pins.tsx": null }, mounted())).toEqual(["pins.tsx: missing region file"]);
-    expect(checkEditorRegions({ ...ok, "team.tsx": "export function Other() { return null; }" }, mounted())).toEqual(["team.tsx: does not export Team"]);
+    expect(checkEditorRegions({ ...ok, "team.tsx": "export function Other() { return null; }" }, mounted())).toEqual(["team.tsx: does not export TeamPanel"]);
     expect(checkEditorRegions(ok, mounted("layers.tsx"))).toEqual(['editor.tsx: Layers is not mounted inside <RegionProfiler id="layers">']);
     expect(checkEditorRegions(ok, mounted().replace('<RegionProfiler id="stage">\n  <Stage />\n</RegionProfiler>', "<Stage />"))).toEqual(['editor.tsx: Stage is not mounted inside <RegionProfiler id="stage">']);
   });

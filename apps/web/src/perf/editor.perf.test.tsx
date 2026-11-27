@@ -1,6 +1,6 @@
 import { act, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { editorRegionIds } from "@/editor/editor";
+import { alwaysMountedRegionIds, editorRegionIds } from "@/editor/editor";
 import { docMessage, nodeDelta, renderEditorRig, serveDocument } from "@/test/live-harness";
 
 const NODES = 5000;
@@ -30,7 +30,10 @@ describe("editor commits with a document of 5 000 nodes", () => {
     expect(screen.getByRole("status", { name: /opening workspace/i })).toBeInTheDocument();
     serveDocument(view.rig, view.doc);
     await screen.findByRole("banner");
-    for (const id of editorRegionIds) expect(view.log.stats()[id]?.mounts, id).toBe(1);
+    // `agents` (the roster, in the header) and `team` (the right panel's tab) exist only with agents or a team.
+    for (const id of alwaysMountedRegionIds) expect(view.log.stats()[id]?.mounts, id).toBe(1);
+    expect(view.log.stats().agents?.mounts ?? 0).toBe(0);
+    expect(view.log.stats().team?.mounts ?? 0).toBe(0);
     view.unmount();
   });
 
@@ -63,8 +66,8 @@ describe("editor commits with a document of 5 000 nodes", () => {
     expect(view.log.commits("stage")).toBe(1);
     view.log.reset();
     view.rig.push({ type: "presence", agent: "s:1", actor: "agent:claude", tool: "update_nodes", nodes: [keys[100] as string], idle: 0 });
-    // The header counts the active agents ("1 active") and the layers and pages show who is where: those three commit once. Presence changes nothing in the properties panel.
-    const expected: Record<string, number> = { header: 1, pages: 1, layers: 1 };
+    // The roster mounts inside the header ("1 active"): header and agents commit twice (mount, then its clock syncs on mount); the pages and the layers show who is where, once. Presence changes nothing in the properties panel.
+    const expected: Record<string, number> = { header: 2, agents: 2, pages: 1, layers: 1 };
     for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(expected[id] ?? 0);
     view.unmount();
   });

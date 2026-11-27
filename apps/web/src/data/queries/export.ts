@@ -1,4 +1,4 @@
-import { api, ApiError, errorText, workspacePath } from "../api";
+import { api, ApiError, isGatewayStatus, noServer, workspacePath } from "../api";
 
 /**
  * Image export. `/api/svg` and `/api/screenshot` render the ACTIVE workspace of the server, and a `view` over the
@@ -29,10 +29,11 @@ export async function fetchPng(workspaceId: string, rootId: string | null, scale
     response = await fetch(`/api/screenshot?${query}`, { signal });
   } catch (error) {
     if (signal?.aborted) throw error;
-    throw new ApiError("network", errorText(error), 0, "/api/screenshot");
+    throw new ApiError("network", noServer(), 0, "/api/screenshot");
   }
   const type = response.headers.get("content-type") ?? "";
   if (!response.ok || !type.includes("image/png")) {
+    if (isGatewayStatus(response.status)) throw new ApiError("network", noServer(), response.status, "/api/screenshot");
     let message = response.statusText || `HTTP ${response.status}`;
     if (type.includes("json")) {
       const body = (await response.json().catch(() => null)) as { error?: unknown } | null;

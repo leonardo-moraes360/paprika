@@ -39,31 +39,34 @@ const only = (view: Awaited<ReturnType<typeof open>>, expected: Record<string, n
 };
 
 describe("shell regions with 5 000 nodes", () => {
-  it("a delta that moves a node commits nothing (the layers do not show positions)", async () => {
+  it("a delta that moves a node does not commit the layers (they do not show positions), only the activity list of the document panel", async () => {
     const view = await open();
     const doc = view.rig.client.store.state.doc!;
     view.rig.deliver(nodeDelta(doc, Object.keys(doc.nodes)[2500] as string, { x: 555 }, 3));
-    only(view, {});
+    // The document panel (nothing selected) lists the activity, and this edit is a new entry: that is the one commit of `properties`.
+    only(view, { properties: 1 });
     report("move one node", view);
     view.unmount();
   });
 
-  it("renaming ONE node commits the layers once and nothing else", async () => {
+  it("renaming ONE node commits the layers once, and the document panel once for its new activity entry", async () => {
     const view = await open();
     const doc = view.rig.client.store.state.doc!;
     const id = Object.keys(doc.nodes)[2500] as string;
     view.rig.deliver(nodeDelta(doc, id, { name: "Renamed" }, 3));
-    only(view, { layers: 1 });
+    // layers: the row's name. properties: the new activity entry in the document panel.
+    only(view, { layers: 1, properties: 1 });
     report("rename one node", view);
     view.unmount();
   });
 
-  it("a burst of 200 renames in one frame is ONE commit of the layers", async () => {
+  it("a burst of 200 renames in one frame is ONE commit of the layers (and one of the activity list)", async () => {
     const view = await open();
     const doc = view.rig.client.store.state.doc!;
     const keys = Object.keys(doc.nodes);
     view.rig.deliver(...Array.from({ length: 200 }, (_, i) => nodeDelta(doc, keys[100 + i] as string, { name: `N${i}` }, 3 + i)));
-    only(view, { layers: 1 });
+    // properties: the 200 entries arrive in one frame, so the activity list of the document panel renders once.
+    only(view, { layers: 1, properties: 1 });
     report("200 renames in a frame", view);
     view.unmount();
   });
@@ -83,24 +86,28 @@ describe("shell regions with 5 000 nodes", () => {
     view.unmount();
   });
 
-  it("toggling the visibility of one node (an agent hiding it) commits the layers once", async () => {
+  it("toggling the visibility of one node (an agent hiding it) commits the layers once, plus the activity entry", async () => {
     const view = await open();
     const doc = view.rig.client.store.state.doc!;
     view.rig.deliver(nodeDelta(doc, Object.keys(doc.nodes)[300] as string, { visible: false }, 3));
-    only(view, { layers: 1 });
+    // properties: the new activity entry.
+    only(view, { layers: 1, properties: 1 });
     view.unmount();
   });
 
-  it("an agent heartbeat that repeats the same nodes commits nothing after the first presence", async () => {
+  it("an agent heartbeat that repeats the same nodes commits only the roster's last-active time after the first presence", async () => {
     const view = await open();
     const keys = Object.keys(view.rig.client.store.state.doc!.nodes);
     const presence = { type: "presence" as const, agent: "a:1", actor: "agent:claude", tool: "update_nodes", nodes: [keys[100] as string], idle: 0 };
     view.rig.push(presence);
     view.log.reset();
     view.rig.push(presence, presence, presence);
-    only(view, {});
+    // The roster (in the header) shows when each agent was last active, so a heartbeat commits it once (the header's profiler sees it too); the layers and pages show the same nodes and do not commit.
+    only(view, { header: 1, agents: 1 });
+    view.log.reset();
     view.rig.deliver(deltaMessage(view.rig.client.store.state.doc!, 3, { name: "Still the header only" }));
-    only(view, { header: 1 });
+    // header: the name. properties: the name of the document and the new activity entry.
+    only(view, { header: 1, properties: 1 });
     view.unmount();
   });
 

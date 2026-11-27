@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { HistoryPanel } from "@/components/frontends/history-panel";
-import { pageOfNodes, toHistorySteps } from "@/adapters/history";
+import { pageOfNodes, stepActors, toHistorySteps } from "@/adapters/history";
 import { resolvePageId } from "@/adapters/pages";
 import { useLive, useLiveClient } from "@/data/live";
 import { useHistory } from "@/data/queries/history";
 import { showStatusToast } from "@/lib/notify";
 import { errorText } from "@/lib/use-async-action";
+import { useAgentTones, useAssignTones } from "../collab";
 import { useEditor, useEditorActions, useEditorStore } from "../editor-store";
 import { useHistoryActions } from "../use-history-actions";
 
@@ -21,9 +22,10 @@ function HistoryOpen() {
   const history = useHistoryActions();
   const workspaceId = useLive((s) => s.doc?.id ?? "");
   const version = useLive((s) => s.version);
-  const actors = useLive((s) => [...new Set(s.agents.map((a) => a.actor))].join("\n"));
+  const tones = useAgentTones();
   const query = useHistory(workspaceId, version);
-  const steps = useMemo(() => toHistorySteps(query.data?.steps, actors ? actors.split("\n") : []), [query.data, actors]);
+  const steps = useMemo(() => toHistorySteps(query.data?.steps, tones), [query.data, tones]);
+  useAssignTones(useMemo(() => stepActors(query.data?.steps), [query.data]));
 
   const failure = query.error ? errorText(query.error) || t("app.shell.actionFailed") : null;
   useEffect(() => {

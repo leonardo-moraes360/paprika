@@ -19,9 +19,16 @@ describe("api", () => {
     expect(error).toMatchObject({ code: "http", status: 400, message: "name cannot be blank", path: "/api/x" });
   });
 
-  it("falls back to the status text when the failure has no JSON body", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => reply("oops", { status: 502, statusText: "Bad Gateway" })));
-    await expect(api("/api/x")).rejects.toMatchObject({ code: "http", message: "Bad Gateway" });
+  it("falls back to the status text when a 4xx has no JSON body", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => reply("oops", { status: 404, statusText: "Not Found" })));
+    await expect(api("/api/x")).rejects.toMatchObject({ code: "http", message: "Not Found" });
+  });
+
+  it("says there is no connection to the server on 502, 503 and 504 (a proxy answering for a server that is not there), not the proxy's text", async () => {
+    for (const status of [502, 503, 504]) {
+      vi.stubGlobal("fetch", vi.fn(() => reply("oops", { status, statusText: "Bad Gateway" })));
+      await expect(api("/api/x")).rejects.toMatchObject({ code: "network", status, message: "no connection to the server" });
+    }
   });
 
   it("treats a 200 that is not JSON (the SPA fallback) as an invalid response", async () => {
@@ -31,7 +38,7 @@ describe("api", () => {
 
   it("wraps a network failure and lets an abort through untouched", async () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("Failed to fetch"))));
-    await expect(api("/api/x")).rejects.toMatchObject({ code: "network", message: "Failed to fetch" });
+    await expect(api("/api/x")).rejects.toMatchObject({ code: "network", message: "no connection to the server" });
     const controller = new AbortController();
     controller.abort();
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new DOMException("aborted", "AbortError"))));

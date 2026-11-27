@@ -24,6 +24,8 @@ async function openEditor() {
 const nodeIds = (view: Awaited<ReturnType<typeof openEditor>>) => Object.keys(view.doc.nodes);
 const presence = (i: number, ids: string[], tool = i % 3 === 0 ? "get_nodes" : "update_nodes") => ({ type: "presence" as const, agent: `s:${i}`, actor: `agent:client-${i % 8}`, tool, nodes: [ids[100 + i] as string], idle: 0 });
 const others = (except: string) => editorRegionIds.filter((id) => id !== except);
+/** The roster lives inside the header (as in the design), so the header's profiler sees every commit of the roster. */
+const outsideRoster = others("agents").filter((id) => id !== "header");
 
 describe("collaboration regions with a document of 5 000 nodes", () => {
   it("64 agents arriving in one frame commit only the roster, once", async () => {
@@ -33,10 +35,12 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
       for (let i = 0; i < AGENTS; i += 1) view.rig.sockets.last.receive(presence(i, ids));
     });
     expect(view.rig.client.store.state.agents).toHaveLength(AGENTS);
-    for (const id of others("agents")) expect(view.log.commits(id), id).toBe(0);
-    // One commit for the arrival, and one for the tones the roster gives the 8 clients.
+    // The pages (who is on which page) and the layers (who touches which node) show the arrival, once each; nothing else does.
+    for (const id of outsideRoster) expect(view.log.commits(id), id).toBe(id === "pages" || id === "layers" ? 1 : 0);
+    // The roster: its mount and the sync of its clock on mount, plus at most one for the tones of the 8 clients; the header's profiler holds it.
     expect(view.log.commits("agents")).toBeGreaterThan(0);
     expect(view.log.commits("agents")).toBeLessThanOrEqual(3);
+    expect(view.log.commits("header")).toBe(view.log.commits("agents"));
     view.unmount();
   });
 
@@ -46,8 +50,10 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
     for (let i = 0; i < AGENTS; i += 1) view.rig.push(presence(i, ids));
     view.log.reset();
     for (let i = 0; i < AGENTS; i += 1) view.rig.push(presence(i, ids, "update_nodes"));
-    for (const id of others("agents")) expect(view.log.commits(id), id).toBe(0);
+    // Nothing but the roster (its profiler and the header's, the same commits) shows when an agent was last active.
+    for (const id of outsideRoster) expect(view.log.commits(id), id).toBe(0);
     expect(view.log.commits("agents")).toBeLessThanOrEqual(AGENTS);
+    expect(view.log.commits("header")).toBe(view.log.commits("agents"));
     view.unmount();
   });
 
@@ -58,6 +64,10 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
     act(() => {
       for (let i = 0; i < AGENTS; i += 1) view.rig.sockets.last.receive(presence(i, ids));
     });
+    // The document lint (properties) answers a moment after the editor opens: let it settle, it is not the roster's clock.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
     view.log.reset();
     for (let second = 0; second < 10; second += 1) {
       await act(async () => {
@@ -65,11 +75,11 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
       });
     }
     expect(view.log.commits("agents")).toBeGreaterThanOrEqual(5);
-    for (const id of others("agents")) expect(view.log.commits(id), id).toBe(0);
+    for (const id of outsideRoster) expect(view.log.commits(id), id).toBe(0);
     view.unmount();
-  });
+  }, 30_000);
 
-  it("a burst of 200 deltas with 64 agents present does not commit the roster either (it depends on the page of each agent, not on the document)", async () => {
+  it("a burst of 200 deltas with 64 agents present does not commit the roster, the pages or the layers (they depend on the page and nodes of each agent, not on the document)", async () => {
     const view = await openEditor();
     const ids = nodeIds(view);
     act(() => {
@@ -79,15 +89,17 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
     const before = view.rig.client.store.state.doc!;
     view.rig.deliver(...Array.from({ length: 200 }, (_, i) => nodeDelta(before, ids[100 + i] as string, { x: i }, 2 + i)));
     expect(view.rig.client.store.state.version).toBe(201);
-    for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(0);
+    // stage: the first edit flips "can undo" in the toolbar. properties: the document panel lists the new activity entries (once for the burst).
+    for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(id === "stage" || id === "properties" ? 1 : 0);
     view.unmount();
   });
 
   it("the team status and the workspace notice commit only their own region", async () => {
     const view = await openEditor();
     view.rig.push({ type: "team", status: { id: "me", name: "laptop", fingerprint: "A", team: { id: "t", name: "Team", members: [], removed: [], member: true, canRemove: false }, peers: [], docs: [], rejected: 0 } });
-    for (const id of others("team")) expect(view.log.commits(id), id).toBe(0);
-    expect(view.log.commits("team")).toBeGreaterThan(0);
+    // The header shows the pill, and the properties panel gets its tabs in the header slot. The team tab is not open, so the team panel is not mounted.
+    for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(id === "header" || id === "properties" ? 1 : 0);
+    expect(view.log.commits("team")).toBe(0);
     view.log.reset();
     view.rig.push({ type: "workspaceOp", op: { at: 1, actor: "agent:claude", op: "open", workspaceId: "other", workspaceName: "Other", detail: {} } });
     for (const id of others("notice")) expect(view.log.commits(id), id).toBe(0);

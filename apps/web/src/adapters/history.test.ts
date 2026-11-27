@@ -8,14 +8,14 @@ const result = (extra: Partial<StepResult>): StepResult => ({ result: "undone", 
 
 describe("history adapter", () => {
   it("turns numeric ids into strings, 'user' into you and an agent into a named, toned author", () => {
-    const steps = toHistorySteps([step(1, "user"), step(2, "agent:claude", { undone: true }), step(3, "agent:claude")], ["agent:codex", "agent:claude"]);
+    const steps = toHistorySteps([step(1, "user"), step(2, "agent:claude", { undone: true }), step(3, "agent:claude")], { "agent:codex": "agent-1", "agent:claude": "agent-2" });
     expect(steps.map((s) => s.id)).toEqual(["1", "2", "3"]);
     expect(steps[0]?.author).toEqual({ id: "user", name: "user", agent: false });
     expect(steps[1]?.author).toEqual({ id: "agent:claude", name: "claude", agent: true, tone: "agent-2" });
     expect(steps[1]?.author).toBe(steps[2]?.author);
     expect(steps[1]?.undone).toBe(true);
-    expect(toHistorySteps(undefined, [])).toEqual([]);
-    expect(historyAuthor("agent", []).name).toBe("agent");
+    expect(toHistorySteps(undefined, {})).toEqual([]);
+    expect(historyAuthor("agent", {}).name).toBe("agent");
   });
 
   it("maps a panel id back to the server's, refusing what is not one", () => {

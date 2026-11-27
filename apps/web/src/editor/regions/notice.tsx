@@ -1,7 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 import { WorkspaceNotice } from "@/components/frontends/workspace-notice";
-import { toNoticeEntry } from "@/adapters/notice-editor";
+import { toNoticeEntry } from "@/adapters/notice";
 import { useLive, useLiveActions, type LiveState } from "@/data/live";
 import { useAgentTones, useAssignTones } from "../collab";
 

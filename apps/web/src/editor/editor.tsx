@@ -1,8 +1,6 @@
 import { EditorLayout } from "@/components/frontends/editor-layout";
 import { RegionProfiler } from "@/perf";
 import { EditorProvider, initialEditorState } from "./editor-store";
-import { Activity } from "./regions/activity";
-import { Agents } from "./regions/agents";
 import { EditorBoundary } from "./regions/boundary";
 import { Export } from "./regions/export";
 import { Header } from "./regions/header";
@@ -12,9 +10,8 @@ import { Layers } from "./regions/layers";
 import { Notice } from "./regions/notice";
 import { Pages } from "./regions/pages";
 import { Pins } from "./regions/pins";
-import { Properties } from "./regions/properties";
+import { RightPanel } from "./regions/right-panel";
 import { Stage } from "./regions/stage";
-import { Team } from "./regions/team";
 
 /**
  * The editor of one workspace. The route mounts it with `key={workspaceId}` once the document is in, so every
@@ -46,14 +43,7 @@ export function Editor() {
                 </RegionProfiler>
               }
               right={
-                <div className="flex h-full min-h-0 flex-col">
-                  <RegionProfiler id="properties">
-                    <Properties />
-                  </RegionProfiler>
-                  <RegionProfiler id="activity">
-                    <Activity />
-                  </RegionProfiler>
-                </div>
+<RightPanel />
               }
             />
           </div>
@@ -62,12 +52,6 @@ export function Editor() {
           </RegionProfiler>
           <RegionProfiler id="pins">
             <Pins />
-          </RegionProfiler>
-          <RegionProfiler id="agents">
-            <Agents />
-          </RegionProfiler>
-          <RegionProfiler id="team">
-            <Team />
           </RegionProfiler>
           <RegionProfiler id="notice">
             <Notice />
@@ -84,5 +68,7 @@ export function Editor() {
   );
 }
 
-/** Names of the regions, in the order `editor.tsx` mounts them (the profiler ids). */
+/** Names of the regions (the profiler ids). `agents` (the roster, inside the header) and `team` (the team tab of the right panel) mount only when there are agents or a team. */
 export const editorRegionIds = ["header", "pages", "layers", "stage", "properties", "activity", "history", "pins", "agents", "team", "notice", "export", "import"] as const;
+/** The regions that are always mounted once the editor is open. */
+export const alwaysMountedRegionIds = editorRegionIds.filter((id) => id !== "agents" && id !== "team");

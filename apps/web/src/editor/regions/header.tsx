@@ -3,12 +3,13 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { EditorHeader, type EditorHeaderCrumb } from "@/components/frontends/editor-header";
 import { resolvePageId } from "@/adapters/pages";
-import { parseTeamChip, teamChipKey } from "@/adapters/team-chip";
 import { useLive } from "@/data/live";
-import { useOpenPins } from "@/data/queries/open-pins";
 import { useThemePreference } from "@/lib/use-theme-preference";
-import { useEditor, useEditorActions } from "../editor-store";
-import { useActiveAgents } from "../use-active-agents";
+import { useAssignPresenceTones } from "../collab";
+import { useEditor } from "../editor-store";
+import { useAgentsHeader } from "./agents";
+import { usePinsHeader } from "./pins";
+import { useTeamHeader } from "./team";
 
 /** Name of the page in view (`""` without pages): a leaf of the path, it changes only when that page is renamed or another one is opened. */
 function usePageName() {
@@ -21,24 +22,21 @@ function usePageName() {
 }
 
 /**
- * Path (workspaces, this workspace, this page), the counters of open pins and active agents (numbers from the state:
- * the panels are other regions, the chips only open or close their flags), the team chip when there is a team, the
- * connection, the language and the theme.
+ * Path (workspaces, this workspace, this page), the pins and the team chip, the roster of the agents (its own region
+ * inside the header: it counts the active ones on a clock of its own), the connection, the language and the theme.
+ * Each number has ONE source: the pins and the team come from the hooks of their regions, the agents from the roster.
  */
 export function Header() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const editor = useEditorActions();
-  const workspaceId = useLive((s) => s.doc?.id ?? "");
   const name = useLive((s) => s.doc?.name ?? "");
   const connected = useLive((s) => s.connected);
-  const pinsRev = useLive((s) => s.pinsRev);
-  const teamKey = useLive((s) => teamChipKey(s.team));
-  const agents = useActiveAgents((a) => a.count);
-  const agentsOpen = useEditor((s) => s.dialogs.agents);
   const pageName = usePageName();
-  const pins = useOpenPins(workspaceId, pinsRev).data ?? 0;
+  const { agents, renderAgents } = useAgentsHeader();
+  const { pins, onPinsClick } = usePinsHeader();
+  const { team, onTeamClick } = useTeamHeader();
   const [theme, setTheme] = useThemePreference();
+  useAssignPresenceTones();
 
   const path = useMemo<EditorHeaderCrumb[]>(() => {
     const crumbs: EditorHeaderCrumb[] = [
@@ -56,21 +54,15 @@ export function Header() {
     return crumbs;
   }, [t, name, pageName, navigate]);
 
-  const team = useMemo(() => parseTeamChip(teamKey), [teamKey]);
-
   return (
     <EditorHeader
       path={path}
       pins={pins}
-      onPinsClick={() => editor.toggleDialog("pins")}
+      onPinsClick={onPinsClick}
       agents={agents}
-      agentsOpen={agentsOpen}
-      onAgentsClick={() => editor.toggleDialog("agents")}
+      renderAgents={renderAgents}
       team={team}
-      onTeamClick={() => {
-        editor.setRightTab("team");
-        editor.openDialog("team");
-      }}
+      onTeamClick={onTeamClick}
       connected={connected}
       connectionLabel={connected ? t("app.shell.mcpOn") : undefined}
       language={i18n.resolvedLanguage ?? "en"}

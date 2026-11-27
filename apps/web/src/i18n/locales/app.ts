@@ -18,6 +18,7 @@ export const appEn = {
     coverConvertFailed: "The image could not be converted.",
   },
   shell: {
+    rightTabs: { label: "Right panel", properties: "Properties", team: "Team" },
     mcpOn: "MCP at /mcp",
     actionFailedTitle: "Could not apply the change",
     actionFailed: "The server did not accept it.",
@@ -121,6 +122,7 @@ export const appEn = {
     },
   },
   connection: {
+    noServer: "no connection to the server",
     lost: "Connection lost. Changes cannot be sent until it is back.",
   },
   properties: {
@@ -150,6 +152,7 @@ export const appPtBR: typeof appEn = {
     coverConvertFailed: "Não foi possível converter a imagem.",
   },
   shell: {
+    rightTabs: { label: "Painel direito", properties: "Propriedades", team: "Time" },
     mcpOn: "MCP em /mcp",
     actionFailedTitle: "Não foi possível aplicar a alteração",
     actionFailed: "O servidor não a aceitou.",
@@ -253,6 +256,7 @@ export const appPtBR: typeof appEn = {
     },
   },
   connection: {
+    noServer: "sem conexão com o servidor",
     lost: "Conexão perdida. As alterações não podem ser enviadas até ela voltar.",
   },
   properties: {

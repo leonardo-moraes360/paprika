@@ -33,6 +33,15 @@ export type WorkspaceOp = {
   detail: Record<string, unknown>;
 };
 
+/** What the live store keeps of the last workspace operation an agent did while you are in another workspace (the notice's source). */
+export type WorkspaceNotice = {
+  id: number;
+  actor: string;
+  op: WorkspaceOpKind;
+  workspaceName: string;
+  detail: Record<string, unknown>;
+};
+
 /** Raw status of the team sidecar (`paprika serve --team`); the adapter in `adapters/team` maps it to the frontend type. */
 export type RawTeamStatus = Record<string, unknown>;
 

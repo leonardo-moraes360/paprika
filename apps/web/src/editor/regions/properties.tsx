@@ -1,5 +1,5 @@
 import { useFormatForDisplay } from "@tanstack/react-hotkeys";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { documentFonts } from "@/adapters/doc-fonts";
 import { panelInput, type PanelInput } from "@/adapters/properties";
@@ -94,7 +94,7 @@ function usePanelShortcuts(): PropertiesPanelShortcuts {
  * touches something the panel shows (`adapters/properties`). Activity and lint feed the document panel only, and
  * are not even read while something is selected.
  */
-export function Properties() {
+export function Properties({ header }: { header?: ReactNode } = {}) {
   const { t } = useTranslation();
   const { apply } = useLiveActions();
   const { select } = useEditorActions();
@@ -134,6 +134,7 @@ export function Properties() {
       lint={lint?.top}
       activity={activity}
       activityMarker={marker}
+      header={header}
       renderFontPicker={renderFontPicker}
       onApply={onApply}
       onSelect={select}

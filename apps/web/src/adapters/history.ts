@@ -1,7 +1,7 @@
 import type { HistoryAuthor, HistoryStepData } from "@/lib/history-model";
 import type { PanelStep } from "@/data/queries/history";
 import type { StepResult } from "@/data/live/protocol";
-import { actorTone } from "./active-agents";
+import { toneFor, type AgentColor } from "./agents";
 
 /** The server's actor for the person at the keyboard. */
 export const HUMAN_ACTOR = "user";
@@ -10,22 +10,25 @@ export const isHumanActor = (actor: string) => actor === HUMAN_ACTOR;
 
 export const actorName = (actor: string) => actor.replace(/^agent:?/, "") || (actor.startsWith("agent") ? "agent" : actor);
 
-/** Author of a step: "user" is you; an agent keeps the tone it has in the roster (by order of arrival) or a stable one of its own. */
-export function historyAuthor(actor: string, actors: readonly string[]): HistoryAuthor {
+/** Author of a step: "user" is you; an agent keeps the tone the editor gave it (the roster's), or a stable pick from its name while it has none. */
+export function historyAuthor(actor: string, tones: Readonly<Record<string, AgentColor>>): HistoryAuthor {
   if (isHumanActor(actor)) return { id: actor, name: actor, agent: false };
-  return { id: actor, name: actorName(actor), agent: true, tone: actorTone(actor, actors) };
+  return { id: actor, name: actorName(actor), agent: true, tone: toneFor(actor, tones) };
 }
 
-/** Server steps (numeric id, oldest first) to the panel's (string id). `actors` is the distinct actors of the agents present, in order of arrival. */
-export function toHistorySteps(steps: readonly PanelStep[] | undefined, actors: readonly string[]): HistoryStepData[] {
+/** Server steps (numeric id, oldest first) to the panel's (string id). `tones` are the editor's. */
+export function toHistorySteps(steps: readonly PanelStep[] | undefined, tones: Readonly<Record<string, AgentColor>>): HistoryStepData[] {
   if (!steps) return [];
   const authors = new Map<string, HistoryAuthor>();
   return steps.map((step) => {
     let author = authors.get(step.actor);
-    if (!author) authors.set(step.actor, (author = historyAuthor(step.actor, actors)));
+    if (!author) authors.set(step.actor, (author = historyAuthor(step.actor, tones)));
     return { id: String(step.id), author, label: step.label, at: step.at, undone: step.undone, nodeIds: step.nodeIds };
   });
 }
+
+/** The distinct agent actors of the steps (not you), in order of appearance: they get their tones from the editor. */
+export const stepActors = (steps: readonly PanelStep[] | undefined): string[] => [...new Set((steps ?? []).map((step) => step.actor).filter((actor) => !isHumanActor(actor)))];
 
 /** The server step id behind a panel id; `null` for an id that is not one. */
 export function stepNumber(id: string): number | null {

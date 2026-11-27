@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLiveRig } from "@/test/live-harness";
 import { fakeHttp, jsonResponse, renderRegions, serve } from "@/test/collab-harness";
-import { Team, useTeamHeader } from "./team";
+import { RightPanel } from "./right-panel";
+import { useTeamHeader } from "./team";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -36,29 +37,33 @@ function Header() {
   return <button onClick={onTeamClick}>{team ? `team:${team.name}:${team.online}` : "no-team"}</button>;
 }
 
-const flag = { dialogs: { history: false, pins: false, export: false, import: false, agents: false, team: true } };
+const flag = { rightTab: "team" as const };
 
 describe("Team region", () => {
-  it("shows nothing without team mode (the server answers HTML, so the live state is null)", async () => {
-    const view = await renderRegions({ regions: [["team", <Team key="t" />], ["header", <Header key="h" />]], initial: flag });
+  it("shows no tabs and no team without team mode (the server answers HTML, so the live state is null), even if the team tab was picked", async () => {
+    const view = await renderRegions({ regions: [["team", <RightPanel key="t" />], ["header", <Header key="h" />]], initial: flag });
     serve(view.rig, view.doc);
-    expect(screen.queryByTestId("team-chip-slot")).toBeNull();
-    expect(screen.queryByTestId("team-slot")).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Team" })).toBeNull();
+    expect(screen.queryByTestId("team-panel")).toBeNull();
     expect(screen.getByText("no-team")).toBeInTheDocument();
   });
 
-  it("shows the chip and the header pill once the sidecar status arrives over the socket", async () => {
-    const view = await renderRegions({ regions: [["team", <Team key="t" />], ["header", <Header key="h" />]] });
+  it("shows the tabs in the properties panel and the header pill once the sidecar status arrives, and the pill opens the team tab", async () => {
+    const view = await renderRegions({ regions: [["team", <RightPanel key="t" />], ["header", <Header key="h" />]] });
     serve(view.rig, view.doc);
+    expect(screen.queryByRole("radio", { name: "Team" })).toBeNull();
     view.rig.push({ type: "team", status: status() });
-    const chip = await screen.findByTestId("team-chip-slot");
-    expect(within(chip).getByText("North Studio · 2 online · synced")).toBeInTheDocument();
+    expect(await screen.findByRole("radio", { name: "Properties" })).toBeInTheDocument();
     expect(screen.getByText("team:North Studio:2")).toBeInTheDocument();
+    expect(screen.queryByTestId("team-panel")).toBeNull();
+    await userEvent.setup().click(screen.getByText("team:North Studio:2"));
+    expect(await screen.findByTestId("team-panel")).toBeInTheDocument();
+    expect(view.handle.current!.state.rightTab).toBe("team");
   });
 
   it("opens the panel with the members, the connection of each and the agents, and the sync state of this workspace", async () => {
     const calls = fakeHttp({ "POST /api/team/share": () => jsonResponse({ doc: "doc-1" }) });
-    const view = await renderRegions({ regions: [["team", <Team key="t" />]], initial: flag });
+    const view = await renderRegions({ regions: [["team", <RightPanel key="t" />]], initial: flag });
     serve(view.rig, view.doc);
     view.rig.push({ type: "team", status: status() });
     const panel = await screen.findByTestId("team-panel");
@@ -74,7 +79,7 @@ describe("Team region", () => {
 
   it("creates a team from the no-team state with the name typed", async () => {
     const calls = fakeHttp({ "POST /api/team": () => jsonResponse({}) });
-    const view = await renderRegions({ regions: [["team", <Team key="t" />]], initial: flag });
+    const view = await renderRegions({ regions: [["team", <RightPanel key="t" />]], initial: flag });
     serve(view.rig, view.doc);
     view.rig.push({ type: "team", status: status({ team: null }) });
     const panel = await screen.findByTestId("team-panel");
@@ -86,7 +91,7 @@ describe("Team region", () => {
 
   it("shows the error the server gives to a command, and converts the invite's seconds", async () => {
     const calls = fakeHttp({ "POST /api/team": () => jsonResponse({ error: "name taken" }, 400), "POST /api/team/invites": () => jsonResponse({ link: "paprika://join/abc", expiresAt: Math.floor(Date.now() / 1000) + 3600 }) });
-    const view = await renderRegions({ regions: [["team", <Team key="t" />]], initial: flag });
+    const view = await renderRegions({ regions: [["team", <RightPanel key="t" />]], initial: flag });
     serve(view.rig, view.doc);
     view.rig.push({ type: "team", status: status({ team: null }) });
     let panel = await screen.findByTestId("team-panel");
@@ -104,9 +109,9 @@ describe("Team region", () => {
 
   it("the live client asks /api/team for the first status and keeps null when the answer is not JSON", async () => {
     const rig = createLiveRig({ fetchTeam: () => Promise.resolve(null) });
-    const view = await renderRegions({ rig, regions: [["team", <Team key="t" />]] });
+    const view = await renderRegions({ rig, regions: [["team", <RightPanel key="t" />]] });
     serve(view.rig, view.doc);
     expect(view.rig.client.store.state.team).toBeNull();
-    expect(screen.queryByTestId("team-chip-slot")).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Team" })).toBeNull();
   });
 });
