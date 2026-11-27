@@ -9,6 +9,12 @@
 
 <p align="center"><em>Jogue um pouco de tempero</em> · <a href="https://paprika.js.org/pt-BR/">paprika.js.org</a></p>
 
+<div align="center">
+
+[![M8ven Score](https://m8ven.ai/badge/mcp/leonardo-moraes360-paprika-9m2u9f)](https://m8ven.ai/mcp/leonardo-moraes360-paprika-9m2u9f?s=readme)
+
+</div>
+
 <p align="center"><img src="../en-US/assets/paprika-window.png" alt="Canvas do Paprika aberto nas propostas de marca: camadas à esquerda, canvas ao centro, tokens do documento à direita" width="900"></p>
 
 # Paprika
