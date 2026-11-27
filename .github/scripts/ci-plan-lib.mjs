@@ -38,7 +38,7 @@ export function planFor(files, { ciFull = false } = {}) {
   const e2e = area(/^packages\/e2e\//);
   const rust = area(/^crates\/render\//);
   const web = area(/^web-legacy\//) || rust;
-  const app = area(/^apps\/web\//);
+  const app = area(/^apps\/web\//) || rust;
   const go = area(/^server\//);
   const sync = area(/^crates\/sync\//) || go;
   const actions = area(/^\.github\//);
@@ -64,7 +64,7 @@ export function planFor(files, { ciFull = false } = {}) {
 
   const site = core || area(/^(apps\/site|scripts\/brand)\//);
 
-  const docker = dockerfiles || core || web || go || area(/^crates\/sync\//);
+  const docker = dockerfiles || core || web || app || go || area(/^crates\/sync\//);
 
   return {
     full,

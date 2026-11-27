@@ -9,7 +9,7 @@ O servidor do Paprika: 29 ferramentas MCP (stdio e Streamable HTTP em `/mcp`), o
 Requisitos: Go 1.26+ (o comando `go` baixa o toolchain se precisar). O Chromium só é necessário para screenshots (o export SVG usa o `layout(doc)` do core): o servidor usa `$PAPRIKA_CHROMIUM`, depois os navegadores do Playwright (`$PLAYWRIGHT_BROWSERS_PATH` ou `~/.cache/ms-playwright`), depois `chromium`/`google-chrome` no `PATH`.
 
 ```bash
-pnpm install && pnpm build            # compila o canvas (web-legacy/dist) e o servidor (pnpm go:build)
+pnpm install && pnpm build            # compila o app web (apps/web/dist/client) e o servidor (pnpm go:build)
                                       # → server/bin/paprika
 
 B=server/bin/paprika
@@ -53,7 +53,7 @@ paprika completion fish > ~/.config/fish/completions/paprika.fish
 
 Um comando desconhecido sai com código 2 e sugere o mais parecido; uma flag inválida ou qualquer erro em execução sai com código 1.
 
-Padrões: `--db` é `./paprika.db` (ou `$PAPRIKA_DB`); `--doc` é o documento atualizado mais recentemente, e um vazio é criado quando o banco está vazio. `--web` usa `$PAPRIKA_WEB_ROOT` e depois `web-legacy/dist` ao lado do binário ou no diretório atual.
+Padrões: `--db` é `./paprika.db` (ou `$PAPRIKA_DB`); `--doc` é o documento atualizado mais recentemente, e um vazio é criado quando o banco está vazio. `--web` (uma pasta cuja entrada é `_shell.html` ou `index.html`) usa `$PAPRIKA_WEB_ROOT` e depois o app novo (`apps/web/dist/client`, ou `web` ao lado do binário), e só então o antigo (`web-legacy/dist`).
 
 ## Armazenamento
 

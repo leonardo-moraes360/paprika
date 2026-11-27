@@ -716,7 +716,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			send(c.Writer, 500, errBody(err.Error()), "")
 			return
 		}
-		send(c.Writer, 200, css, "text/css; charset=utf-8")
+		sendEmbedded(c.Writer, c.Request, []byte(css), "text/css; charset=utf-8")
 	})
 	engine.GET("/fonts/:file", func(c *gin.Context) {
 		raw, ok := export.InterFile(c.Param("file"))
@@ -724,7 +724,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 			send(c.Writer, 404, errBody("font not found"), "")
 			return
 		}
-		send(c.Writer, 200, raw, "font/ttf")
+		sendEmbedded(c.Writer, c.Request, raw, "font/ttf")
 	})
 	engine.GET("/ws", func(c *gin.Context) {
 		conn, err := websocket.Accept(c.Writer, c.Request, &websocket.AcceptOptions{InsecureSkipVerify: true, CompressionMode: websocket.CompressionContextTakeover})
@@ -834,6 +834,31 @@ func safeFileName(s string) string {
 	return s
 }
 
+var webEntries = []string{"_shell.html", "index.html"}
+
+func webEntryIn(root *os.Root) string {
+	for _, name := range webEntries {
+		if st, err := root.Stat(name); err == nil && !st.IsDir() {
+			return name
+		}
+	}
+	return webEntries[len(webEntries)-1]
+}
+
+func WebEntry(dir string) string {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return ""
+	}
+	defer root.Close()
+	for _, name := range webEntries {
+		if st, err := root.Stat(name); err == nil && !st.IsDir() {
+			return name
+		}
+	}
+	return ""
+}
+
 func serveStatic(w http.ResponseWriter, r *http.Request, webRoot string) {
 	if webRoot == "" {
 		send(w, 200, `<!doctype html><meta charset="utf-8"><title>Paprika</title><p>Canvas not built. Run <code>pnpm build</code>. MCP is at <code>/mcp</code>.</p>`, mimeTypes[".html"])
@@ -857,7 +882,7 @@ func serveStatic(w http.ResponseWriter, r *http.Request, webRoot string) {
 	defer root.Close()
 	file := rel
 	if st, err := root.Stat(file); file == "" || err != nil || st.IsDir() {
-		file = "index.html"
+		file = webEntryIn(root)
 	}
 	data, err := root.ReadFile(file)
 	if err != nil {

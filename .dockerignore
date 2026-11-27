@@ -7,6 +7,7 @@
 !tsconfig.base.json
 !packages/core/
 !web-legacy/
+!apps/web/
 !crates/render/
 !crates/sync/
 !server/
@@ -16,6 +17,7 @@
 **/dist/
 **/*.tsbuildinfo
 web-legacy/src/wasm/
+apps/web/src/wasm/
 crates/render/target/
 crates/sync/target/
 crates/sync/tests/
