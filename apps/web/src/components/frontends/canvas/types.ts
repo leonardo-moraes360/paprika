@@ -79,6 +79,9 @@ export type GestureRun = {
   cancel?: () => void;
 };
 
+/** A double click on the viewport (the browser's own, so the person's system speed counts). Returns `true` when it took the click: the first handler of `gestures/index.ts` that does ends the list. */
+export type DoubleClickHandler = (rt: CanvasRuntime, event: MouseEvent) => boolean;
+
 export type CanvasOverlay = {
   id: string;
   /** Rendered once in the overlay layer, in WORLD coordinates (the layer carries the camera). Read the runtime with `useCanvasRuntime()`. */

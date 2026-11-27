@@ -42,6 +42,8 @@ export type CanvasRuntime = {
   apply: (ops: Op[], label: string) => Promise<boolean>;
   toolDone: () => void;
   error: (message: string) => void;
+  /** The app's translation, for the labels a gesture gives its `apply` (the history shows them) and the names it gives a node. */
+  t: (key: string, values?: Record<string, unknown>) => string;
 };
 
 export type RuntimeParts = {
@@ -60,10 +62,12 @@ export type RuntimeParts = {
     toolDone?: () => void;
     error?: (message: string) => void;
   };
+  /** Left out, a key answers as itself (a test without the app's texts). */
+  t?: (key: string, values?: Record<string, unknown>) => string;
 };
 
 export function createRuntime(parts: RuntimeParts): CanvasRuntime {
-  const { view, index, store, preview, viewport, world, pageId, callbacks } = parts;
+  const { view, index, store, preview, viewport, world, pageId, callbacks, t = (key: string) => key } = parts;
   const input: CanvasInputState = { space: false };
   return {
     view,
@@ -112,6 +116,7 @@ export function createRuntime(parts: RuntimeParts): CanvasRuntime {
     },
     toolDone: () => callbacks().toolDone?.(),
     error: (message) => callbacks().error?.(message),
+    t,
   };
 }
 

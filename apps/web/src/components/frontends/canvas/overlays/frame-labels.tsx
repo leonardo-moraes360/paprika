@@ -2,6 +2,7 @@ import type { Node } from "@paprika/core";
 import { memo, useCallback, useSyncExternalStore } from "react";
 import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
+import { FrameRename } from "./frame-rename";
 
 type FrameNode = Extract<Node, { type: "frame" }>;
 
@@ -21,6 +22,7 @@ const FrameLabel = memo(function FrameLabel({ id }: { id: string }) {
   const { node } = useSyncExternalStore(subscribe, read, read);
   const patch = useCanvasState((s) => s.preview[id]);
   const selected = useCanvasState((s) => s.selected.has(id));
+  const editing = useCanvasState((s) => s.editingId === id);
   if (!node || node.type !== "frame") return null;
   const at = anchorOf(node, patch?.x ?? node.x, patch?.y ?? node.y, patch?.width ?? node.width, patch?.height ?? node.height);
   return (
@@ -30,6 +32,11 @@ const FrameLabel = memo(function FrameLabel({ id }: { id: string }) {
       className="pointer-events-auto absolute cursor-default text-xs leading-4 font-medium whitespace-nowrap text-label select-none"
       // The layer is scaled by the camera: counter-scaling about the label's own corner keeps its size and its gap to the frame on screen.
       style={{ left: at.x, top: at.y, transformOrigin: "0 0", transform: "scale(calc(1 / var(--view-zoom))) translateY(calc(-100% - 4px))" }}
+      title={editing ? undefined : rt.t("app.canvas.creation.renameHint")}
+      onDoubleClick={(event) => {
+        event.stopPropagation();
+        rt.store.actions.setEditing(id);
+      }}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         event.stopPropagation();
@@ -38,7 +45,7 @@ const FrameLabel = memo(function FrameLabel({ id }: { id: string }) {
         rt.select(additive ? (have.includes(id) ? have.filter((s) => s !== id) : [...have, id]) : [id]);
       }}
     >
-      {node.name || node.id}
+      {editing ? <FrameRename id={id} name={node.name} /> : node.name || node.id}
     </div>
   );
 });
