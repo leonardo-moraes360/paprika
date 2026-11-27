@@ -48,7 +48,7 @@ export function ZoomBar({ zoom, minZoom, maxZoom, onZoomOut, onZoomIn, onFit, re
                 <MenuGroupLabel>{t("frontends.zoomBar.renderer")}</MenuGroupLabel>
                 <MenuRadioGroup value={renderer ?? ""} onValueChange={(next) => typeof next === "string" && next !== renderer && onRendererChange?.(next)}>
                   {renderers.map((option) => (
-                    <MenuRadioItem key={option.id} value={option.id} disabled={option.disabled || switching}>
+                    <MenuRadioItem key={option.id} value={option.id} closeOnSelect disabled={option.disabled || switching}>
                       {option.disabled && option.reason ? t("frontends.zoomBar.unavailable", { label: option.label, reason: option.reason }) : option.label}
                     </MenuRadioItem>
                   ))}
