@@ -66,6 +66,21 @@ describe("link field of the text bar", () => {
     expect(t.field()).not.toHaveAttribute("aria-invalid");
   });
 
+  it("a second press on the bar, with the focus already in the field, keeps the selection the first press saw", () => {
+    const t = open("plain");
+    t.select(0, 4);
+    fireEvent.mouseDown(t.field());
+    act(() => window.getSelection()?.removeAllRanges());
+    fireEvent.change(t.field(), { target: { value: "paprika ponto dev" } });
+    fireEvent.mouseDown(t.getByRole("button", { name: "Apply link" }));
+    fireEvent.click(t.getByRole("button", { name: "Apply link" }));
+    fireEvent.change(t.field(), { target: { value: "/docs" } });
+    fireEvent.mouseDown(t.getByRole("button", { name: "Apply link" }));
+    fireEvent.click(t.getByRole("button", { name: "Apply link" }));
+    expect(t.surface.querySelector("a")?.getAttribute("href")).toBe("/docs");
+    expect(t.surface.querySelector("a")?.textContent).toBe("Just");
+  });
+
   it("on a link: shows its address, and Remove link takes the href off the whole link from a bare caret", () => {
     const t = open("title");
     expect(t.surface.querySelector("a")?.getAttribute("href")).toBe("https://example.com");

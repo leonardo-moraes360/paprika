@@ -192,7 +192,7 @@ function TextSurface({ node }: { node: TextNode }) {
         style={{ transform: `scale(calc(1 / var(--view-zoom))) translateY(calc(-100% - ${BAR_GAP}px))` }}
         onMouseDown={(e) => {
           const el = surface.current;
-          if (el) saved.current = selectionOffsets(el);
+          if (el) saved.current = selectionOffsets(el) ?? saved.current;
           // A button must not take the selection away from the text; a field does take the focus.
           if (!(e.target instanceof HTMLElement) || !e.target.closest("input")) e.preventDefault();
         }}
