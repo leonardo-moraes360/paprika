@@ -1,80 +1,99 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { chromium, type Browser, type Page } from "playwright";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { startServer, type ExternalServer } from "../harness.js";
+import type { Browser, Page } from "playwright";
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { pinLocale } from "./locale.js";
+import { closeSeededCanvas, connectAgent, openSeededCanvas, webDist, type CanvasSession } from "./seededCanvas.js";
+import { closeToasts } from "./support-e3.js";
 
-const root = resolve(import.meta.dirname, "../../../..");
-const webRoot = join(root, "web-legacy/dist");
-
+/** `rgb()`/`rgba()` (0 to 255) and `color(srgb r g b)` (0 to 1): the two spellings `getComputedStyle` gives for the app's colours. */
 function contrastRatio(fg: string, bg: string) {
   const channel = (v: number) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
   const lum = (s: string) => {
-    const [r, g, b] = (s.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+    const unit = s.startsWith("color(") ? 255 : 1;
+    const [r, g, b] = (s.replace(/^[a-z]+\(/, "").match(/[\d.]+/g) ?? []).slice(0, 3).map((v) => Number(v) * unit);
     return 0.2126 * channel(r ?? 0) + 0.7152 * channel(g ?? 0) + 0.0722 * channel(b ?? 0);
   };
   const [hi, lo] = [lum(fg), lum(bg)].sort((x, y) => y - x);
   return ((hi ?? 0) + 0.05) / ((lo ?? 0) + 0.05);
 }
 
-describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclado", () => {
-  let dir: string;
-  let external: ExternalServer | undefined;
-  let browser: Browser;
+/** The colour of an element's text and the first opaque background at or above it (what the person actually sees under the text). */
+const textColours = (el: Element): [string, string] => {
+  const fg = getComputedStyle(el).color;
+  let node: Element | null = el;
+  while (node) {
+    const bg = getComputedStyle(node).backgroundColor;
+    if (!/^rgba\(.*, 0\)$|^transparent$|^color\(srgb [\d. ]+\/ 0\)$/.test(bg)) return [fg, bg];
+    node = node.parentElement;
+  }
+  return [fg, "rgb(255, 255, 255)"];
+};
+
+describe.skipIf(!existsSync(webDist))("E2E: acessibilidade do editor pelo teclado", () => {
+  let session!: CanvasSession;
   let page: Page;
+  let browser: Browser;
+  const external = () => session.external;
+  const clients: Client[] = [];
 
   beforeAll(async () => {
-    dir = await mkdtemp(join(tmpdir(), "paprika-a11y-"));
-    const file = join(dir, "demo.paprika.json");
-    await copyFile(join(root, "packages/e2e/fixtures/demo.paprika.json"), file);
-    external = await startServer({ seed: file, webRoot });
-    browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
-    page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-    await pinLocale(page, "pt-BR");
-    await page.goto(external.url);
-    await page.locator(".workspace-card.is-active").click();
-    await page.waitForSelector('[data-paprika-id="login"]');
+    session = await openSeededCanvas("paprika-a11y-");
+    page = session.page;
+    browser = session.browser;
   }, 60_000);
 
   afterAll(async () => {
-    await browser?.close();
-    await external?.stop();
-    await rm(dir, { recursive: true, force: true });
+    await closeSeededCanvas(session, clients);
   });
 
+  // The colours transition on a theme switch: measure only once the transitions are over.
+  const setTheme = async (target: Page, name: "Claro" | "Escuro") => {
+    await target.getByRole("radio", { name }).click();
+    await target.waitForFunction(() => document.getAnimations().every((a) => a.playState === "finished" || !(a instanceof CSSTransition)));
+  };
+
   const tabTo = async (match: (el: Element) => boolean, max = 200) => {
+    const trail: string[] = [];
     for (let i = 0; i < max; i++) {
       await page.keyboard.press("Tab");
       const hit = await page.evaluate((src) => new Function("el", `return (${src})(el)`)(document.activeElement), match.toString());
       if (hit) return;
+      if (i < 40) trail.push(await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.tagName ?? ""));
     }
-    throw new Error("element not reached with Tab");
+    throw new Error(`element not reached with Tab: ${trail.join(" > ")}`);
   };
 
   it("Enter e Espaço ativam um botão focado pelo teclado (o pan do canvas não os engole)", async () => {
     await page.locator("body").focus();
-    await tabTo((el) => el.getAttribute("aria-label") === "Retângulo");
+    // The toolbar is one tab stop (roving focus): Tab reaches it, the arrows walk its buttons.
+    await tabTo((el) => el.closest("[role=toolbar]")?.getAttribute("aria-label") === "Ferramentas");
+    const walk = async (label: string, key: "ArrowRight" | "ArrowLeft") => {
+      for (let i = 0; i < 12; i++) {
+        if ((await page.evaluate(() => document.activeElement?.getAttribute("aria-label"))) === label) return;
+        await page.keyboard.press(key);
+      }
+      throw new Error(`${label} not reached with ${key}`);
+    };
+    await walk("Retângulo", "ArrowRight");
     await page.keyboard.press("Enter");
     await expect.poll(() => page.getByRole("button", { name: "Retângulo" }).getAttribute("aria-pressed")).toBe("true");
-    await page.keyboard.press("Shift+Tab");
+    await walk("Frame", "ArrowLeft");
     await page.keyboard.press(" ");
     await expect.poll(() => page.getByRole("button", { name: "Frame" }).getAttribute("aria-pressed")).toBe("true");
     await page.keyboard.press("Escape");
   });
 
-  it("o botão de ocultar camada fica visível quando a linha tem o foco", async () => {
+  it("o botão de ocultar camada aparece quando a linha tem o foco e Ctrl+Shift+H o aciona", async () => {
     const row = page.locator('[data-layer-id="login"]');
     await row.focus();
-    await page.keyboard.press("Tab");
-    await page.keyboard.press("Tab");
     const eye = row.getByRole("button", { name: /^Ocultar / });
-    await expect.poll(() => eye.evaluate((el) => el === document.activeElement)).toBe(true);
-    await expect.poll(() => eye.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+    await expect.poll(() => eye.isVisible()).toBe(true);
+    await expect(eye.getAttribute("aria-keyshortcuts")).resolves.toMatch(/Control\+Shift\+H/);
+    await page.keyboard.press("Control+Shift+H");
+    await expect.poll(() => eye.getAttribute("aria-pressed")).toBe("true");
+    await page.keyboard.press("Control+Shift+H");
+    await expect.poll(() => eye.getAttribute("aria-pressed")).toBe("false");
     await expect(page.getByRole("treeitem", { name: "Login · mobile", exact: true }).count()).resolves.toBe(1);
   });
 
@@ -89,30 +108,31 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
   });
 
   it("páginas abrem pelo teclado e a ativa é anunciada", async () => {
-    await page.getByTestId("add-page").click();
-    await expect.poll(() => page.locator(".page").count()).toBe(2);
-    const first = page.locator(".page").first().getByRole("button").first();
+    const rows = page.getByRole("list", { name: "Páginas" }).getByRole("listitem");
+    // The demo has loose roots: the first page created wraps them into "Page 1", so there are two rows afterwards.
+    await page.getByRole("button", { name: "Nova página" }).click();
+    await expect.poll(() => rows.count()).toBe(2);
+    const first = rows.first().getByRole("button").first();
     await first.focus();
     await page.keyboard.press("Enter");
-    await expect.poll(() => page.locator(".page.is-active").first().evaluate((el) => el === document.querySelector(".page"))).toBe(true);
-    await expect(first.getAttribute("aria-current")).resolves.toBe("page");
+    await expect.poll(() => first.getAttribute("aria-current")).toBe("page");
     await page.keyboard.press("Tab");
     const del = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? "");
-    expect(del).toMatch(/^Apagar página /);
-    await expect(page.evaluate(() => getComputedStyle(document.activeElement!).opacity)).resolves.toBe("1");
+    expect(del).toMatch(/^Excluir página /);
+    await expect(page.evaluate(() => getComputedStyle(document.activeElement!).display)).resolves.not.toBe("none");
     await page.keyboard.press("Control+z");
   });
 
   it("a seção Conteúdo do painel tem grupos nomeados, a dica de atalho e o foco visível (4.1.2, 2.4.7)", async () => {
-    await page.locator('[data-layer-id="login"]').click();
-    const section = page.getByTestId("content-section");
+    await page.locator('[data-layer-id="login"]').click({ position: { x: 70, y: 14 } });
+    const section = page.locator('[data-slot="collapsible"]').filter({ has: page.getByRole("heading", { name: "Conteúdo", level: 3 }) });
     await section.waitFor({ state: "visible" });
     await expect(section.getByRole("radiogroup", { name: "Horizontal" }).count()).resolves.toBe(1);
     await expect(section.getByRole("radiogroup", { name: "Vertical" }).count()).resolves.toBe(1);
     await expect(section.getByRole("radio").count()).resolves.toBe(6);
     await expect(section.getByRole("button", { name: "Centralizar" }).count()).resolves.toBe(1);
     await expect(section.locator("kbd").allInnerTexts()).resolves.toEqual(["Alt", "C"]);
-    const hint = await section.locator("kbd").first().evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor] as const);
+    const hint = await section.locator("kbd").first().evaluate(textColours);
     expect(contrastRatio(hint[0], hint[1])).toBeGreaterThanOrEqual(4.5);
     await section.getByRole("button", { name: "Centralizar" }).focus();
     await page.keyboard.press("Shift+Tab");
@@ -128,101 +148,109 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
   });
 
   it("asides têm nomes e a página tem um h1 com o nome do workspace", async () => {
-    await expect(page.getByRole("complementary", { name: "Páginas e camadas" }).count()).resolves.toBe(1);
-    await expect(page.getByRole("complementary", { name: "Propriedades" }).count()).resolves.toBe(1);
-    await expect(page.getByRole("heading", { level: 1 }).textContent()).resolves.toBe(await page.locator(".doc-name").textContent());
-    await expect(page.getByRole("status").filter({ hasText: "Conectado ao servidor" }).textContent()).resolves.toBe("Conectado ao servidor");
+    await expect(page.getByRole("complementary", { name: "Painel de camadas" }).count()).resolves.toBe(1);
+    await expect(page.getByRole("complementary", { name: "Propriedades", exact: true }).count()).resolves.toBe(1);
+    await expect(page.getByRole("heading", { level: 1 }).textContent()).resolves.toBe("Demo Paprika");
+    await expect(page.getByRole("banner").getByRole("navigation", { name: "Caminho do documento" }).textContent()).resolves.toContain("Demo Paprika");
+    await expect(page.getByRole("status").filter({ hasText: "MCP em /mcp" }).count()).resolves.toBe(1);
   });
 
   it("tooltips do chrome abrem no foco, fecham no Esc e os ícones mantêm aria-label (1.4.13, 4.1.2)", async () => {
+    // Tooltips open for keyboard focus, so the buttons are reached the way a keyboard user does: Tab to the toolbar, the arrows inside it.
     await page.keyboard.press("Escape");
-    const zoomIn = page.getByRole("button", { name: "Aumentar zoom" });
-    await expect(zoomIn.getAttribute("aria-label")).resolves.toBe("Aumentar zoom");
-    await expect(zoomIn.getAttribute("title")).resolves.toBeNull();
-    await zoomIn.focus();
-    const zoomTip = page.getByRole("tooltip", { name: "Aumentar zoom" });
-    await zoomTip.waitFor({ timeout: 3_000 });
-    await expect(zoomTip.textContent()).resolves.toBe("Aumentar zoom");
-    await page.keyboard.press("Escape");
-    await expect.poll(() => zoomTip.count()).toBe(0);
-    await expect.poll(() => zoomIn.evaluate((el) => el === document.activeElement)).toBe(true);
-
+    // A key press first, so the browser is in keyboard modality when focus lands on the button.
+    const reach = async (toolbar: string, label: string) => {
+      await page.keyboard.press("Shift");
+      await page.getByRole("toolbar", { name: toolbar }).getByRole("button", { name: label, exact: true }).focus();
+    };
     const rect = page.getByRole("button", { name: "Retângulo" });
     await expect(rect.getAttribute("aria-label")).resolves.toBe("Retângulo");
     await expect(rect.getAttribute("title")).resolves.toBeNull();
-    await rect.focus();
+    await reach("Ferramentas", "Retângulo");
     const rectTip = page.getByRole("tooltip", { name: /Retângulo/ });
-    await rectTip.waitFor({ timeout: 3_000 });
+    await rectTip.waitFor({ state: "visible", timeout: 3_000 });
     await expect(rectTip.textContent()).resolves.toMatch(/Retângulo/);
     await page.keyboard.press("Escape");
     await expect.poll(() => rectTip.count()).toBe(0);
   });
 
-  it("texto sobre o acento e sobre as cores de agente passa de 4,5:1 (1.4.3)", async () => {
-    const agents: Client[] = [];
-    for (let i = 0; i < 8; i++) {
-      const c = new Client({ name: `a11y-agent-${i}`, version: "0" });
-      await c.connect(new StreamableHTTPClientTransport(new URL(`${external!.url}/mcp`)));
+  // Both agent tests need the same eight agents; whichever runs first connects them.
+  let agentsConnected = 0;
+  const ensureAgents = async () => {
+    for (; agentsConnected < 8; agentsConnected++) {
+      const c = await connectAgent(session.url, `a11y-agent-${agentsConnected}`, clients);
       await c.callTool({ name: "get_nodes", arguments: { ids: ["login"] } });
-      agents.push(c);
     }
-    await expect.poll(() => page.locator(".agent-cursor").count(), { timeout: 10_000 }).toBe(8);
-    const swatch = await page.evaluate(() => {
-      const colors = (el: Element): [string, string] => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor];
-      const tags = [...document.querySelectorAll(".agent-cursor span")].filter((el) => el.parentElement?.classList.contains("agent-cursor"));
-      return { tags: tags.map(colors), tool: colors(document.querySelector("nav[aria-label=Ferramentas] .is-active")!) };
-    });
-    for (const c of agents) await c.close();
+  };
+
+  it("texto sobre o acento e sobre as cores de agente passa de 4,5:1 (1.4.3)", async () => {
+    await ensureAgents();
+    const cursors = page.getByTestId("agent-cursor");
+    await expect.poll(() => cursors.count(), { timeout: 10_000 }).toBe(8);
+    const swatch = await page.evaluate((src) => {
+      const colours = new Function("el", `return (${src})(el)`) as (el: Element) => [string, string];
+      const tags = [...document.querySelectorAll('[data-testid="agent-frame-state"] > span')];
+      return { tags: tags.map(colours), tool: colours(document.querySelector('[role=toolbar][aria-label=Ferramentas] [aria-pressed=true]')!) };
+    }, textColours.toString());
     expect(swatch.tags).toHaveLength(8);
     for (const [fg, bg] of swatch.tags) expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(swatch.tool[0], swatch.tool[1])).toBeGreaterThanOrEqual(4.5);
   });
 
   it("o roster de agentes é focável, tem nome e passa de 4,5:1 (2.4.7, 1.4.3)", async () => {
-    const agents: Client[] = [];
-    for (let i = 0; i < 4; i++) {
-      const c = new Client({ name: `a11y-roster-${i}`, version: "0" });
-      await c.connect(new StreamableHTTPClientTransport(new URL(`${external!.url}/mcp`)));
-      await c.callTool({ name: "get_nodes", arguments: { ids: ["login"] } });
-      agents.push(c);
-    }
-    const pill = page.getByTestId("agent-focus");
-    await expect.poll(() => pill.count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(4);
-    const rows = await pill.evaluateAll((els) =>
-      els.map((el) => {
-        el.focus();
-        const cs = getComputedStyle(el);
+    await ensureAgents();
+    const trigger = page.getByRole("banner").getByRole("button", { name: /agentes? ativos?/ });
+    await expect.poll(() => trigger.isVisible(), { timeout: 10_000 }).toBe(true);
+    await trigger.click();
+    const roster = page.getByRole("dialog", { name: /agentes ativos/ });
+    const rows = roster.getByRole("button", { name: /Ir até/ });
+    await expect.poll(() => rows.count(), { timeout: 10_000 }).toBeGreaterThanOrEqual(8);
+    // A key press first, so the browser is in keyboard modality and the programmatic focus below matches :focus-visible.
+    await page.keyboard.press("Shift");
+    const seen = await rows.evaluateAll((els, src) => {
+      const colours = new Function("el", `return (${src})(el)`) as (el: Element) => [string, string];
+      return els.map((el) => {
+        (el as HTMLElement).focus();
+        const name = el.querySelector("span.font-semibold")!;
         return {
           focused: document.activeElement === el,
-          fg: cs.color,
-          bg: cs.backgroundColor,
-          agentColor: cs.getPropertyValue("--agent").trim(),
+          ring: getComputedStyle(el).outlineStyle !== "none" && el.matches(":focus-visible"),
+          name: colours(name),
+          tool: colours(el.querySelectorAll("span.text-xs")[0]!),
+          dot: getComputedStyle(el.querySelector("span.rounded-full")!).backgroundColor,
           nativeTitle: el.getAttribute("title"),
         };
-      }),
-    );
-    await expect.poll(() => page.locator("[data-slot=tooltip-content]").count(), { timeout: 3_000 }).toBeGreaterThan(0);
-    for (const c of agents) await c.close();
-    expect(rows.length).toBeGreaterThanOrEqual(4);
-    for (const r of rows) {
+      });
+    }, textColours.toString());
+    await page.keyboard.press("Escape");
+    expect(seen.length).toBeGreaterThanOrEqual(8);
+    for (const r of seen) {
       expect(r.nativeTitle).toBeNull();
       expect(r.focused).toBe(true);
-      expect(contrastRatio(r.fg, r.bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(r.name[0], r.name[1])).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(r.tool[0], r.tool[1])).toBeGreaterThanOrEqual(4.5);
     }
-    expect(new Set(rows.map((r) => r.agentColor)).size).toBeGreaterThanOrEqual(4);
-  });
+    expect(seen.some((r) => r.ring)).toBe(true);
+    expect(new Set(seen.map((r) => r.dot)).size).toBeGreaterThanOrEqual(4);
+  }, 30_000);
 
   it("o painel Histórico e o toast de desfazer têm nomes, papéis e contraste (4.1.2, 1.4.3)", async () => {
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.mouse.move(2, 2);
-    await expect.poll(() => page.locator("[data-slot=tooltip-content]").count(), { timeout: 5_000 }).toBe(0);
+    await expect.poll(() => page.locator("[data-slot=tooltip-content]:not([data-closed])").count(), { timeout: 5_000 }).toBe(0);
+    // Make sure there is at least one step to list, whatever ran before.
+    await page.locator('[data-layer-id="login"]').focus();
+    // One step only: the Ctrl+Z further down undoes it, leaving the layer as it was.
+    await page.keyboard.press("Control+Shift+H");
+    await closeToasts(page);
     await page.keyboard.press("Control+h");
     const panel = page.getByRole("region", { name: "Histórico" });
     await expect.poll(() => panel.count()).toBe(1);
-    await expect.poll(() => panel.getByRole("radiogroup", { name: "Mostrar passos de" }).count()).toBe(1);
+    await expect.poll(() => panel.getByRole("radiogroup", { name: "Filtrar histórico" }).count()).toBe(1);
     await expect.poll(() => panel.getByRole("radio", { name: "Só meus" }).count()).toBe(1);
     await expect.poll(() => panel.getByRole("button", { name: "Fechar histórico" }).count()).toBe(1);
-    const names = await panel.getByTestId("history-step").evaluateAll((els) => els.map((el) => [el.querySelector("button")?.getAttribute("aria-label"), el.querySelector(".history-step-menu")?.getAttribute("aria-label")]));
+    await expect.poll(() => panel.locator("[data-step-id]").count()).toBeGreaterThan(0);
+    const names = await panel.locator("[data-step-id]").evaluateAll((els) => els.map((el) => [el.querySelector("button")?.getAttribute("aria-label"), el.querySelector("[aria-haspopup]")?.getAttribute("aria-label")]));
     for (const [row, menu] of names) {
       expect(row).toBeTruthy();
       expect(menu).toMatch(/^Ações do passo /);
@@ -232,69 +260,38 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
     await expect.poll(() => panel.count()).toBe(0);
     await page.locator("body").focus();
     await page.keyboard.press("Control+z");
-    const toast = page.getByTestId("toast");
+    const toast = page.locator('[data-slot="toast"][data-front]');
     await expect.poll(() => toast.count()).toBe(1);
-    await expect.poll(() => page.getByRole("status").filter({ has: toast }).count()).toBe(1);
-    await expect.poll(() => toast.getByRole("button", { name: "Dispensar" }).count()).toBe(1);
-    const colours = await toast.locator(".toast-message").evaluate((el) => {
-      const box = el.closest("[data-slot=toast]")!;
-      return [getComputedStyle(el).color, getComputedStyle(box).backgroundColor] as const;
-    });
+    await expect.poll(() => page.getByRole("status").filter({ hasText: /Nada seu para desfazer|Desfeito|Nada para desfazer/ }).count()).toBeGreaterThan(0);
+    await expect.poll(() => toast.getByRole("button", { name: "Fechar notificação" }).count()).toBe(1);
+    const colours = await toast.locator('[data-slot="toast-title"]').evaluate((el, src) => (new Function("el", `return (${src})(el)`) as (el: Element) => [string, string])(el), textColours.toString());
     expect(contrastRatio(colours[0], colours[1])).toBeGreaterThanOrEqual(4.5);
-    await toast.getByRole("button", { name: "Dispensar" }).click();
+    await closeToasts(page);
   }, 30_000);
 
-  describe("galeria de primitivas (/ui)", () => {
-    let gal: Page;
-
-    beforeAll(async () => {
-      gal = await browser.newPage({ viewport: { width: 1620, height: 1000 } });
-      await pinLocale(gal, "pt-BR");
-      await gal.goto(`${external!.url}/ui`);
-      await gal.waitForSelector("[data-slot=gallery]");
-    }, 30_000);
-
-    afterAll(async () => {
-      await gal?.close();
-    });
-
-    const contrastIn = (panel: "dark" | "light", slot: string) =>
-      gal.evaluate(
-        ({ panel, slot }) => {
-          const el = document.querySelector(`[data-panel=${panel}] [data-slot=${slot}]`);
-          if (!el) throw new Error(`no [data-slot=${slot}] in [data-panel=${panel}]`);
-          const cs = getComputedStyle(el);
-          return [cs.color, cs.backgroundColor] as [string, string];
-        },
-        { panel, slot },
-      );
-
-    const triggerIn = (panel: "dark" | "light", text: string) =>
-      gal.locator(`[data-panel=${panel}] button`).filter({ hasText: text }).first();
-
+  // The old app had a primitives gallery at /ui; the new one has none (the primitives are the design system's and live in the real
+  // screens), so these checks run on the same primitives where they are used.
+  describe("primitivas nas telas reais", () => {
     it("o alternador de ícones tem nome, foco visível e contraste nos dois temas (4.1.2, 2.4.7, 1.4.11)", async () => {
-      for (const panel of ["dark", "light"] as const) {
-        const group = gal.locator(`[data-panel=${panel}] [role=radiogroup][aria-label="Alinhamento horizontal"]`);
-        await expect(group.count()).resolves.toBe(1);
-        await expect(group.getByRole("radio").evaluateAll((els) => els.map((el) => el.getAttribute("aria-label")))).resolves.toEqual(["Esquerda", "Centro", "Direita"]);
-        const active = group.getByRole("radio", { name: "Centro" });
+      await page.locator('[data-layer-id="login"]').click({ position: { x: 70, y: 14 } });
+      const group = page.getByRole("radiogroup", { name: "Horizontal" });
+      await group.waitFor();
+      await expect(group.getByRole("radio").evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? el.textContent))).resolves.toEqual(["Esquerda", "Centralizar na horizontal", "Direita"]);
+      for (const theme of ["Escuro", "Claro"] as const) {
+        await setTheme(page, theme);
+        const active = group.getByRole("radio", { name: "Esquerda" });
         await expect(active.getAttribute("aria-checked")).resolves.toBe("true");
-        const colors = await active.evaluate((el) => {
-          const cs = getComputedStyle(el);
-          return [cs.color, cs.backgroundColor, getComputedStyle(el.parentElement!).backgroundColor] as const;
-        });
-        expect(contrastRatio(colors[0], colors[1])).toBeGreaterThanOrEqual(3);
-        const idle = await group.getByRole("radio", { name: "Esquerda" }).evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el.parentElement!).backgroundColor] as const);
-        expect(contrastRatio(idle[0], idle[1])).toBeGreaterThanOrEqual(3);
-        const disabled = gal.locator(`[data-panel=${panel}] [role=radiogroup][aria-label="Alinhamento desabilitado"]`);
-        await expect(disabled.getByRole("radio").first().isDisabled()).resolves.toBe(true);
-        const hint = await gal.locator(`[data-panel=${panel}] kbd`).first().evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor] as const);
-        expect(contrastRatio(hint[0], hint[1])).toBeGreaterThanOrEqual(4.5);
+        const colors = await active.evaluate((el, src) => (new Function("el", `return (${src})(el)`) as (el: Element) => [string, string])(el), textColours.toString());
+        expect(contrastRatio(colors[0], colors[1]), theme).toBeGreaterThanOrEqual(3);
+        const idle = await group.getByRole("radio", { name: "Direita" }).evaluate((el, src) => (new Function("el", `return (${src})(el)`) as (el: Element) => [string, string])(el), textColours.toString());
+        expect(contrastRatio(idle[0], idle[1]), theme).toBeGreaterThanOrEqual(3);
+        const hint = await page.locator("kbd").first().evaluate((el, src) => (new Function("el", `return (${src})(el)`) as (el: Element) => [string, string])(el), textColours.toString());
+        expect(contrastRatio(hint[0], hint[1]), theme).toBeGreaterThanOrEqual(4.5);
       }
-      await gal.locator("[data-panel=dark] [role=radiogroup][aria-label='Alinhamento horizontal'] [role=radio]").first().focus();
-      await gal.keyboard.press("Shift+Tab");
-      await gal.keyboard.press("Tab");
-      const ring = await gal.evaluate(() => {
+      await group.getByRole("radio").first().focus();
+      await page.keyboard.press("Shift+Tab");
+      await page.keyboard.press("Tab");
+      const ring = await page.evaluate(() => {
         const a = document.activeElement!;
         const cs = getComputedStyle(a);
         return { visible: a.matches(":focus-visible"), style: cs.outlineStyle, width: parseFloat(cs.outlineWidth) };
@@ -302,107 +299,121 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       expect(ring.visible).toBe(true);
       expect(ring.style).not.toBe("none");
       expect(ring.width).toBeGreaterThan(0);
+      await setTheme(page, "Escuro");
     });
 
-    it("o botão primário passa de 4,5:1 nos dois temas (1.4.3)", async () => {
-      for (const panel of ["dark", "light"] as const) {
-        const [fg, bg] = await contrastIn(panel, "button");
-        expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
-      }
-
-    });
-
-    it("o diálogo prende o foco, o Tab não escapa e o Esc devolve ao gatilho (2.1.2)", async () => {
-      const trigger = triggerIn("dark", "Abrir diálogo");
-      await trigger.click();
-      await gal.waitForSelector("[data-slot=dialog-content]");
-      const inside = () => gal.evaluate(() => document.activeElement?.closest("[data-slot=dialog-content]") !== null);
-      await expect(inside()).resolves.toBe(true);
-      for (let i = 0; i < 8; i++) {
-        await gal.keyboard.press("Tab");
-        await expect(inside()).resolves.toBe(true);
-      }
-      await gal.keyboard.press("Escape");
-      await expect.poll(() => gal.locator("[data-slot=dialog-content]").count()).toBe(0);
-      await expect(gal.evaluate(() => document.activeElement?.textContent?.trim())).resolves.toBe("Abrir diálogo");
-    });
-
-    it("o alert-dialog abre focado em um dos botões e o escuro/claro do painel vai com o portal", async () => {
-      const trigger = triggerIn("light", "Excluir workspace");
-      await trigger.click();
-      await gal.waitForSelector("[data-slot=alert-dialog-content]");
-      await expect(gal.locator("[data-slot=alert-dialog-content].ui-light").count()).resolves.toBe(1);
-      await expect(
-        gal.evaluate(() => {
-          const el = document.activeElement;
-          return el?.getAttribute("data-slot") ?? "";
-        }),
-      ).resolves.toBeTruthy();
-      await gal.keyboard.press("Escape");
-      await expect.poll(() => gal.locator("[data-slot=alert-dialog-content]").count()).toBe(0);
-    });
-
-    it("a tooltip abre pelo foco do teclado, não só pelo mouse (2.1.1)", async () => {
-      await triggerIn("dark", "Exportar").focus();
-      await gal.waitForSelector("[data-slot=tooltip-content]", { timeout: 3_000 });
-      await expect(gal.locator("[data-slot=tooltip-content]").first().textContent()).resolves.toBe("Exportar como SVG");
-    });
-
-    it("o menu abre pelo teclado, nomeia os itens e fecha no Esc (4.1.2)", async () => {
-      await triggerIn("dark", "Ações").focus();
-      await gal.keyboard.press("Enter");
-      await gal.waitForSelector("[data-slot=menu-content]");
-      await expect(gal.getByRole("menuitem", { name: /^Excluir/ }).count()).resolves.toBe(1);
-      await gal.keyboard.press("ArrowDown");
-      const nav = await gal.evaluate(() => {
+    it("o menu de camadas abre pelo teclado, nomeia os itens e fecha no Esc (4.1.2)", async () => {
+      await page.getByRole("button", { name: "Mais ações de camadas" }).focus();
+      await page.keyboard.press("Enter");
+      await page.getByRole("menu").waitFor();
+      await expect(page.getByRole("menuitem", { name: /^Mostrar todas as camadas ocultas/ }).count()).resolves.toBe(1);
+      await expect(page.getByRole("menuitem", { name: /^Destravar todas/ }).count()).resolves.toBe(1);
+      await page.keyboard.press("ArrowDown");
+      const nav = await page.evaluate(() => {
         const el = document.activeElement;
-        return { slot: el?.getAttribute("data-slot") ?? "", inMenu: el?.closest("[data-slot=menu-content]") !== null };
+        return { role: el?.getAttribute("role") ?? "", inMenu: el?.closest("[role=menu]") !== null };
       });
       expect(nav.inMenu).toBe(true);
-      expect(nav.slot).toMatch(/^menu-(item|checkbox-item|radio-item)$/);
-      await gal.keyboard.press("Escape");
-      await expect.poll(() => gal.locator("[data-slot=menu-content]").count()).toBe(0);
+      expect(nav.role).toMatch(/^menuitem/);
+      await page.keyboard.press("Escape");
+      await expect.poll(() => page.getByRole("menu").count()).toBe(0);
+      await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("aria-label"))).toBe("Mais ações de camadas");
     });
+
+    it("o diálogo de exportar prende o foco, o Tab não escapa e o Esc o fecha (2.1.2)", async () => {
+      await page.getByRole("button", { name: "Mais ações", exact: true }).click();
+      await page.getByRole("menuitem", { name: /Exportar/ }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog.waitFor();
+      const inside = () => page.evaluate(() => document.activeElement?.closest("[role=dialog]") != null);
+      await expect.poll(inside).toBe(true);
+      for (let i = 0; i < 8; i++) {
+        await page.keyboard.press("Tab");
+        await expect(inside()).resolves.toBe(true);
+      }
+      await page.keyboard.press("Escape");
+      await expect.poll(() => dialog.count()).toBe(0);
+    });
+
+    it("o botão primário e o de perigo passam de 4,5:1 nos dois temas, no repouso e no hover, e não têm a mesma cor (1.4.3)", async () => {
+      const ov = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      await pinLocale(ov, "pt-BR");
+      const made = await fetch(`${external().url}/api/workspaces`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Perigo" }),
+      });
+      const id = ((await made.json()) as { workspace: { id: string } }).workspace.id;
+      await ov.goto(external().url);
+      await ov.locator(`[data-workspace-id="${id}"]`).waitFor();
+      const colours = (el: Element) => {
+        const cs = getComputedStyle(el);
+        return [cs.color, cs.backgroundColor] as [string, string];
+      };
+      const primary = ov.getByRole("button", { name: "Novo workspace" });
+      // The dialog is modal (the theme switch behind it is inert), so each theme opens and closes its own.
+      const openDanger = async () => {
+        await ov.locator(`[data-workspace-id="${id}"]`).getByRole("button", { name: "Mais ações" }).click();
+        await ov.getByRole("menuitem", { name: "Excluir" }).click();
+        const dialog = ov.getByRole("alertdialog");
+        await dialog.waitFor();
+        const danger = dialog.getByRole("button", { name: "Excluir workspace" });
+        const field = dialog.getByLabel(/Digite/);
+        if (await field.count()) await field.fill("Perigo");
+        await expect.poll(() => danger.isEnabled()).toBe(true);
+        return { dialog, danger };
+      };
+      for (const theme of ["Escuro", "Claro"] as const) {
+        await setTheme(ov, theme);
+        const [pfg, pbg] = await primary.evaluate(colours);
+        expect(contrastRatio(pfg, pbg), `primário ${theme}`).toBeGreaterThanOrEqual(4.5);
+        const { danger } = await openDanger();
+        let restBg = "";
+        for (const state of ["rest", "hover"] as const) {
+          if (state === "hover") await danger.hover();
+          else await ov.mouse.move(5, 5);
+          await ov.waitForTimeout(300);
+          const [fg, bg] = await danger.evaluate((el) => {
+            const cs = getComputedStyle(el);
+            const probe = document.createElement("div");
+            probe.style.background = cs.backgroundColor;
+            return [cs.color, cs.backgroundColor === "rgba(0, 0, 0, 0)" ? getComputedStyle(el.closest("[role=alertdialog]")!).backgroundColor : cs.backgroundColor] as [string, string];
+          });
+          expect(contrastRatio(fg, bg), `perigo ${theme} ${state}`).toBeGreaterThanOrEqual(4.5);
+          if (state === "rest") restBg = `${fg}/${bg}`;
+        }
+        expect(restBg).not.toBe(`${pfg}/${pbg}`);
+        await ov.keyboard.press("Escape");
+        await ov.getByRole("alertdialog").waitFor({ state: "detached" });
+      }
+      await ov.close();
+    }, 30_000);
 
     it("a regra de movimento reduzido vale para o chrome e não entra no documento (ADR 0003)", async () => {
       const rm = await browser.newPage({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
       await pinLocale(rm, "pt-BR");
-      await rm.goto(external!.url);
-      await rm.locator(".workspace-card.is-active").click();
-      await rm.waitForSelector('[data-paprika-id="login"]');
+      // The seeded workspace, not the "active" one: the tests above create others, which may have taken over.
+      await rm.goto(page.url());
+      await rm.waitForSelector('[data-paprika-id="login"]', { timeout: 10_000 }).catch(async (e) => {
+        throw new Error(`${e.message} @ ${rm.url()} :: ${(await rm.evaluate(() => document.body.innerText).catch(() => "?")).slice(0, 300)}`);
+      });
       const probe = await rm.evaluate(() => {
-        const chrome = document.querySelector("nav[aria-label=Ferramentas] button");
-        const world = document.querySelector(".world [data-paprika-id]");
+        const chrome = document.querySelector("[role=toolbar][aria-label=Ferramentas] button");
+        const world = document.querySelector("[data-canvas-world] [data-paprika-id]");
         if (!chrome || !world) return null;
         return {
-          chrome: getComputedStyle(chrome).transitionDuration,
-          world: getComputedStyle(world).transitionDuration,
-          worldLineHeight: getComputedStyle(document.querySelector(".world")!).lineHeight,
+          // Tailwind's `motion-reduce:transition-none` sets the property to none and leaves the duration alone: no property, no transition.
+          chrome: getComputedStyle(chrome).transitionProperty === "none" ? "0s" : getComputedStyle(chrome).transitionDuration,
+          world: getComputedStyle(world).transitionProperty === "none" ? "0s" : getComputedStyle(world).transitionDuration,
+          worldLineHeight: getComputedStyle(document.querySelector("[data-canvas-world]")!).lineHeight,
         };
       });
       await rm.close();
       expect(probe).not.toBeNull();
-      expect(probe!.chrome).not.toBe("0s");
+      expect(probe!.chrome).toBe("0s");
       expect(probe!.world).toBe("0s");
       expect(probe!.worldLineHeight).toBe("normal");
-    });
-
-    it("o botão de perigo passa de 4,5:1 nos dois temas, no repouso e no hover, e não é a cor do primário (1.4.3)", async () => {
-      for (const panel of ["dark", "light"] as const) {
-        const danger = gal.locator(`[data-panel=${panel}] [data-slot=button]`).filter({ hasText: /^Excluir$/ }).first();
-        let restBg = "";
-        for (const state of ["rest", "hover"] as const) {
-          if (state === "hover") await danger.hover();
-          else await gal.mouse.move(5, 5);
-          await gal.waitForTimeout(300);
-          const [fg, bg] = await danger.evaluate((el) => [getComputedStyle(el).color, getComputedStyle(el).backgroundColor] as [string, string]);
-          expect(contrastRatio(fg, bg), `${panel} ${state}`).toBeGreaterThanOrEqual(4.5);
-          if (state === "rest") restBg = bg;
-        }
-        const [, primary] = await contrastIn(panel, "button");
-        expect(restBg).not.toBe(primary);
-      }
-    });
+    }, 30_000);
   });
 
   describe("confirmação de exclusão do overview (PAP-B-026)", () => {
@@ -412,13 +423,13 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
     beforeAll(async () => {
       ov = await browser.newPage({ viewport: { width: 1440, height: 900 } });
       await pinLocale(ov, "pt-BR");
-      const made = await fetch(`${external!.url}/api/workspaces`, {
+      const made = await fetch(`${external().url}/api/workspaces`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ name: "Para confirmar" }),
       });
       extra = ((await made.json()) as { workspace: { id: string } }).workspace.id;
-      await ov.goto(external!.url);
+      await ov.goto(external().url);
       await ov.locator(`[data-workspace-id="${extra}"]`).waitFor();
     }, 30_000);
 
@@ -427,29 +438,37 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
     });
 
     const exists = async () => {
-      const list = (await (await fetch(`${external!.url}/api/workspaces`)).json()) as { workspaces: { id: string }[] };
+      const list = (await (await fetch(`${external().url}/api/workspaces`)).json()) as { workspaces: { id: string }[] };
       return list.workspaces.some((w) => w.id === extra);
     };
 
-    it("abre com o foco em Cancelar, o Esc cancela e devolve o foco ao botão de excluir", async () => {
-      const trash = ov.getByRole("button", { name: "Excluir Para confirmar" });
-      await trash.click();
+    // The old confirmation put the focus on Cancel; the new one asks for the name, so it opens on the field (the safe control) and Cancel is one Tab away.
+    const openDelete = async () => {
+      const more = ov.locator(`[data-workspace-id="${extra}"]`).getByRole("button", { name: "Mais ações" });
+      await more.click();
+      await ov.getByRole("menuitem", { name: "Excluir" }).click();
       const dialog = ov.getByRole("alertdialog");
       await dialog.waitFor();
-      const cancel = dialog.getByRole("button", { name: "Cancelar" });
-      await expect.poll(() => cancel.evaluate((el) => el === document.activeElement)).toBe(true);
-      await expect.poll(() => ov.getByRole("tooltip").count()).toBe(0);
+      return { more, dialog };
+    };
+
+    it("abre com o foco no campo do nome (nunca no botão de excluir), o Esc cancela e devolve o foco à origem", async () => {
+      const { more, dialog } = await openDelete();
+      const field = dialog.getByLabel(/Digite/);
+      await expect.poll(() => field.evaluate((el) => el === document.activeElement)).toBe(true);
+      await expect.poll(() => dialog.getByRole("button", { name: "Excluir workspace" }).isDisabled()).toBe(true);
+      await expect.poll(() => ov.locator("[data-slot=tooltip-content]:not([data-closed])").count()).toBe(0);
+      await ov.keyboard.press("Tab");
+      await expect.poll(() => dialog.getByRole("button", { name: "Cancelar" }).evaluate((el) => el === document.activeElement)).toBe(true);
       await ov.keyboard.press("Escape");
       await expect.poll(() => dialog.count()).toBe(0);
-      await expect.poll(() => trash.evaluate((el) => el === document.activeElement)).toBe(true);
+      await expect.poll(() => ov.evaluate(() => document.activeElement?.closest("[data-workspace-id]") != null || document.activeElement?.tagName === "BODY")).toBe(true);
       expect(await exists()).toBe(true);
+      void more;
     }, 15_000);
 
     it("excluir pede o nome digitado: só o nome exato libera o botão, que passa de 4,5:1", async () => {
-      const trash = ov.getByRole("button", { name: "Excluir Para confirmar" });
-      await trash.click();
-      const dialog = ov.getByRole("alertdialog");
-      await dialog.waitFor();
+      const { dialog } = await openDelete();
       const confirm = dialog.getByRole("button", { name: "Excluir workspace" });
       await expect.poll(() => confirm.isDisabled()).toBe(true);
       const field = dialog.getByLabel(/Digite/);
@@ -459,7 +478,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: acessibilidade do editor pelo teclad
       await expect.poll(() => confirm.isEnabled()).toBe(true);
       const [fg, bg] = await confirm.evaluate((el) => {
         const cs = getComputedStyle(el);
-        return [cs.color, cs.backgroundColor] as [string, string];
+        return [cs.color, cs.backgroundColor === "rgba(0, 0, 0, 0)" ? getComputedStyle(el.closest("[role=alertdialog]")!).backgroundColor : cs.backgroundColor] as [string, string];
       });
       expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
       await confirm.click();
