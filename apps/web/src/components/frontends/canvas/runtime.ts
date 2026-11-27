@@ -113,7 +113,9 @@ export function createRuntime(parts: RuntimeParts): CanvasRuntime {
       const el = index.element(id) ?? (vp ? elementOf(vp, id) : null);
       if (!vp || !el) return null;
       const node = index.doc().nodes[id];
-      const rotation = node && node.type !== "group" && node.type !== "connector" && node.type !== "page" ? node.rotation : 0;
+      const turnable = node && node.type !== "group" && node.type !== "connector" && node.type !== "page" ? node : null;
+      // A gesture that turns the node publishes the angle in the preview before the document has it: the outline and the handles follow it.
+      const rotation = store.state.preview[id]?.rotation ?? turnable?.rotation ?? 0;
       return measureElement(el, vp.getBoundingClientRect(), view.get(), rotation);
     },
     element: (id) => index.element(id) ?? (viewport() ? elementOf(viewport()!, id) : null),

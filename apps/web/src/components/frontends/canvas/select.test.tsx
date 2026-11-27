@@ -380,6 +380,24 @@ describe("rotate", () => {
     expect(onApply).toHaveBeenCalledWith([{ op: "update", id: "btn", props: { rotation: 90 } }], "rotate");
   });
 
+  it("the outline and the handles turn with the node while the knob is dragged, not only after the release", () => {
+    const { overlays, world } = mount(everyKindDocument(), { selection: ["btn"] });
+    const c = centre(node(world, "btn"));
+    const outline = () => overlays.querySelector<HTMLElement>("[data-selection-box='btn']") as HTMLElement;
+    const turned = () => overlays.querySelector<HTMLElement>("[data-selection-handles] > div") as HTMLElement;
+    expect(outline().style.transform).toBe("");
+    down(knob(overlays), { clientX: c.x, clientY: c.y - 50 });
+    move({ clientX: c.x + 50, clientY: c.y });
+    expect(node(world, "btn").style.transform).toBe("rotate(90deg)");
+    expect(outline().style.transform).toBe("rotate(90deg)");
+    expect(turned().style.transform).toContain("rotate(90deg)");
+    move({ clientX: c.x, clientY: c.y + 50 });
+    expect(outline().style.transform).toBe("rotate(180deg)");
+    expect(turned().style.transform).toContain("rotate(180deg)");
+    fireEvent.pointerCancel(window, { pointerId: 1 });
+    expect(outline().style.transform).toBe("");
+  });
+
   it("Shift snaps to 15 degrees, also when the key goes down while the pointer rests", () => {
     const { overlays, world, onApply } = mount(everyKindDocument(), { selection: ["btn"] });
     const c = centre(node(world, "btn"));
@@ -413,7 +431,11 @@ describe("the layers menu", () => {
     under = [node(world, "dot"), node(world, "home")];
     fireEvent.contextMenu(viewport, { clientX: 10, clientY: 10 });
     const menu = await screen.findByRole("menu");
-    expect(within(menu).getByRole("menuitemcheckbox", { name: "Center content" })).toBeInTheDocument();
+    const center = within(menu).getByRole("menuitemcheckbox", { name: /Center content/ });
+    expect(center).toBeInTheDocument();
+    // the key of the editor's "centre content", as the old menu showed it (Alt and C, one chip each)
+    expect(center).toHaveAttribute("aria-keyshortcuts", "Alt+C");
+    expect([...center.querySelectorAll("kbd")].map((k) => k.textContent)).toHaveLength(2);
     await user().click(within(menu).getByRole("menuitem", { name: "Convert to path" }));
     expect(onConvertToPath).toHaveBeenCalledWith(["dot"]);
   });
