@@ -24,8 +24,22 @@ describe("documentFonts", () => {
     const first = documentFonts(doc);
     const touch = (from: typeof doc, id: string, props: Record<string, unknown>) => ({ ...from, nodes: { ...from.nodes, [id]: { ...from.nodes[id], ...props } as Node } });
     const moved = touch(doc, "n5", { x: 5 });
-    expect(documentFonts(moved)).toBe(first);
+    expect(documentFonts(moved, first)).toBe(first);
     const changed = touch(moved, "n6", { fontFamily: "Mono" });
-    expect(documentFonts(changed)).toEqual(["Inter", "Mono"]);
+    expect(documentFonts(changed, first)).toEqual(["Inter", "Mono"]);
+  });
+
+  it("is pure: what an earlier call returned, for any document, changes nothing about this one", () => {
+    const a = withFonts({ n2: "Inter" });
+    const b = withFonts({ n3: "Mono" });
+    const alone = documentFonts(withFonts({ n3: "Mono" }));
+    documentFonts(a);
+    const after = documentFonts(b);
+    expect(after).toEqual(alone);
+    // The identity of a result never leaks to another document or to a call without `previous`.
+    const empty = makeDocument(10);
+    expect(documentFonts(empty)).not.toBe(documentFonts(a));
+    expect(documentFonts(a)).toBe(documentFonts(a));
+    expect(documentFonts(a, ["Other"])).toEqual(["Inter"]);
   });
 });

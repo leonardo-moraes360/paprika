@@ -1,19 +1,26 @@
 import { act, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { alwaysMountedRegionIds, editorRegionIds } from "@/editor/editor";
 import { docMessage, nodeDelta, renderEditorRig, serveDocument } from "@/test/live-harness";
 
 const NODES = 5000;
+
+afterEach(() => vi.useRealTimers());
+
+/** Time is the test's from here on: only timers and `Date` are faked, and only after `findBy*` (which polls on real ones) is done. */
+const useClock = () => vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+const elapse = (ms: number) => act(async () => void (await vi.advanceTimersByTimeAsync(ms)));
 
 async function openEditor() {
   const view = await renderEditorRig({ nodes: NODES });
   expect(screen.queryByRole("banner")).not.toBeInTheDocument();
   serveDocument(view.rig, view.doc);
   await screen.findByRole("banner");
-  // Let the regions' own mount effects (toolbar, hotkeys, persisted state) finish: only what a delta causes is counted.
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  });
+  // The layers mount in a transition right after the first paint: wait for them, then let the regions' own mount effects
+  // (toolbar, hotkeys, persisted state) and the panels' refresh intervals pass. Only what a delta causes is counted.
+  await screen.findByRole("tree", { name: "Layer tree" });
+  useClock();
+  await elapse(300);
   view.log.reset();
   return view;
 }
@@ -48,11 +55,12 @@ describe("editor commits with a document of 5 000 nodes", () => {
     // The toolbar in the stage shows "can undo": the first edit flips it, so the stage commits once. With nothing selected the properties panel is the document panel and lists the new activity entry: one commit. No other region commits.
     const first: Record<string, number> = { stage: 1, properties: 1 };
     for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(first[id] ?? 0);
-    // The next edit flips no flag: only the document panel (activity) may commit.
+    // The next edit flips no flag: only the document panel (activity) may commit, and it lists a new entry no sooner than its refresh interval after the last one.
     view.log.reset();
     view.rig.deliver(nodeDelta(after, Object.keys(before.nodes)[2502] as string, { x: 7 }, 3));
-    for (const id of editorRegionIds.filter((r) => r !== "properties")) expect(view.log.commits(id), id).toBe(0);
-    expect(view.log.commits("properties")).toBeLessThanOrEqual(1);
+    for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(0);
+    await elapse(150);
+    for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(id === "properties" ? 1 : 0);
     view.unmount();
   });
 
@@ -66,9 +74,26 @@ describe("editor commits with a document of 5 000 nodes", () => {
     expect(view.log.commits("stage")).toBe(1);
     view.log.reset();
     view.rig.push({ type: "presence", agent: "s:1", actor: "agent:claude", tool: "update_nodes", nodes: [keys[100] as string], idle: 0 });
-    // The roster mounts inside the header ("1 active"): header and agents commit twice (mount, then its clock syncs on mount); the pages and the layers show who is where, once. Presence changes nothing in the properties panel.
-    const expected: Record<string, number> = { header: 2, agents: 2, pages: 1, layers: 1 };
+    // The roster mounts inside the header ("1 active"): the header renders once (it gains the roster) and the roster once (with a real clock it commits a second time when `useNow` syncs on mount; the test clock is frozen, so that sync sets the same value and commits nothing); the pages and the layers show who is where, once. Presence changes nothing in the properties panel.
+    const expected: Record<string, number> = { header: 1, agents: 1, pages: 1, layers: 1 };
     for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(expected[id] ?? 0);
+    view.unmount();
+  });
+
+  it("a burst of 200 deltas spread over 40 frames commits no other region than the stage's toolbar once and the document panel a few times", async () => {
+    const view = await openEditor();
+    const before = view.rig.client.store.state.doc!;
+    const keys = Object.keys(before.nodes);
+    for (let frame = 0; frame < 40; frame += 1) {
+      const live = view.rig.client.store.state.doc!;
+      view.rig.deliver(...Array.from({ length: 5 }, (_, i) => nodeDelta(live, keys[100 + frame * 5 + i] as string, { x: frame }, 2 + frame * 5 + i)));
+      await elapse(16);
+    }
+    expect(view.rig.client.store.state.version).toBe(201);
+    for (const id of editorRegionIds.filter((r) => r !== "properties")) expect(view.log.commits(id), id).toBe(id === "stage" ? 1 : 0);
+    // 640 ms: the panel lists the entries at most ten times a second, not once per frame.
+    expect(view.log.commits("properties")).toBeGreaterThanOrEqual(2);
+    expect(view.log.commits("properties")).toBeLessThanOrEqual(10);
     view.unmount();
   });
 

@@ -1,6 +1,6 @@
 import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { editorRegionIds } from "@/editor/editor";
 import { deltaMessage, nodeDelta, renderEditorRig, serveDocument } from "@/test/live-harness";
 
@@ -14,16 +14,22 @@ beforeAll(() => {
   for (const key of ["clientWidth", "offsetWidth"]) Object.defineProperty(HTMLElement.prototype, key, { configurable: true, get: () => 300 });
 });
 
+afterEach(() => vi.useRealTimers());
+
+/** Time is the test's once the editor is on screen (`findBy*` polls on real timers): only timers and `Date` are faked. */
+const elapse = (ms: number) => act(async () => void (await vi.advanceTimersByTimeAsync(ms)));
+
 async function open() {
   const view = await renderEditorRig({ nodes: NODES });
   serveDocument(view.rig, view.doc);
   await screen.findByRole("banner");
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  });
-  // The first edit flips "can undo" (the toolbar); settle that so the numbers below are about the edit itself.
+  await screen.findByRole("tree", { name: "Layer tree" });
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+  await elapse(300);
+  // The first edit flips "can undo" (the toolbar); settle that (and the document panel's refresh interval) so the numbers below are about the edit itself.
   const doc = view.rig.client.store.state.doc!;
   view.rig.deliver(nodeDelta(doc, Object.keys(doc.nodes)[10] as string, { x: 1 }, 2));
+  await elapse(300);
   view.log.reset();
   return view;
 }
@@ -72,15 +78,19 @@ describe("shell regions with 5 000 nodes", () => {
   });
 
   it("selecting a layer commits the layers once (selection is not a document change) and no other region", async () => {
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
     const view = await open();
     const items = within(screen.getByRole("tree", { name: "Layer tree" })).getAllByRole("treeitem");
     const row = items[5] as HTMLElement;
     const name = row.textContent as string;
     view.log.reset();
+    // user-event waits on a real `setTimeout` (through Testing Library's async wrapper): nothing in this test depends on time.
+    vi.useRealTimers();
     await user.click(within(row).getByText(name));
     expect(row).toHaveAttribute("aria-selected", "true");
-    expect(view.log.commits("layers")).toBeGreaterThanOrEqual(1);
+    // Two commits, not more: the pointer press (focus, highlight) and the selection (the tree's value). The panel's switch from the document to the node is a transition after them.
+    expect(view.log.commits("layers")).toBe(2);
+    expect(view.log.stats().layers?.actualDuration).toBeGreaterThan(0);
     for (const id of editorRegionIds.filter((r) => !["layers", "properties", "activity", "stage"].includes(r))) expect(view.log.commits(id), id).toBe(0);
     report("select one layer", view);
     view.unmount();
@@ -100,10 +110,17 @@ describe("shell regions with 5 000 nodes", () => {
     const keys = Object.keys(view.rig.client.store.state.doc!.nodes);
     const presence = { type: "presence" as const, agent: "a:1", actor: "agent:claude", tool: "update_nodes", nodes: [keys[100] as string], idle: 0 };
     view.rig.push(presence);
+    await elapse(500);
+    // A heartbeat comes some time later (the clock moves, as it does for a real agent).
+    await elapse(1000);
     view.log.reset();
     view.rig.push(presence, presence, presence);
-    // The roster (in the header) shows when each agent was last active, so a heartbeat commits it once (the header's profiler sees it too); the layers and pages show the same nodes and do not commit.
-    only(view, { header: 1, agents: 1 });
+    // The roster (in the header) shows when each agent was last active, so a heartbeat commits it once, and the header not at all (its profiler sees the roster's commit, the perf log does not count it for the header); the layers and pages show the same nodes and do not commit.
+    // Under the test clock React also reports a trailing commit of the roster that rendered nothing (about 0.002 ms, a bailout): it is not a render, so renders are counted by time spent.
+    const renders = view.log.entries().filter((entry) => entry.id === "agents" && entry.actualDuration > 0.05);
+    expect(renders).toHaveLength(1);
+    for (const id of editorRegionIds.filter((r) => r !== "agents")) expect(view.log.commits(id), id).toBe(0);
+    expect(view.log.commits("agents")).toBeLessThanOrEqual(2);
     view.log.reset();
     view.rig.deliver(deltaMessage(view.rig.client.store.state.doc!, 3, { name: "Still the header only" }));
     // header: the name. properties: the name of the document and the new activity entry.

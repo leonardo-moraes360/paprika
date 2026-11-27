@@ -1,5 +1,5 @@
 import { useFormatForDisplay } from "@tanstack/react-hotkeys";
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { documentFonts } from "@/adapters/doc-fonts";
 import { panelInput, type PanelInput } from "@/adapters/properties";
@@ -34,10 +34,12 @@ export function usePanelInput(refreshMs = PANEL_REFRESH_MS): PanelInput {
   const shownAt = useRef(0);
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const show = (next: PanelInput) => {
+    // A new selection is shown in a transition: the layer's highlight (and the canvas) paint first and the panel's fields mount in slices after.
+    const show = (next: PanelInput, selectionChanged = false) => {
       held.current = next;
       shownAt.current = Date.now();
-      setInput(next);
+      if (selectionChanged) startTransition(() => setInput(next));
+      else setInput(next);
     };
     const refresh = () => {
       timer = undefined;
@@ -48,10 +50,11 @@ export function usePanelInput(refreshMs = PANEL_REFRESH_MS): PanelInput {
       const next = panelInput(held.current, live.state.doc, editor.state.selection);
       if (next === held.current) return;
       const wait = shownAt.current + refreshMs - Date.now();
-      if (next.selected !== held.current.selected || next.doc?.id !== held.current.doc?.id || wait <= 0) {
+      const selectionChanged = next.selected !== held.current.selected;
+      if (selectionChanged || next.doc?.id !== held.current.doc?.id || wait <= 0) {
         clearTimeout(timer);
         timer = undefined;
-        show(next);
+        show(next, selectionChanged && next.doc?.id === held.current.doc?.id);
       } else if (timer === undefined) timer = setTimeout(refresh, wait);
     };
     onChange();

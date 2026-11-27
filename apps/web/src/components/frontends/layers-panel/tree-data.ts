@@ -16,6 +16,22 @@ export function buildItems(rows: readonly LayerRowData[]): TreeItemData[] {
   return roots;
 }
 
+/** Whether two row lists draw the same tree: same ids, names and levels in the same order (selection, visibility and lock do not count). */
+export function sameStructure(a: readonly LayerRowData[], b: readonly LayerRowData[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    const x = a[i] as LayerRowData;
+    const y = b[i] as LayerRowData;
+    if (x !== y && (x.id !== y.id || x.name !== y.name || x.level !== y.level)) return false;
+  }
+  return true;
+}
+
+export function sameStrings(a: readonly string[], b: readonly string[]): boolean {
+  return a === b || (a.length === b.length && a.every((value, i) => value === b[i]));
+}
+
 export function subtreeEnd(rows: readonly LayerRowData[], index: number): number {
   const level = rows[index]?.level ?? 0;
   let end = index + 1;

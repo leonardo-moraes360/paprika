@@ -1,7 +1,7 @@
 import type { Document, Node } from "@paprika/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeDocument } from "@/test/live-harness";
-import { DocLint, inlineTransport, workerTransport, type TransportFactory } from "./doc-lint";
+import { DocLint, IDLE_TIMEOUT_MS, inlineTransport, nullTransport, workerTransport, type TransportFactory } from "./doc-lint";
 import { applyPatch, countNodes, diffDocuments, LINT_TOP, LintRunner, patchSize, summarize, type LintRequest, type LintSummary } from "./lint-runner";
 
 beforeEach(() => vi.useFakeTimers());
@@ -107,6 +107,43 @@ describe("DocLint feeding", () => {
     vi.advanceTimersByTime(100);
     expect(rec.posted[3]?.type).toBe("reset");
     expect(lint.stats.resets).toBe(3);
+  });
+
+  it("waits for an idle moment before the first reset (so opening paints first), then coalesces as usual", () => {
+    const callbacks: { run: () => void; options?: IdleRequestOptions }[] = [];
+    vi.stubGlobal("requestIdleCallback", (run: () => void, options?: IdleRequestOptions) => callbacks.push({ run, options }));
+    vi.stubGlobal("cancelIdleCallback", () => {});
+    try {
+      const rec = recorder();
+      const lint = new DocLint(rec.factory);
+      lint.update(doc);
+      lint.update(edit(doc, "n5", { x: 1 }));
+      vi.advanceTimersByTime(5000);
+      expect(rec.posted).toHaveLength(0);
+      expect(callbacks).toHaveLength(1);
+      expect(callbacks[0]?.options).toEqual({ timeout: IDLE_TIMEOUT_MS });
+      callbacks[0]?.run();
+      expect(rec.posted).toHaveLength(1);
+      expect(rec.posted[0]?.type).toBe("reset");
+      // After the first one, the 100 ms timer again.
+      lint.update(edit(doc, "n6", { x: 2 }));
+      expect(callbacks).toHaveLength(1);
+      vi.advanceTimersByTime(100);
+      expect(rec.posted[1]?.type).toBe("patch");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("the null transport lints nothing and answers nothing", () => {
+    const lint = new DocLint(nullTransport);
+    const heard = vi.fn();
+    lint.subscribe(heard);
+    lint.update(doc);
+    vi.advanceTimersByTime(1000);
+    expect(lint.stats.posts).toBe(1);
+    expect(lint.getResult(doc.id)).toBeNull();
+    expect(heard).not.toHaveBeenCalled();
   });
 
   it("does not post a document it already sent", () => {

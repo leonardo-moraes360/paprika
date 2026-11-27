@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { usePersistedState } from "@/lib/use-persisted-state";
 import { LAYER_ROW_HEIGHT, LayerItem } from "./layer-item";
 import { initialLayersPanelState, LayersPanelRegion } from "./store";
-import { buildItems, keyboardMove, type LayerMoveKey } from "./tree-data";
+import { buildItems, keyboardMove, sameStrings, sameStructure, type LayerMoveKey } from "./tree-data";
 import type { LayerContextItem, LayerRowData, LayerSelectMode, LayersPanelProps } from "./types";
 import { useLayerDrag } from "./use-layer-drag";
 
@@ -84,9 +84,19 @@ function LayersPanelView({
   };
 
   const byId = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
-  const items = useMemo(() => buildItems(rows), [rows]);
+  // The tree's data depends on ids, names and levels only: a new `rows` that changed just the selection, visibility or lock
+  // (every click on a layer) keeps the same `items`, `branches`, `expanded` and `visible`, so the tree does not rebuild its collection.
+  const built = useRef<{ rows: readonly LayerRowData[]; items: ReturnType<typeof buildItems> } | null>(null);
+  const items = useMemo(() => {
+    if (built.current && sameStructure(built.current.rows, rows)) return built.current.items;
+    built.current = { rows, items: buildItems(rows) };
+    return built.current.items;
+  }, [rows]);
   const selectedIds = useMemo(() => rows.filter((row) => row.selected).map((row) => row.id), [rows]);
-  const branches = useMemo(() => rows.filter((row) => row.hasChildren).map((row) => row.id), [rows]);
+  const branchList = useMemo(() => rows.filter((row) => row.hasChildren).map((row) => row.id), [rows]);
+  const lastBranches = useRef(branchList);
+  const branches = sameStrings(lastBranches.current, branchList) ? lastBranches.current : branchList;
+  lastBranches.current = branches;
   const expanded = useMemo(() => {
     const closed = new Set(collapsed);
     return branches.filter((id) => !closed.has(id));

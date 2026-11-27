@@ -8,6 +8,7 @@ import { useLiveClient } from "@/data/live";
 import { useEditor, useEditorActions, useEditorStore } from "../editor-store";
 import { useActiveAgents } from "../use-active-agents";
 import { useActivePageId, useCorrectSelection } from "../use-active-page";
+import { useAfterFirstPaint } from "../use-after-paint";
 import { useApplyOps } from "../use-apply";
 import { useSelectionActions } from "../use-selection-actions";
 
@@ -37,8 +38,16 @@ function useLayerRows(pageId: string | null, selection: readonly string[], touch
   return useSyncExternalStore(subscribe, read, () => noRows);
 }
 
-/** The layers of the page in view: selection, rename, move, visibility, lock, context menu and "show all"/"unlock all", all by ops. */
+/**
+ * The layers of the page in view. The body mounts in a transition right after the first paint (a document of thousands of
+ * nodes would otherwise make the opening one long task); the panel is empty for that one frame.
+ */
 export function Layers() {
+  return useAfterFirstPaint() ? <LayersBody /> : null;
+}
+
+/** Selection, rename, move, visibility, lock, context menu and "show all"/"unlock all", all by ops. */
+function LayersBody() {
   const { t } = useTranslation();
   const client = useLiveClient();
   const editor = useEditorActions();
