@@ -89,7 +89,8 @@ describe("delta", () => {
     const untouched = ids.filter((id) => id !== a && after.nodes[id] === before.nodes[id]);
     expect(untouched).toHaveLength(ids.length - 1);
     expect(rig.client.store.state.version).toBe(2);
-    expect(rig.client.store.state.activity[0]).toMatchObject({ id: 2, actor: "agent:claude", label: "update_nodes", changed: [a] });
+    expect(rig.client.store.state.activity[0]).toMatchObject({ id: 2, actor: "agent:claude", label: "update_nodes" });
+    expect(rig.client.store.state.activity[0]).not.toHaveProperty("changed");
   });
 
   it("turns a burst into a single state update and a single document copy", async () => {
@@ -163,26 +164,59 @@ describe("delta", () => {
     expect(rig.client.store.state.activity).toEqual([]);
   });
 
-  it("does not log a silent reload as activity and computes the changed ids of a snapshot otherwise", async () => {
+  it("logs a snapshot of a new version as activity without comparing the nodes, and a silent reload as nothing", async () => {
     const rig = createLiveRig();
     await rig.connect();
     rig.deliver(docMessage(doc, 1));
     const edited = JSON.parse(JSON.stringify(doc)) as typeof doc;
     (edited.nodes[a] as { x: number }).x = 999;
     rig.deliver(docMessage(edited, 2, { actor: "agent:x", label: "import_svg", kind: "import" }));
-    expect(rig.client.store.state.activity[0]).toMatchObject({ actor: "agent:x", changed: [a] });
+    expect(rig.client.store.state.activity[0]).toMatchObject({ id: 2, actor: "agent:x", label: "import_svg" });
+    expect(rig.client.store.state.activity[0]).not.toHaveProperty("changed");
     rig.deliver(docMessage(edited, 3));
     expect(rig.client.store.state.activity).toHaveLength(1);
+  });
+
+  it("a snapshot of the version already in view is no activity and keeps the document and every node reference", async () => {
+    const rig = createLiveRig();
+    await rig.connect();
+    rig.deliver(docMessage(doc, 7));
+    const before = rig.client.store.state;
+    const copy = JSON.parse(JSON.stringify(doc)) as typeof doc;
+    // The overview's `open` broadcast and the answer to `view` bring the whole document twice (user/open, then server/reload).
+    rig.deliver(docMessage(copy, 7, { actor: "user", label: "", kind: "open", canUndo: true }));
+    const after = rig.client.store.state;
+    expect(after.activity).toEqual([]);
+    expect(after.doc).toBe(before.doc);
+    expect(after.doc?.nodes[a]).toBe(before.doc?.nodes[a]);
+    expect(after.version).toBe(7);
+    expect(after.canUndo).toBe(true);
+    rig.deliver(docMessage(copy, 7, { actor: "server", kind: "reload", canUndo: true }));
+    expect(rig.client.store.state).toBe(after);
+  });
+
+  it("the repeated snapshot does not wake the subscribers of the document", async () => {
+    const rig = createLiveRig();
+    await rig.connect();
+    rig.deliver(docMessage(doc, 7));
+    const seen: unknown[] = [];
+    const sub = rig.client.store.subscribe((s) => seen.push(s.doc));
+    rig.deliver(docMessage(JSON.parse(JSON.stringify(doc)), 7, { actor: "user", kind: "open" }));
+    sub.unsubscribe();
+    expect(seen).toEqual([]);
   });
 });
 
 describe("checkStale", () => {
+  const send = (rig: ReturnType<typeof createLiveRig>) => void rig.client.actions.apply([{ op: "noop" } as never]).catch(() => {});
+
   it("asks for a view when an ack announces a version that never arrives", async () => {
     const rig = createLiveRig();
     const socket = await rig.connect();
     rig.deliver(docMessage(doc, 1));
     const before = socket.sentOf("view").length;
-    rig.push({ type: "ack", reqId: "x", version: 5 });
+    send(rig);
+    await act(async () => socket.ack(socket.lastReqId("ops"), 5));
     await act(async () => void vi.advanceTimersByTime(1499));
     expect(socket.sentOf("view")).toHaveLength(before);
     await act(async () => void vi.advanceTimersByTime(2));
@@ -194,11 +228,13 @@ describe("checkStale", () => {
     const socket = await rig.connect();
     rig.deliver(docMessage(doc, 1));
     const before = socket.sentOf("view").length;
-    rig.push({ type: "ack", reqId: "x", version: 2 });
+    send(rig);
+    await act(async () => socket.ack(socket.lastReqId("ops"), 2));
     rig.deliver(nodeDelta(doc, a, { x: 1 }, 2));
     await act(async () => void vi.advanceTimersByTime(2000));
     expect(socket.sentOf("view")).toHaveLength(before);
-    rig.push({ type: "ack", reqId: "y", version: 3 });
+    send(rig);
+    await act(async () => socket.ack(socket.lastReqId("ops"), 3));
     act(() => socket.receive(nodeDelta(doc, a, { x: 2 }, 3, {})));
     await act(async () => void vi.advanceTimersByTime(2000));
     expect(socket.sentOf("view")).toHaveLength(before);
@@ -209,9 +245,57 @@ describe("checkStale", () => {
     const socket = await rig.connect();
     rig.deliver(docMessage(doc, 1));
     const before = socket.sentOf("view").length;
-    rig.push({ type: "ack", reqId: "x", version: 9 });
+    send(rig);
+    await act(async () => socket.ack(socket.lastReqId("ops"), 9));
     await act(async () => void vi.advanceTimersByTime(101));
     expect(socket.sentOf("view")).toHaveLength(before + 1);
+  });
+
+  it("ignores the ack of a request that left from another workspace", async () => {
+    const rig = createLiveRig();
+    const socket = await rig.connect();
+    rig.deliver(docMessage(doc, 1));
+    const before = socket.sentOf("view").length;
+    send(rig);
+    const reqId = socket.lastReqId("ops");
+    rig.deliver(docMessage(makeDocument(3, { id: "w2" }), 1));
+    await act(async () => socket.ack(reqId, 40));
+    await act(async () => void vi.advanceTimersByTime(5000));
+    expect(socket.sentOf("view")).toHaveLength(before);
+  });
+
+  it("checks again later when frames were still waiting at the first check, and asks if the version never came", async () => {
+    const rig = createLiveRig({ staleResyncMs: 100 });
+    const socket = await rig.connect();
+    rig.deliver(docMessage(doc, 1));
+    const before = socket.sentOf("view").length;
+    send(rig);
+    await act(async () => socket.ack(socket.lastReqId("ops"), 5));
+    act(() => socket.receive(nodeDelta(doc, a, { x: 1 }, 2, {})));
+    await act(async () => void vi.advanceTimersByTime(150));
+    expect(socket.sentOf("view")).toHaveLength(before);
+    rig.scheduler.flush();
+    await act(async () => void vi.advanceTimersByTime(150));
+    expect(rig.client.store.state.version).toBe(2);
+    expect(socket.sentOf("view")).toHaveLength(before + 1);
+  });
+
+  it("a quick switch a to b: the late ack of the first view and its document do not make b ask again", async () => {
+    const rig = createLiveRig();
+    const socket = await rig.connect();
+    const before = socket.sentOf("view").length;
+    const first = rig.client.view("wa");
+    const firstReq = socket.lastReqId("view");
+    const second = rig.client.view("wb");
+    const secondReq = socket.lastReqId("view");
+    expect(socket.sentOf("view").slice(before).map((m) => m.workspaceId)).toEqual(["wa", "wb"]);
+    rig.deliver(docMessage(makeDocument(3, { id: "wb" }), 4));
+    await act(async () => socket.ack(secondReq, 4));
+    await act(async () => socket.ack(firstReq, 9));
+    await Promise.all([first, second]);
+    await act(async () => void vi.advanceTimersByTime(5000));
+    expect(rig.client.store.state.doc?.id).toBe("wb");
+    expect(socket.sentOf("view")).toHaveLength(before + 2);
   });
 });
 
@@ -360,8 +444,8 @@ describe("requests (reqId, ack, error)", () => {
     await expect(own).resolves.toEqual(step);
     const byStep = rig.client.actions.redoStep(8);
     expect(socket.sentOf("redo").at(-1)).toMatchObject({ mode: "step", step: 8 });
-    act(() => socket.ack(socket.lastReqId("redo"), 6, { step: { ...step, result: "applied" } }));
-    await expect(byStep).resolves.toMatchObject({ result: "applied" });
+    act(() => socket.ack(socket.lastReqId("redo"), 6, { step: { ...step, result: "redone" } }));
+    await expect(byStep).resolves.toMatchObject({ result: "redone" });
     const redo = rig.client.actions.redo();
     act(() => socket.ack(socket.lastReqId("redo"), 7));
     await expect(redo).resolves.toBe(7);
@@ -383,6 +467,50 @@ describe("requests (reqId, ack, error)", () => {
     await expect(result).rejects.toThrow('workspace "ghost" does not exist');
   });
 
+  it("a refused view goes back to following the active workspace, also after a reconnection", async () => {
+    const rig = createLiveRig();
+    const first = await rig.connect();
+    const result = rig.client.view("ghost");
+    act(() => first.receive({ type: "error", reqId: first.lastReqId("view") as string, message: "nope" }));
+    await expect(result).rejects.toThrow("nope");
+    act(() => first.drop());
+    await act(async () => void vi.advanceTimersByTime(1000));
+    act(() => rig.sockets.last.open());
+    expect(rig.sockets.last.sentOf("view")).toEqual([{ type: "view", reqId: expect.any(String) }]);
+  });
+
+  it("a refused view does not undo a newer view request", async () => {
+    const rig = createLiveRig();
+    const socket = await rig.connect();
+    const refused = rig.client.view("ghost");
+    const ghostReq = socket.lastReqId("view") as string;
+    void rig.client.view("w2").catch(() => {});
+    act(() => socket.receive({ type: "error", reqId: ghostReq, message: "nope" }));
+    await expect(refused).rejects.toThrow("nope");
+    act(() => socket.drop());
+    await act(async () => void vi.advanceTimersByTime(1000));
+    act(() => rig.sockets.last.open());
+    expect(rig.sockets.last.sentOf("view")[0]).toMatchObject({ workspaceId: "w2" });
+  });
+
+  it("view(null) asks for the active workspace", async () => {
+    const rig = createLiveRig();
+    const socket = await rig.connect();
+    void rig.client.view("w1");
+    void rig.client.view(null);
+    expect(socket.sentOf("view").at(-1)).toEqual({ type: "view", reqId: expect.any(String) });
+  });
+
+  it("stop rejects the views that were waiting for a connection", async () => {
+    const rig = createLiveRig();
+    const queued = rig.client.view("w1");
+    const caught = queued.catch((e: unknown) => e);
+    rig.client.start();
+    await flushMicrotasks();
+    rig.client.stop();
+    expect(isOfflineError(await caught)).toBe(true);
+  });
+
   it("two views of the same workspace in a row share one request", async () => {
     const rig = createLiveRig();
     const socket = await rig.connect();
@@ -392,7 +520,7 @@ describe("requests (reqId, ack, error)", () => {
     expect(socket.sentOf("view")).toHaveLength(before + 1);
     act(() => socket.ack(socket.lastReqId("view"), 1));
     await expect(Promise.all([first, second])).resolves.toBeDefined();
-    void rig.client.view("w2");
+    void rig.client.view("w2").catch(() => {});
     expect(socket.sentOf("view")).toHaveLength(before + 2);
   });
 
@@ -425,6 +553,17 @@ describe("workspaceOp", () => {
     expect(rig.client.store.state.workspaceNotice).toMatchObject({ op: "rename", workspaceName: "Name", actor: "agent:claude" });
     act(() => rig.client.actions.dismissWorkspaceNotice());
     expect(rig.client.store.state.workspaceNotice).toBeNull();
+  });
+
+  it("an agent archiving or restoring a workspace leaves the notice on screen as it was", async () => {
+    const rig = createLiveRig();
+    await rig.connect();
+    rig.deliver(docMessage(doc, 1));
+    rig.push(op({ op: "delete", workspaceId: "other", workspaceName: "Gone" }));
+    const shown = rig.client.store.state.workspaceNotice;
+    expect(shown).toMatchObject({ op: "delete", workspaceName: "Gone" });
+    rig.push(op({ op: "archive", workspaceId: "other" }), op({ op: "unarchive", workspaceId: "other" }));
+    expect(rig.client.store.state.workspaceNotice).toBe(shown);
   });
 
   it("ignores the rename of a workspace that is not in view", async () => {

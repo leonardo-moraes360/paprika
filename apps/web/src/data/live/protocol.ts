@@ -9,7 +9,8 @@ export type MapPatch<T> = { set?: Record<string, T>; del?: string[] };
 
 export type RendererMode = "dom" | "wasm";
 
-export type StepResultKind = "applied" | "conflict" | "nothing" | "missing" | (string & {});
+/** What the server answers to a step undo/redo (`StepResult.Result` in `server/internal/server/store.go`). */
+export type StepResultKind = "undone" | "redone" | "conflict" | "nothing" | "missing";
 
 /** Answer of `undo`/`redo` with `mode: "own" | "step"` (`ack.step`). */
 export type StepResult = {

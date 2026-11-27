@@ -96,6 +96,20 @@ afterEach(() => {
 });
 
 describe("/ against the server's routes", () => {
+  it("asks the socket for the active workspace on arrival, so the list follows it and not the last workspace seen", async () => {
+    const server = fakeServer({ workspaces: [row("a", "Demo", { active: true }), row("b", "Checkout")] });
+    const { rig, router } = mount(server);
+    await screen.findByText("Demo");
+    const socket = await rig.connect();
+    expect(socket.sentOf("view")).toEqual([{ type: "view", reqId: expect.any(String) }]);
+    await act(async () => void (await router.navigate({ to: "/w/$workspaceId", params: { workspaceId: "b" } })));
+    void rig.client.view("b").catch(() => {});
+    expect(rig.sockets.last.sentOf("view").at(-1)).toMatchObject({ workspaceId: "b" });
+    await act(async () => void (await router.navigate({ to: "/" })));
+    await screen.findByText("Demo");
+    expect(rig.sockets.last.sentOf("view").at(-1)).toEqual({ type: "view", reqId: expect.any(String) });
+  });
+
   it("asks for active and archived workspaces in one list and filters by view", async () => {
     const user = userEvent.setup();
     const server = fakeServer({ workspaces: [row("a", "Demo", { active: true }), row("b", "Checkout"), row("c", "Old brand", { archived: true })] });

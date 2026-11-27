@@ -1,9 +1,10 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useCallback, useMemo, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Overview } from "@/components/frontends/overview";
 import { toProjectEntries, toWorkspaceEntries } from "@/adapters/workspaces";
 import { errorText } from "@/data/api";
+import { useLiveClient } from "@/data/live";
 import { openWorkspace, useWorkspaceActions, useWorkspaces, useWorkspacesFollow, type PreviewShape } from "@/data/queries/workspaces";
 import { showStatusToast } from "@/lib/notify";
 import { RegionProfiler } from "@/perf";
@@ -22,6 +23,11 @@ export function OverviewContainer() {
   const query = useWorkspaces();
   const actions = useWorkspaceActions();
   useWorkspacesFollow();
+  // Back on `/` the socket follows the active workspace again (not the last one seen in the editor), as the old app did.
+  const live = useLiveClient();
+  useEffect(() => {
+    live.view(null).catch(() => {});
+  }, [live]);
   const workspaces = useMemo(() => toWorkspaceEntries(query.data?.workspaces ?? []), [query.data]);
   const folders = query.data?.folders;
   const projects = useMemo(() => toProjectEntries(folders ?? []), [folders]);

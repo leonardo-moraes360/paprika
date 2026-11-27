@@ -58,15 +58,3 @@ export function applyDelta(doc: Document, delta: DeltaMessage, owned: Set<object
   if (delta.assets) patchMap(owned, next, "assets", delta.assets);
   return { doc: next as unknown as Document, changed, created };
 }
-
-/** Ids of nodes whose content differs between two documents (a full `doc` frame has no references to compare). */
-export function changedBetween(prev: Document | null, next: Document): string[] {
-  if (!prev) return [];
-  const out: string[] = [];
-  for (const [id, node] of Object.entries(next.nodes)) {
-    const before = prev.nodes[id];
-    if (before === node) continue;
-    if (!before || JSON.stringify(before) !== JSON.stringify(node)) out.push(id);
-  }
-  return out;
-}

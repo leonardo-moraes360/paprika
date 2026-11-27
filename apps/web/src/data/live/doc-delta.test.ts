@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deltaMessage, makeDocument } from "@/test/live-harness";
-import { applyDelta, changedBetween } from "./doc-delta";
+import { applyDelta } from "./doc-delta";
 
 const doc = makeDocument(200, { id: "d" });
 const nodeIds = Object.keys(doc.nodes);
@@ -70,14 +70,5 @@ describe("applyDelta (copy on write)", () => {
     const result = applyDelta(doc, JSON.parse('{"type":"delta","id":"d","version":2,"base":1,"actor":"a","label":"","kind":"ops","canUndo":true,"canRedo":false,"nodes":{"set":{"__proto__":{"id":"p"}}}}')).doc;
     expect(Object.getPrototypeOf(result.nodes)).toBe(Object.prototype);
     expect(Object.hasOwn(result.nodes, "__proto__")).toBe(true);
-  });
-});
-
-describe("changedBetween", () => {
-  it("lists nodes whose content differs and ignores equal copies", () => {
-    const copy = JSON.parse(JSON.stringify(doc)) as typeof doc;
-    (copy.nodes[target] as { x: number }).x = 77;
-    expect(changedBetween(doc, copy)).toEqual([target]);
-    expect(changedBetween(null, copy)).toEqual([]);
   });
 });

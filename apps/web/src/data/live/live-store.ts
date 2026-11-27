@@ -1,7 +1,7 @@
 import type { Document, Op } from "@paprika/core";
 import { createStore, type Store } from "@tanstack/react-store";
 import { fetchTeamStatus } from "../api";
-import { applyDelta, changedBetween } from "./doc-delta";
+import { applyDelta } from "./doc-delta";
 import {
   isFullDocFrame,
   type AckMessage,
@@ -16,7 +16,7 @@ import {
   type WorkspaceNotice,
   type WorkspaceOp,
 } from "./protocol";
-import { isOfflineError, LiveSocket, type SocketFactory } from "./socket";
+import { isOfflineError, LiveOfflineError, LiveSocket, type SocketFactory } from "./socket";
 
 export type Activity = {
   /** Version of the document that this entry produced. */
@@ -26,8 +26,6 @@ export type Activity = {
   /** The server's kind of step (`ops`, `undo`, `redo`, `reload`...), as the message brought it. */
   kind: string;
   at: number;
-  /** Ids of the nodes the change touched (empty for a silent reload). */
-  changed: string[];
 };
 
 export type { WorkspaceNotice };
@@ -106,6 +104,8 @@ export const STALE_RESYNC_MS = 1500;
 export const FLUSH_FALLBACK_MS = 50;
 export const AGENT_TTL_MS = 120_000;
 export const MAX_ACTIVITY = 30;
+/** The workspace operations of an agent that become a notice (the adapter in `adapters/notice` has a sentence for exactly these). */
+const NOTICE_OPS: ReadonlySet<string> = new Set(["delete", "open", "rename"]);
 
 export function frameScheduler(): FlushScheduler {
   return (flush) => {
@@ -202,8 +202,13 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
       },
       (error: unknown) => {
         settle();
-        if (isOfflineError(error) && socket.isRunning) queuedViews.push(...entry.waiters);
-        else for (const waiter of entry.waiters) waiter.reject(error instanceof Error ? error : new Error(String(error)));
+        if (isOfflineError(error) && socket.isRunning) {
+          queuedViews.push(...entry.waiters);
+          return;
+        }
+        // A refused workspace is not the one to ask for on the next connection: go back to following the active one.
+        if (!isOfflineError(error) && viewId === entry.id) viewId = null;
+        for (const waiter of entry.waiters) waiter.reject(error instanceof Error ? error : new Error(String(error)));
       },
     );
   };
@@ -216,22 +221,36 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
     });
   };
 
-  const checkStale = (version: number) => {
-    if (version <= store.state.version || version <= staleVersion) return;
-    staleVersion = version;
+  const armStale = (wait: number) => {
     clearTimeout(staleTimer);
     staleTimer = setTimeout(() => {
       staleTimer = undefined;
       const want = staleVersion;
+      if (!socket.isOpen || store.state.version >= want) {
+        staleVersion = 0;
+        return;
+      }
+      // Frames are still waiting for the next batch: they may be the version, look again once they were applied.
+      if (pending.length > 0) {
+        armStale(staleResyncMs);
+        return;
+      }
       staleVersion = 0;
-      if (!socket.isOpen || pending.length > 0 || store.state.version >= want) return;
       socket.request(viewMessage()).catch(() => {});
-    }, staleResyncMs);
+    }, wait);
   };
 
-  const record = (state: LiveState, doc: Document, message: DocMessage | DeltaMessage, changed: () => string[]): LiveState => {
+  /** The ack of a request announces a version of the workspace that request left from; one for another workspace says nothing about this one. */
+  const checkStale = (version: number, docId: string | null) => {
+    if ((store.state.doc?.id ?? null) !== docId) return;
+    if (version <= store.state.version || version <= staleVersion) return;
+    staleVersion = version;
+    armStale(staleResyncMs);
+  };
+
+  const record = (state: LiveState, doc: Document, message: DocMessage | DeltaMessage): LiveState => {
     const quiet = message.kind === "reload" && message.actor === "server";
-    const entry: Activity = { id: message.version, actor: message.actor, label: message.label, kind: message.kind, at: now(), changed: quiet ? [] : changed() };
+    const entry: Activity = { id: message.version, actor: message.actor, label: message.label, kind: message.kind, at: now() };
     return {
       ...state,
       doc,
@@ -247,7 +266,12 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
     if (state.doc && state.doc.id !== message.doc.id) {
       return { ...state, doc: message.doc, version: message.version, canUndo: message.canUndo, canRedo: message.canRedo, activity: [] };
     }
-    return record(state, message.doc, message, () => changedBetween(state.doc, message.doc));
+    // The same version again (the overview's `open` broadcast, then the answer to `view`): nothing changed, so the document, its nodes
+    // and the activity stay as they are and only what the frame says about undo and redo is taken.
+    if (state.doc && state.version === message.version) {
+      return state.canUndo === message.canUndo && state.canRedo === message.canRedo ? state : { ...state, canUndo: message.canUndo, canRedo: message.canRedo };
+    }
+    return record(state, message.doc, message);
   };
 
   const flush = () => {
@@ -281,7 +305,7 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
           break;
         }
         const result = applyDelta(current.doc, message, owned);
-        current = record(current, result.doc, message, () => result.changed);
+        current = record(current, result.doc, message);
       }
       return current;
     });
@@ -301,7 +325,7 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
       case "workspaceOp": {
         const { op } = message;
         emit({ type: "workspaceOp", op });
-        if (op.op === "create" || !op.actor.startsWith("agent")) break;
+        if (!NOTICE_OPS.has(op.op) || !op.actor.startsWith("agent")) break;
         set((s) =>
           op.op === "rename" && s.doc?.id !== op.workspaceId
             ? s
@@ -315,9 +339,6 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
         break;
       case "presence":
         set((s) => ({ ...s, agents: applyPresence(s.agents, message, now()) }));
-        break;
-      case "ack":
-        checkStale(message.version);
         break;
       case "error":
         set((s) => ({ ...s, error: message.message }));
@@ -351,7 +372,12 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
     },
   });
 
-  const request = async (message: ClientMessage): Promise<AckMessage> => socket.request(message);
+  const request = async (message: ClientMessage): Promise<AckMessage> => {
+    const docId = store.state.doc?.id ?? null;
+    const ack = await socket.request(message);
+    checkStale(ack.version, docId);
+    return ack;
+  };
 
   const actions: LiveActions = {
     apply: async (ops, label = "") => (await request({ type: "ops", ops, label })).version,
@@ -403,6 +429,7 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
       cancelFlush?.();
       cancelFlush = null;
       pending = [];
+      for (const waiter of queuedViews.splice(0)) waiter.reject(new LiveOfflineError());
       socket.stop();
       set((s) => (s.connected ? { ...s, connected: false } : s));
     },
