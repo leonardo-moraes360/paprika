@@ -19,6 +19,7 @@ describe("editor store", () => {
       zoom: 1,
       fitRequest: 0,
       renderer: "dom",
+      rendererStatus: { backend: "idle", detail: "" },
       rightTab: "properties",
       dialogs: { history: false, pins: false, export: false, import: false, agents: false },
       hoveredId: null,

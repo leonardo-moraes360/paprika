@@ -1,5 +1,6 @@
 import { createRegion, shallow } from "@/components/frontends/_shared";
 import type { AgentEntry } from "@/components/frontends/agents";
+import type { CanvasRendererStatus } from "@/components/frontends/canvas";
 
 /**
  * State of ONE open editor (made per instance by `EditorProvider`, never shared, never at module scope).
@@ -34,6 +35,8 @@ export type EditorState = {
   /** Counter the zoom bar bumps to ask the canvas to fit the selection or the page. */
   fitRequest: number;
   renderer: EditorRenderer;
+  /** Where the WASM renderer stands (the canvas reports it; the zoom bar's renderer menu shows it). */
+  rendererStatus: CanvasRendererStatus;
   rightTab: EditorRightTab;
   dialogs: Record<EditorDialog, boolean>;
   /** Layer under the pointer in the layers panel (so the canvas can outline it). */
@@ -65,6 +68,7 @@ export type EditorActions = {
   zoomOut: () => void;
   fit: () => void;
   setRenderer: (renderer: EditorRenderer) => void;
+  setRendererStatus: (status: CanvasRendererStatus) => void;
   setRightTab: (tab: EditorRightTab) => void;
   openDialog: (dialog: EditorDialog) => void;
   closeDialog: (dialog: EditorDialog) => void;
@@ -96,6 +100,7 @@ export function initialEditorState(overrides: Partial<EditorState> = {}): Editor
     zoom: 1,
     fitRequest: 0,
     renderer: "dom",
+    rendererStatus: { backend: "idle", detail: "" },
     rightTab: "properties",
     dialogs: { history: false, pins: false, export: false, import: false, agents: false },
     hoveredId: null,
@@ -127,6 +132,7 @@ export const EditorRegion = createRegion<EditorState, EditorActions>("Editor", (
   zoomOut: () => setState((s) => (s.zoom <= MIN_ZOOM ? s : { ...s, zoom: clampZoom(s.zoom / ZOOM_STEP) })),
   fit: () => setState((s) => ({ ...s, fitRequest: s.fitRequest + 1 })),
   setRenderer: (renderer) => setState((s) => (s.renderer === renderer ? s : { ...s, renderer })),
+  setRendererStatus: (rendererStatus) => setState((s) => (s.rendererStatus.backend === rendererStatus.backend && s.rendererStatus.detail === rendererStatus.detail ? s : { ...s, rendererStatus })),
   setRightTab: (rightTab) => setState((s) => (s.rightTab === rightTab ? s : { ...s, rightTab })),
   openDialog: (dialog) => setState((s) => setDialog(s, dialog, true)),
   closeDialog: (dialog) => setState((s) => setDialog(s, dialog, false)),

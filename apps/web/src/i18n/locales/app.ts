@@ -22,6 +22,7 @@ export const appEn = {
   },
   canvas: {
     order: { front: "bring to front", forward: "bring forward", back: "send to back", backward: "send backward" },
+    renderer: { failedTitle: "The WASM renderer stopped", failed: "The canvas went back to the DOM renderer. {{reason}}" },
     collab: {
       working: "working",
       pinBadge: "Pin {{number}}",
@@ -73,7 +74,7 @@ export const appEn = {
   shell: {
     rightTabs: { label: "Right panel", properties: "Properties", team: "Team" },
     mcpOn: "MCP at /mcp",
-    renderers: { dom: "DOM", wasm: "WASM" },
+    renderers: { dom: "DOM", wasm: "WASM", wasmGpu: "WASM · GPU", wasmCpu: "WASM · CPU", wasmUnavailable: "this build has no WASM renderer" },
     actionFailedTitle: "Could not apply the change",
     actionFailed: "The server did not accept it.",
     selectionErrors: {
@@ -262,6 +263,7 @@ export const appPtBR: typeof appEn = {
   },
   canvas: {
     order: { front: "trazer para frente", forward: "avançar", back: "enviar para fundo", backward: "recuar" },
+    renderer: { failedTitle: "O renderizador WASM parou", failed: "O canvas voltou para o renderizador DOM. {{reason}}" },
     collab: {
       working: "trabalhando",
       pinBadge: "Apontamento {{number}}",
@@ -313,7 +315,7 @@ export const appPtBR: typeof appEn = {
   shell: {
     rightTabs: { label: "Painel direito", properties: "Propriedades", team: "Time" },
     mcpOn: "MCP em /mcp",
-    renderers: { dom: "DOM", wasm: "WASM" },
+    renderers: { dom: "DOM", wasm: "WASM", wasmGpu: "WASM · GPU", wasmCpu: "WASM · CPU", wasmUnavailable: "esta versão não tem o renderizador WASM" },
     actionFailedTitle: "Não foi possível aplicar a alteração",
     actionFailed: "O servidor não a aceitou.",
     selectionErrors: {
