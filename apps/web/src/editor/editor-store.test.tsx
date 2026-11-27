@@ -23,6 +23,7 @@ describe("editor store", () => {
       dialogs: { history: false, pins: false, export: false, import: false, agents: false, team: false },
       hoveredId: null,
       pinId: null,
+      agentTones: {},
     });
   });
 
