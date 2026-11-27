@@ -59,6 +59,19 @@ afterEach(() => {
   dismissToasts();
 });
 
+describe("layout", () => {
+  it("remembers the panels (size and collapsed) under the editor key, as the old app did", async () => {
+    const view = await openShell();
+    expect(window.localStorage.getItem("paprika.ui-sdk-resizable:editor")).toBeNull();
+    const separator = screen.getByRole("separator", { name: "Resize layers panel" });
+    separator.focus();
+    await userEvent.setup().keyboard("{ArrowRight}");
+    await waitFor(() => expect(window.localStorage.getItem("paprika.ui-sdk-resizable:editor")).not.toBeNull());
+    window.localStorage.removeItem("paprika.ui-sdk-resizable:editor");
+    view.unmount();
+  });
+});
+
 describe("header", () => {
   it("shows the path, the open pins and, when an agent is present, the active agents", async () => {
     const view = await openShell();
