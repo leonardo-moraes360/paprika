@@ -410,8 +410,8 @@ describe("keyboard scope (E1)", () => {
     (document.activeElement as HTMLElement | null)?.blur();
     await user.keyboard("{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}");
     await waitFor(() => expect(opsSent(view)).toHaveLength(5));
-    const xs = opsSent(view).map((m) => ((m as { ops: { props: { x: number } }[] }).ops[0]?.props.x));
-    expect(xs.map((x, i) => (i === 0 ? 1 : x - (xs[i - 1] as number)))).toEqual([1, 1, 1, 1, 1]);
+    const xs = (opsSent(view) as unknown as { ops: { props: { x: number } }[] }[]).map((m) => m.ops[0]!.props.x);
+    expect(xs.map((x, i) => (i === 0 ? x : x - xs[i - 1]!)).slice(1)).toEqual([1, 1, 1, 1]);
     view.unmount();
   });
 });

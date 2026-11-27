@@ -20,7 +20,7 @@ describe("editor store", () => {
       fitRequest: 0,
       renderer: "dom",
       rightTab: "properties",
-      dialogs: { history: false, pins: false, export: false, import: false, agents: false, team: false },
+      dialogs: { history: false, pins: false, export: false, import: false, agents: false },
       hoveredId: null,
       pinId: null,
       agentTones: {},

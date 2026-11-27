@@ -54,14 +54,16 @@ export const AgentsRoster = memo(function AgentsRoster() {
  * server has reported (it only decides whether the header makes room for them); `renderAgents` ignores the header's own
  * trigger and renders the roster, whose label counts the ones active now.
  */
-// One element for ever: a header that re-renders (the name changed) hands React the same element and the roster is not visited.
-const roster = (
-  <RegionProfiler id="agents">
-    <AgentsRoster />
-  </RegionProfiler>
-);
-const renderAgents = () => roster;
 export function useAgentsHeader() {
   const agents = useLive((s) => s.agents.length);
+  // One element per editor: a header that re-renders (the name changed) hands React the same element and the roster is not visited.
+  const renderAgents = useMemo(() => {
+    const roster = (
+      <RegionProfiler id="agents">
+        <AgentsRoster />
+      </RegionProfiler>
+    );
+    return () => roster;
+  }, []);
   return { agents, renderAgents };
 }

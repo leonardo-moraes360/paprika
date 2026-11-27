@@ -4,7 +4,7 @@ import type { AgentEntry } from "@/components/frontends/agents";
 /**
  * State of ONE open editor (made per instance by `EditorProvider`, never shared, never at module scope).
  * It holds only what the regions share and the server does not know: the document itself lives in the live store
- * (`useLive`). Later work adds fields and actions, it never renames or removes one.
+ * (`useLive`). Parallel work adds fields and actions and never renames or removes one; the only removal so far is `dialogs.team`, dead code left by the join of the batches (the team became the `rightTab`).
  */
 
 export const editorTools = ["select", "frame", "rect", "ellipse", "text", "pen", "shape", "diamond", "triangle", "cylinder", "parallelogram", "cloud", "note", "connector", "pin"] as const;
@@ -15,8 +15,8 @@ export type EditorRightTab = (typeof editorRightTabs)[number];
 
 export type EditorRenderer = "dom" | "wasm";
 
-/** Panels and dialogs that open over the editor. `team` is the right panel's team tab, `agents` the roster popover. */
-export const editorDialogs = ["history", "pins", "export", "import", "agents", "team"] as const;
+/** Panels and dialogs that open over the editor. `agents` is the roster popover; the team is a tab of the right panel (`rightTab`), not a dialog. */
+export const editorDialogs = ["history", "pins", "export", "import", "agents"] as const;
 export type EditorDialog = (typeof editorDialogs)[number];
 
 export const MIN_ZOOM = 0.1;
@@ -82,7 +82,7 @@ export function initialEditorState(overrides: Partial<EditorState> = {}): Editor
     fitRequest: 0,
     renderer: "dom",
     rightTab: "properties",
-    dialogs: { history: false, pins: false, export: false, import: false, agents: false, team: false },
+    dialogs: { history: false, pins: false, export: false, import: false, agents: false },
     hoveredId: null,
     pinId: null,
     agentTones: {},

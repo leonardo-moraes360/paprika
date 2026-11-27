@@ -25,13 +25,6 @@ function RightTabs({ value }: { value: EditorRightTab }) {
   );
 }
 
-// A constant element: the panel re-rendering (the tabs came or went) does not visit the activity region.
-const activityRegion = (
-  <RegionProfiler id="activity">
-    <Activity />
-  </RegionProfiler>
-);
-
 /**
  * The right panel: the properties panel, with the tabs in its `header` slot when there is a team, or the team panel
  * under the same tabs while the team tab is picked. Without a team there are no tabs and no team tab.
@@ -40,6 +33,15 @@ export function RightPanel() {
   const hasTeam = useLive((s) => s.team != null);
   const tab = useEditor((s) => s.rightTab);
   const showTeam = hasTeam && tab === "team";
+  // A constant element per panel: re-rendering it (the tabs came or went) does not visit the activity region.
+  const activityRegion = useMemo(
+    () => (
+      <RegionProfiler id="activity">
+        <Activity />
+      </RegionProfiler>
+    ),
+    [],
+  );
   const tabs = useMemo(() => (hasTeam ? <RightTabs value={showTeam ? "team" : "properties"} /> : null), [hasTeam, showTeam]);
   return (
     <div className="flex h-full min-h-0 flex-col">
