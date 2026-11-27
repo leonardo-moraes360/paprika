@@ -2,7 +2,7 @@ import { Input } from "@ui-sdk/react/input";
 import { Toggle } from "@ui-sdk/react/toggle";
 import { Tree, TreeGroup, TreeItem, TreeItemIndicator, TreeItemLabel, type TreeItemProps, type TreeMode, type TreeProps } from "@ui-sdk/react/tree";
 import { ChevronDown, ChevronRight, Eye, EyeOff, Lock, LockOpen } from "lucide-react";
-import { useLayoutEffect, useRef, type ComponentProps, type KeyboardEvent, type ReactNode } from "react";
+import { memo, useLayoutEffect, useRef, type ComponentProps, type KeyboardEvent, type ReactNode } from "react";
 import { cn, focusRing } from "@/lib/utils";
 
 export type LayerTreeProps<Mode extends TreeMode = "single"> = TreeProps<Mode>;
@@ -40,6 +40,25 @@ export type LayerRowProps = Omit<ComponentProps<"div">, "children" | "onSelect">
   onLockedChange?: (locked: boolean) => void;
   children?: ReactNode;
 };
+
+/** The label of a row. A memo: the tree hands every row a new `state` when only one row's selection changed, and the rows that did not change skip this subtree. */
+const LayerLabel = memo(function LayerLabel({ branch, expanded, selected, visible, icon, name }: { branch: boolean; expanded: boolean; selected: boolean; visible: boolean; icon: ReactNode; name: string }) {
+  return (
+    <>
+      {branch ? (
+        <TreeItemIndicator className="-mx-[5px] inline-flex size-6 shrink-0 items-center justify-center rounded-xs text-muted [&_svg]:size-3.5 [&_svg]:stroke-[1.75]">
+          {expanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+        </TreeItemIndicator>
+      ) : (
+        <span aria-hidden="true" className="size-3.5 shrink-0" />
+      )}
+      <span aria-hidden="true" className="inline-flex size-3.5 shrink-0 items-center justify-center text-muted [&_svg]:size-3.5 [&_svg]:stroke-2">
+        {icon}
+      </span>
+      <span className={cn("truncate", selected ? "font-semibold text-select-soft-ink" : visible ? "text-fg" : "text-muted")}>{name}</span>
+    </>
+  );
+});
 
 export function LayerRow({
   className,
@@ -120,28 +139,7 @@ export function LayerRow({
           </div>
         ) : (
           <TreeItemLabel className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-1.5 ps-[calc(0.5rem+(var(--tree-level)-1)*20px)] text-start text-sm data-disabled:cursor-not-allowed">
-            {(state) => (
-              <>
-                {isBranch ? (
-                  <TreeItemIndicator className="-mx-[5px] inline-flex size-6 shrink-0 items-center justify-center rounded-xs text-muted [&_svg]:size-3.5 [&_svg]:stroke-[1.75]">
-                    {state.expanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
-                  </TreeItemIndicator>
-                ) : (
-                  <span aria-hidden="true" className="size-3.5 shrink-0" />
-                )}
-                <span aria-hidden="true" className="inline-flex size-3.5 shrink-0 items-center justify-center text-muted [&_svg]:size-3.5 [&_svg]:stroke-2">
-                  {icon}
-                </span>
-                <span
-                  className={cn(
-                    "truncate",
-                    state.selected ? "font-semibold text-select-soft-ink" : visible ? "text-fg" : "text-muted",
-                  )}
-                >
-                  {name}
-                </span>
-              </>
-            )}
+            {(state) => <LayerLabel branch={isBranch} expanded={state.expanded} selected={state.selected} visible={visible} icon={icon} name={name} />}
           </TreeItemLabel>
         )}
         {trailing}

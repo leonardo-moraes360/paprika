@@ -7,7 +7,10 @@ import { layerIcons } from "./layer-icons";
 import { LayersPanelRegion } from "./store";
 import type { LayerRowData } from "./types";
 
+/** A layer row is 28 px tall with a 2 px gap under it, as in the design: rows sit every `LAYER_ROW_PITCH`. */
 export const LAYER_ROW_HEIGHT = 28;
+export const LAYER_ROW_GAP = 2;
+export const LAYER_ROW_PITCH = LAYER_ROW_HEIGHT + LAYER_ROW_GAP;
 
 export type LayerItemProps = {
   row: LayerRowData;
@@ -48,7 +51,7 @@ function LayerItemView({ row, index, onToggleVisible, onToggleLocked, onRename }
     [actions, onRename, row.id, row.name],
   );
 
-  const style: CSSProperties = { position: "absolute", insetInline: 0, top: index * LAYER_ROW_HEIGHT, height: LAYER_ROW_HEIGHT };
+  const style: CSSProperties = { position: "absolute", insetInline: 0, top: index * LAYER_ROW_PITCH, height: LAYER_ROW_HEIGHT };
 
   return (
     <LayerRow

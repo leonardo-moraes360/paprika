@@ -120,7 +120,92 @@ describe("deriveLayerRows", () => {
     const second = deriveLayerRows(cache, edit(doc, target, { name: "X" }), "page-0", none, noAgents);
     expect(second.filter((row, i) => row !== first[i])).toHaveLength(1);
   });
+
+  describe("work done (reads of the document's nodes)", () => {
+    /** A document whose `nodes` counts how many layers were looked up: the walk reads every layer, the incremental paths do not. */
+    function counted(doc: Document) {
+      const reads = { count: 0 };
+      const nodes = new Proxy(doc.nodes, { get: (target, key, receiver) => (typeof key === "string" && ++reads.count, Reflect.get(target, key, receiver)) });
+      return { doc: { ...doc, nodes } as Document, reads };
+    }
+
+    it("changing the selection reads only the layers of the difference, not the whole tree", () => {
+      const base = makeDocument(5000);
+      const { doc, reads } = counted(base);
+      const cache = createLayerRowsCache();
+      const first = deriveLayerRows(cache, doc, "page-0", new Set([first0(base)]), noAgents);
+      expect(reads.count).toBeGreaterThan(4900);
+      reads.count = 0;
+      const target = first[2500]?.id as string;
+      const second = deriveLayerRows(cache, doc, "page-0", new Set([target]), noAgents);
+      expect(reads.count).toBeLessThanOrEqual(4);
+      expect(second.filter((row, i) => row !== first[i]).map((r) => r.id)).toEqual([first0(base), target].sort((a, b) => (first.findIndex((r) => r.id === a) - first.findIndex((r) => r.id === b))));
+      expect(second.find((r) => r.id === target)?.selected).toBe(true);
+      expect(second.find((r) => r.id === first0(base))?.selected).toBe(false);
+    });
+
+    it("a new presence reads only the layers that gained or lost an agent", () => {
+      const { doc, reads } = counted(makeDocument(5000));
+      const cache = createLayerRowsCache();
+      const first = deriveLayerRows(cache, doc, "page-0", none, noAgents);
+      reads.count = 0;
+      const id = first[1200]?.id as string;
+      const agent = { name: "claude", tone: "agent-1" as const };
+      const second = deriveLayerRows(cache, doc, "page-0", none, new Map([[id, agent]]));
+      expect(reads.count).toBeLessThanOrEqual(2);
+      expect(second.filter((row, i) => row !== first[i]).map((r) => r.id)).toEqual([id]);
+      expect(second[1200]?.agent).toEqual(agent);
+      expect(deriveLayerRows(cache, doc, "page-0", none, noAgents)[1200]?.agent).toBeUndefined();
+    });
+
+    it("the same selection and presence give back the same array reading nothing but the page", () => {
+      const { doc, reads } = counted(makeDocument(5000));
+      const cache = createLayerRowsCache();
+      const selection = new Set<string>();
+      const first = deriveLayerRows(cache, doc, "page-0", selection, noAgents);
+      reads.count = 0;
+      expect(deriveLayerRows(cache, doc, "page-0", new Set<string>(), new Map())).toBe(first);
+      expect(reads.count).toBeLessThanOrEqual(1);
+    });
+
+    it("a delta that renames layers rebuilds only those, and a selection after it still reads only the difference", () => {
+      const base = makeDocument(5000);
+      const cache = createLayerRowsCache();
+      const first = deriveLayerRows(cache, base, "page-0", none, noAgents);
+      const ids = [first[10]?.id, first[3000]?.id] as string[];
+      const renamed = { ...base, nodes: { ...base.nodes, ...Object.fromEntries(ids.map((id) => [id, { ...base.nodes[id], name: `New ${id}` }])) } } as unknown as Document;
+      const second = deriveLayerRows(cache, renamed, "page-0", none, noAgents);
+      expect(second.filter((row, i) => row !== first[i]).map((r) => r.id)).toEqual(ids);
+      expect(second[10]?.name).toBe(`New ${ids[0]}`);
+      const { doc, reads } = counted(renamed);
+      deriveLayerRows(cache, doc, "page-0", none, noAgents);
+      reads.count = 0;
+      deriveLayerRows(cache, doc, "page-0", new Set([ids[1] as string]), noAgents);
+      expect(reads.count).toBeLessThanOrEqual(2);
+    });
+
+    it("a delta and a selection change in one call apply both; a structural change falls back to the walk", () => {
+      const base = makeDocument(300);
+      const cache = createLayerRowsCache();
+      const first = deriveLayerRows(cache, base, "page-0", none, noAgents);
+      const a = first[5]?.id as string;
+      const b = first[7]?.id as string;
+      const both = deriveLayerRows(cache, edit(base, a, { name: "Both" }), "page-0", new Set([b]), noAgents);
+      expect(both[5]).toMatchObject({ name: "Both", selected: false });
+      expect(both[7]).toMatchObject({ selected: true });
+      const parent = base.nodes[a]?.parentId as string;
+      const removed = { ...base, nodes: { ...base.nodes, [parent]: { ...base.nodes[parent], children: (base.nodes[parent] as { children: string[] }).children.filter((id) => id !== a) } } } as unknown as Document;
+      const after = deriveLayerRows(cache, removed, "page-0", new Set([b]), noAgents);
+      expect(after).toHaveLength(first.length - 1);
+      expect(after.some((r) => r.id === a)).toBe(false);
+    });
+  });
 });
+
+const first0 = (doc: Document) => {
+  const rows = deriveLayerRows(createLayerRowsCache(), doc, "page-0", none, noAgents);
+  return rows[3]?.id as string;
+};
 
 describe("moveOps", () => {
   const ids = (ops: ReturnType<typeof moveOps>) => ops.map((o) => (o.op === "move" ? [o.id, o.parentId, o.index] : o));

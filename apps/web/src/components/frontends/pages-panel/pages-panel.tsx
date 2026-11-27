@@ -97,7 +97,7 @@ function PagesPanelView({
         {pages.length === 0 ? (
           <p className="px-3 pb-2 text-sm text-muted">{t("frontends.pagesPanel.empty")}</p>
         ) : (
-          <div role="list" aria-label={t("frontends.pagesPanel.pageList")} className="flex flex-col gap-0.5 pe-1 pb-2 ps-2">
+          <div role="list" aria-label={t("frontends.pagesPanel.pageList")} className="flex flex-col gap-0.5 pe-3.5 pb-2 ps-2">
             {pages.map((page) => (
               <PageRow
                 key={page.id}

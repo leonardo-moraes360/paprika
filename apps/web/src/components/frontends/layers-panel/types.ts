@@ -47,7 +47,11 @@ export type LayerContextItem = {
 
 export type LayersPanelProps = {
   rows: readonly LayerRowData[];
-  onSelect: (ids: string[], mode: LayerSelectMode) => void;
+  /**
+   * The ids the person asked for. The tree is controlled by `rows`: answer `false` when the selection stays as it is (a click on
+   * the only selected layer, say) so the panel tells the tree the change did not happen; anything else (nothing, `true`) means it was taken.
+   */
+  onSelect: (ids: string[], mode: LayerSelectMode) => void | boolean;
   onRename: (id: string, name: string) => void;
   /**
    * Emitted by the pointer drag and by the keyboard with the same shape. Keyboard, with the focus on a layer

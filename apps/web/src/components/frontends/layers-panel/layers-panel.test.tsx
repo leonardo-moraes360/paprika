@@ -51,6 +51,43 @@ afterEach(async () => {
 });
 
 describe("LayersPanel", () => {
+  describe("a click on the only selected layer", () => {
+    const uiSdkWarnings = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.filter((call) => String(call[0]).includes("[ui-sdk]"));
+
+    /** The library checks a second after the click that the value moved. The test takes that timer (it never fires by itself) and hands it back to run. */
+    const clickHome = async () => {
+      const user = userEvent.setup();
+      const real = globalThis.setTimeout;
+      const checks: (() => void)[] = [];
+      const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((callback: () => void, ms?: number, ...args: unknown[]) => {
+        if (ms === 1000) {
+          checks.push(callback);
+          return 0;
+        }
+        return real(callback, ms, ...args);
+      }) as typeof setTimeout);
+      await user.click(within(item("Home")).getByText("Home"));
+      spy.mockRestore();
+      return checks;
+    };
+
+    it("tells the tree the change did not happen when the owner answers false: the library has nothing to complain about", async () => {
+      const onSelect = vi.fn(() => false);
+      render(<LayersPanel rows={rows} onSelect={onSelect} onRename={vi.fn()} onMove={vi.fn()} onToggleVisible={vi.fn()} onToggleLocked={vi.fn()} />);
+      const checks = await clickHome();
+      expect(onSelect).toHaveBeenCalledWith([], "replace");
+      expect(item("Home")).toHaveAttribute("aria-selected", "true");
+      expect(checks).toEqual([]);
+    });
+
+    it("an owner that answers nothing and keeps the value does get the library's warning (what the answer is for)", async () => {
+      render(<LayersPanel rows={rows} onSelect={vi.fn()} onRename={vi.fn()} onMove={vi.fn()} onToggleVisible={vi.fn()} onToggleLocked={vi.fn()} />);
+      const checks = await clickHome();
+      expect(checks).toHaveLength(1);
+      expect(() => checks[0]?.()).toThrow(/\[ui-sdk\].*stayed/);
+    });
+  });
+
   it("renders the tree under a Layers heading with levels and the selection", () => {
     setup();
     expect(screen.getByRole("heading", { level: 2, name: "Layers" })).toBeInTheDocument();
@@ -60,6 +97,17 @@ describe("LayersPanel", () => {
     expect(item("Navigation")).toHaveAttribute("aria-selected", "false");
     expect(item("Logo")).toHaveAttribute("aria-level", "3");
     expect(item("About")).toHaveAttribute("aria-level", "1");
+  });
+
+  it("lays the rows out every 30 px (28 tall and a 2 px gap), as in the design", () => {
+    setup();
+    const tree = screen.getByRole("tree", { name: "Layer tree" });
+    const items = within(tree).getAllByRole("treeitem");
+    expect(items.map((el) => el.style.top)).toEqual(items.map((_, index) => `${index * 30}px`));
+    expect(items.every((el) => el.style.height === "28px")).toBe(true);
+    expect(tree.style.height).toBe(`${items.length * 30}px`);
+    // 14 px free on the right for the scroll bar.
+    expect(tree.parentElement).toHaveClass("pe-3.5");
   });
 
   it("shows the empty message when there are no layers", () => {
