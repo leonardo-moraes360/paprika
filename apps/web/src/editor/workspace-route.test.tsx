@@ -36,7 +36,7 @@ describe("/w/$workspaceId", () => {
     expect(screen.getByRole("region", { name: "Canvas" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Workspaces" })).toHaveAttribute("href", "/");
     expect(screen.getAllByText("Checkout").length).toBeGreaterThan(0);
-    expect(screen.getByText("Connected")).toBeInTheDocument();
+    expect(screen.getByText("MCP at /mcp")).toBeInTheDocument();
     act(() => view.socket.drop());
     expect(screen.getByText("Disconnected")).toBeInTheDocument();
     act(() => view.rig.sockets.last.open());
