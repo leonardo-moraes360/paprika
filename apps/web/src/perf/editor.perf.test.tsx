@@ -74,7 +74,7 @@ describe("editor commits with a document of 5 000 nodes", () => {
     expect(view.log.commits("stage")).toBe(1);
     view.log.reset();
     view.rig.push({ type: "presence", agent: "s:1", actor: "agent:claude", tool: "update_nodes", nodes: [keys[100] as string], idle: 0 });
-    // The roster mounts inside the header ("1 active"): the header renders once (it gains the roster) and the roster once (with a real clock it commits a second time when `useNow` syncs on mount; the test clock is frozen, so that sync sets the same value and commits nothing); the pages and the layers show who is where, once. Presence changes nothing in the properties panel.
+    // The roster mounts inside the header ("1 active"): the header renders once (it gains the roster) and the roster once (`useNow` reads the clock in its render and not again on mount, so it commits once with a real clock too); the pages and the layers show who is where, once. Presence changes nothing in the properties panel.
     const expected: Record<string, number> = { header: 1, agents: 1, pages: 1, layers: 1 };
     for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(expected[id] ?? 0);
     view.unmount();
@@ -92,8 +92,9 @@ describe("editor commits with a document of 5 000 nodes", () => {
     expect(view.rig.client.store.state.version).toBe(201);
     for (const id of editorRegionIds.filter((r) => r !== "properties")) expect(view.log.commits(id), id).toBe(id === "stage" ? 1 : 0);
     // 640 ms: the panel lists the entries at most ten times a second, not once per frame.
-    expect(view.log.commits("properties")).toBeGreaterThanOrEqual(2);
-    expect(view.log.commits("properties")).toBeLessThanOrEqual(10);
+    // Measured: 7 (the first at once, then one per 100 ms; the clock is the test's). A regression to 10 or to one per frame (40) fails.
+    expect(view.log.commits("properties")).toBeGreaterThanOrEqual(6);
+    expect(view.log.commits("properties")).toBeLessThanOrEqual(8);
     view.unmount();
   });
 
