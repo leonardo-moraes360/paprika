@@ -147,11 +147,17 @@ function LayersPanelView({
   const virtualized = visible.length > virtualizeAfter;
   const indexes = virtualized ? virtual.getVirtualItems().map((item) => item.index) : visible.map((_, index) => index);
 
-  // A selection made elsewhere (the canvas, an agent) brings its last row into view; a row already in view does not move ("auto").
+  // A selection made elsewhere (the canvas, an agent) brings its last row into view; a row already in view, or a pick made in this tree, does not move the list.
   const lastSelectedId = selectedIds[selectedIds.length - 1];
+  const pickedHere = useRef<string | undefined>(undefined);
   useEffect(() => {
+    const own = pickedHere.current === lastSelectedId;
+    pickedHere.current = undefined;
     const index = lastSelectedId === undefined ? undefined : latest.current.visibleIndex.get(lastSelectedId);
-    if (viewport && index !== undefined) virtual.scrollToIndex(index, { align: "auto" });
+    if (own || !viewport || index === undefined) return;
+    const top = index * LAYER_ROW_PITCH;
+    if (top >= viewport.scrollTop && top + LAYER_ROW_PITCH <= viewport.scrollTop + viewport.clientHeight) return;
+    virtual.scrollToIndex(index, { align: "auto" });
   }, [lastSelectedId, viewport]);
 
   useLayoutEffect(() => {
@@ -294,6 +300,7 @@ function LayersPanelView({
                 expanded={expanded}
                 onValueChange={(next, details) => {
                   const pressed = enterTarget(details.event);
+                  pickedHere.current = pressed ?? next[next.length - 1];
                   const taken = pressed ? onSelect([pressed], "replace") : onSelect(next, selectMode(details.event));
                   // The owner kept the selection (a click on the only selected layer asks for none): say so, or the tree warns that its value stayed.
                   if (taken === false) details.cancel();
