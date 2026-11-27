@@ -7,7 +7,7 @@ import { LiveProvider } from "@/data/live/hooks";
 import { createQueryClient } from "@/data/query-client";
 import { createLiveRig, makeDocument, docMessage } from "@/test/live-harness";
 import { EditorProvider, initialEditorState } from "../editor-store";
-import { EditorBoundary, issueTarget } from "./boundary";
+import { EditorBoundary, issueTarget, summarizeAgent } from "./boundary";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -86,5 +86,14 @@ describe("EditorBoundary", () => {
     rig.deliver(docMessage(makeDocument(5, { id: "w-2" }), 1));
     await act(async () => {});
     expect(screen.getByText("editor is fine")).toBeInTheDocument();
+  });
+});
+
+describe("summarizeAgent", () => {
+  it("says the browser and the system, not the whole user-agent", () => {
+    expect(summarizeAgent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36")).toBe("Chrome 142 · Linux");
+    expect(summarizeAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15")).toBe("Safari 18 · macOS");
+    expect(summarizeAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0")).toBe("Firefox 132 · Windows");
+    expect(summarizeAgent("")).toBe("");
   });
 });

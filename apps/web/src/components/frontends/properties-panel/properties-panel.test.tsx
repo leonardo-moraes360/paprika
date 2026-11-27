@@ -831,7 +831,7 @@ describe("Document", () => {
     ];
     const { onSelect } = setup({ lint });
     expect(screen.getByLabelText("2 problems")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /contrast Low contrast/ }));
+    await user.click(screen.getByRole("button", { name: /Contrast Low contrast/ }));
     expect(onSelect).toHaveBeenCalledWith(["t1"]);
   });
 

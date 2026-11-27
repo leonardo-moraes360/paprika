@@ -59,7 +59,7 @@ export function Header() {
       path={path}
       pins={pins}
       onPinsClick={onPinsClick}
-      agents={agents}
+      agents={connected ? agents : 0}
       renderAgents={renderAgents}
       team={team}
       onTeamClick={onTeamClick}

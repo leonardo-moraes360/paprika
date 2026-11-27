@@ -22,6 +22,7 @@ export type WorkspaceNoticeEntry = {
 export type WorkspaceNoticeProps = {
   notice: WorkspaceNoticeEntry | null;
   onDismiss: () => void;
-  onViewWorkspaces: () => void;
+  /** Leave for the workspace list. Left out where the list is already on screen (the overview), the notice then has no button. */
+  onViewWorkspaces?: () => void;
   className?: string;
 };

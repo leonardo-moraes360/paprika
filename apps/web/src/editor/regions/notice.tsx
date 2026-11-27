@@ -3,18 +3,16 @@ import { useCallback, useMemo } from "react";
 import { WorkspaceNotice } from "@/components/frontends/workspace-notice";
 import { toNoticeEntry } from "@/adapters/notice";
 import { useLive, useLiveActions, type LiveState } from "@/data/live";
-import { useAgentTones, useAssignTones } from "../collab";
 
 /** Over the stage, above the zoom bar: it covers neither the zoom bar nor the right column. */
 const placement = "end-84 bottom-18";
 
-/** The notice itself; reads the tones, so it is mounted only while there is something to show. */
+/** The notice itself; it is mounted only while there is something to show. */
 function ActiveNotice({ notice }: { notice: NonNullable<LiveState["workspaceNotice"]> }) {
   const { dismissWorkspaceNotice } = useLiveActions();
   const navigate = useNavigate();
-  const tones = useAgentTones();
-  useAssignTones(useMemo(() => [notice.actor], [notice.actor]));
-  const entry = useMemo(() => toNoticeEntry(notice, tones), [notice, tones]);
+  // The tone is the stable pick from the agent's name, the same the overview gives: one agent, one color on both screens.
+  const entry = useMemo(() => toNoticeEntry(notice), [notice]);
   const onViewWorkspaces = useCallback(() => {
     dismissWorkspaceNotice();
     void navigate({ to: "/" });
@@ -24,7 +22,7 @@ function ActiveNotice({ notice }: { notice: NonNullable<LiveState["workspaceNoti
 
 /**
  * A workspace operation an agent did while you are here (it opened, renamed or deleted one). "View workspaces" goes to
- * the overview. The tone of the agent is the one the roster gives it.
+ * the overview. The tone is the one the overview shows for the same agent.
  */
 export function Notice() {
   const notice = useLive((s) => s.workspaceNotice);

@@ -187,3 +187,33 @@ describe("Pins region", () => {
     expect(screen.getByText("database is locked")).toBeInTheDocument();
   });
 });
+
+describe("Pins region on a narrow window", () => {
+  const setWidth = (width: number) => Object.defineProperty(window, "innerWidth", { configurable: true, value: width });
+  afterEach(() => setWidth(1024));
+
+  it("closes the pins panel when the new-pin form opens, and drops the pin tool when the panel opens, where they cannot sit side by side", async () => {
+    setWidth(1280);
+    const view = await setup([pin({ id: "x1", n: 1 })], { selection: ["n3"] });
+    await open(view);
+    await screen.findByTestId("pins-panel");
+    act(() => view.handle.current!.actions.setTool("pin"));
+    await screen.findByTestId("new-pin-form");
+    await waitFor(() => expect(view.handle.current!.state.dialogs.pins).toBe(false));
+    expect(screen.queryByTestId("pins-panel")).toBeNull();
+    await open(view);
+    await waitFor(() => expect(view.handle.current!.state.tool).toBe("select"));
+    await screen.findByTestId("pins-panel");
+    expect(screen.queryByTestId("new-pin-form")).toBeNull();
+  });
+
+  it("keeps both open on a window wide enough for them side by side", async () => {
+    setWidth(1440);
+    const view = await setup([pin({ id: "x1", n: 1 })], { selection: ["n3"] });
+    await open(view);
+    act(() => view.handle.current!.actions.setTool("pin"));
+    await screen.findByTestId("new-pin-form");
+    expect(screen.getByTestId("pins-panel")).toBeInTheDocument();
+    expect(view.handle.current!.state.dialogs.pins).toBe(true);
+  });
+});

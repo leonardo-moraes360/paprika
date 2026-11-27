@@ -38,7 +38,7 @@ export function ZoomControl({
       <ToolbarButton aria-label={zoomOutLabel} disabled={zoomOutDisabled} onClick={onZoomOut}>
         <Minus aria-hidden="true" />
       </ToolbarButton>
-      <output className="inline-flex h-7 w-[52px] items-center justify-center text-sm font-semibold text-fg tabular-nums">{value}</output>
+      <output className="inline-flex h-7 w-[52px] items-center justify-center text-sm font-semibold text-fg">{value}</output>
       <ToolbarButton aria-label={zoomInLabel} disabled={zoomInDisabled} onClick={onZoomIn}>
         <Plus aria-hidden="true" />
       </ToolbarButton>

@@ -78,15 +78,14 @@ describe("Import region", () => {
     expect(String(node.src)).toMatch(/^data:image\/png;base64,/);
   });
 
-  it("refuses a .paprika.json with a message and sends nothing", async () => {
+  it("does not offer a .paprika.json (it is a whole document and is always refused) and sends nothing", async () => {
     const view = await setup();
     const user = userEvent.setup({ pointerEventsCheck: 0 });
+    expect(view.input.getAttribute("accept") ?? "").not.toMatch(/paprika/);
+    expect(view.dialog.textContent ?? "").not.toMatch(/\.paprika\.json/);
     await user.upload(view.input, new File(["{}"], "board.paprika.json", { type: "application/json" }));
-    await waitFor(() => expect(placeButton(view.dialog)).toBeEnabled());
-    await user.click(placeButton(view.dialog));
-    expect(await within(view.dialog).findByText(/whole document/i)).toBeInTheDocument();
+    expect(placeButton(view.dialog)).toBeDisabled();
     expect(sent(view)).toHaveLength(0);
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
   it("refuses a picture over 3.5 MB and sends nothing", async () => {

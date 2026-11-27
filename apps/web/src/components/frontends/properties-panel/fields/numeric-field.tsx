@@ -151,7 +151,7 @@ export function NumericField({ label, prefix, unit, value, onCommit, onClear, mi
           onPaste={onPaste}
           onBlur={commit}
           onKeyDown={onKeyDown}
-          className="min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-base tabular-nums text-inherit outline-none"
+          className="min-w-0 flex-1 appearance-none border-0 bg-transparent p-0 text-base text-inherit outline-none"
         />
         {unit ? (
           <span aria-hidden="true" className="shrink-0 text-sm text-muted">

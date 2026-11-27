@@ -63,6 +63,12 @@ describe("WorkspaceNotice", () => {
     expect(screen.getByRole("button", { name: "editor" })).toHaveFocus();
   });
 
+  it("has no button to the workspaces where the list is already on screen (no handler)", () => {
+    render(<WorkspaceNotice notice={deleted} onDismiss={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /workspaces/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /dismiss/i })).toBeInTheDocument();
+  });
+
   it("renders nothing visible without a notice but keeps the live region", () => {
     const { container } = setup({ notice: null });
     expect(screen.queryByRole("status")).not.toBeInTheDocument();

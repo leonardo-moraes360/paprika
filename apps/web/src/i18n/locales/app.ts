@@ -112,6 +112,7 @@ export const appEn = {
       noFrame: "Select a frame, or open a page with a frame, to export its code.",
       codeFailed: "Could not generate the code.",
       pngInactive: "PNG needs this workspace to be the one the server has open, and this one is not. Open it from the workspace list, or export SVG, which does not need the server.",
+      pngFailed: "The server could not make the PNG. Server detail: {{reason}}",
     },
     import: {
       destination: "{{name}}",
@@ -297,6 +298,7 @@ export const appPtBR: typeof appEn = {
       noFrame: "Selecione um frame, ou abra uma página com um frame, para exportar o código.",
       codeFailed: "Não foi possível gerar o código.",
       pngInactive: "O PNG precisa que este workspace seja o que o servidor tem aberto, e este não é. Abra-o pela lista de workspaces, ou exporte SVG, que não depende do servidor.",
+      pngFailed: "O servidor não conseguiu gerar o PNG. Detalhe do servidor: {{reason}}",
     },
     import: {
       destination: "{{name}}",

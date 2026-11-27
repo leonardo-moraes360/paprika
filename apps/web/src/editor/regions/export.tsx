@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ExportDialog, type ExportRequest } from "@/components/frontends/export-dialog";
 import { activePageId, codeRootId, exportCode, exportCodeFormats, exportFileName, exportImageFormats, exportRootId, exportScales, exportSize, exportSvgText, hasExportSelection } from "@/adapters/export";
+import { ApiError } from "@/data/api";
 import { useLiveClient } from "@/data/live";
 import { fetchPng } from "@/data/queries/export";
 import { useEditor, useEditorActions, useEditorStore } from "../editor-store";
@@ -40,7 +41,13 @@ function ExportContainer() {
       }
       const root = exportRootId(current, request.scope, selection, pageId);
       if (request.format === "svg") return exportSvgText(current, root);
-      return fetchPng(current.id, root, request.scale);
+      try {
+        return await fetchPng(current.id, root, request.scale);
+      } catch (error) {
+        // The server's sentence is English and has no code: the app says it in its language and keeps that sentence as the detail. The 409 and the connection errors already have app texts.
+        if (error instanceof ApiError && error.code === "http" && error.status !== 409) throw new Error(t("app.collab.export.pngFailed", { reason: error.message }));
+        throw error;
+      }
     },
     [client, selection, pageId, t],
   );

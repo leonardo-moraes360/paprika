@@ -29,14 +29,14 @@ export function IdentityHeader({ kind, id, name, onRename, note }: IdentityHeade
   const { t } = useTranslation();
   const Icon = ICONS[kind] ?? Frame;
   return (
-    <div className="flex flex-col gap-2 px-3.5 pt-1 pb-3.5">
+    <div className="flex flex-col gap-2 ps-3.5 pe-5 pt-1 pb-3.5">
       <h2 className="flex items-center gap-1.5 text-sm font-semibold text-fg">
         <Icon aria-hidden className="size-3.5 shrink-0 text-muted" />
         <span>{t(`frontends.propertiesPanel.kinds.${kind}` as never)}</span>{" "}
         <code className="font-normal text-muted">#{id}</code>
       </h2>
       {note}
-      <CommitTextField label={t("frontends.propertiesPanel.identity.name")} value={name} onCommit={onRename} />
+      <CommitTextField label={t("frontends.propertiesPanel.identity.name")} value={name} onCommit={onRename} className="[&_input]:h-10" />
     </div>
   );
 }

@@ -22,7 +22,7 @@ export function PanelSection({ id, title, defaultOpen = false, actions, children
       open={open}
       onOpenChange={(next) => actionsApi.setSectionOpen(id, next)}
       className="border-t border-line"
-      panelClassName="flex flex-col gap-2 px-3.5 pb-3.5"
+      panelClassName="flex flex-col gap-2 ps-3.5 pe-5 pb-3.5"
     >
       {children}
     </SectionHeader>

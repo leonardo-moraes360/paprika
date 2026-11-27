@@ -128,7 +128,7 @@ describe("EditorHeader", () => {
     expect(screen.getByRole("banner", { name: "Cabeçalho do editor" })).toBeInTheDocument();
     expect(screen.getByText("2 abertos")).toBeInTheDocument();
     expect(screen.getByText("3 ativos")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("Desconectado");
+    expect(screen.getByRole("status")).toHaveTextContent("desconectado");
     expect(screen.getByRole("button", { name: "Mostrar o time Estúdio Norte" })).toBeInTheDocument();
   });
 
