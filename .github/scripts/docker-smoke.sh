@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# usage: docker-smoke.sh IMAGE
+#   SCREENSHOT=0  the image has no Chrome (`slim`): skip render_screenshot
+#   TEAM=0        the image has no paprika-sync (`slim`): skip team mode (default: same as SCREENSHOT)
+#   HARDEN=0      run without --read-only, --cap-drop=ALL and no-new-privileges (default: hardened,
+#                 which is how docs/en-US/docker.md says to run it)
+#   PORT          host port (default 4777: the server only accepts Host/Origin localhost:4777)
 image="${1:?usage: docker-smoke.sh IMAGE}"
 port="${PORT:-4777}"
 screenshot="${SCREENSHOT:-1}"
+team="${TEAM:-$screenshot}"
+harden="${HARDEN:-1}"
 name="paprika-smoke-$$"
 volume="paprika-smoke-$$"
 base="http://127.0.0.1:${port}"
@@ -20,9 +28,16 @@ fail() {
   exit 1
 }
 
+run_flags=(--health-interval 2s --health-start-period 1s --health-timeout 3s)
+if [[ "$harden" = "1" ]]; then
+  # /data is the volume; /tmp is where Chrome keeps its profile. Nothing else is writable.
+  run_flags+=(--read-only --tmpfs /tmp:rw,size=256m,mode=1777 --cap-drop=ALL --security-opt no-new-privileges
+              --pids-limit 512 --memory 1g)
+fi
+
 start() {
   docker rm -f "$name" >/dev/null 2>&1 || true
-  docker run -d --name "$name" -p "127.0.0.1:${port}:4777" -v "${volume}:/data" "$image" "$@" >/dev/null
+  docker run -d --name "$name" "${run_flags[@]}" -p "127.0.0.1:${port}:4777" -v "${volume}:/data" "$image" "$@" >/dev/null
   for _ in $(seq 1 50); do
     curl -fsS -o /dev/null "$base/" 2>/dev/null && return 0
     sleep 0.2
@@ -55,7 +70,43 @@ init() {
   mcp '{"jsonrpc":"2.0","method":"notifications/initialized"}' >/dev/null || true
 }
 
+# --- image properties that need no running container
+user=$(docker image inspect -f '{{.Config.User}}' "$image")
+[[ "$user" =~ ^[1-9][0-9]*(:[1-9][0-9]*)?$ ]] || fail "image user is '$user', expected a numeric non-root uid"
+echo "ok   image user is $user (numeric, not root)"
+for sh in /bin/sh /bin/bash /usr/bin/sh /busybox/sh; do
+  if docker run --rm --entrypoint "$sh" "$image" -c true >/dev/null 2>&1; then fail "the image has a shell ($sh)"; fi
+done
+echo "ok   no shell in the image"
+[[ -n "$(docker image inspect -f '{{if .Config.Healthcheck}}x{{end}}' "$image")" ]] || fail "image has no HEALTHCHECK"
+echo "ok   image declares a HEALTHCHECK"
+
 start
+
+# --- the container as it runs
+health=""
+for _ in $(seq 1 40); do
+  health=$(docker inspect -f '{{.State.Health.Status}}' "$name")
+  [[ "$health" = healthy ]] && break
+  sleep 0.5
+done
+[[ "$health" = healthy ]] || fail "HEALTHCHECK says '$health'"
+echo "ok   HEALTHCHECK: healthy"
+pid=$(docker inspect -f '{{.State.Pid}}' "$name")
+if [[ -r "/proc/$pid/status" ]]; then
+  uid=$(awk '/^Uid:/{print $3}' "/proc/$pid/status")
+  [[ "$uid" != 0 ]] || fail "the server runs as uid 0"
+  echo "ok   server process runs as uid $uid"
+  if [[ "$harden" = "1" ]]; then
+    capeff=$(awk '/^CapEff:/{print $2}' "/proc/$pid/status")
+    capbnd=$(awk '/^CapBnd:/{print $2}' "/proc/$pid/status")
+    [[ "$capeff$capbnd" =~ ^0+$ ]] || fail "capabilities left: CapEff=$capeff CapBnd=$capbnd"
+    nnp=$(awk '/^NoNewPrivs:/{print $2}' "/proc/$pid/status")
+    [[ "$nnp" = 1 ]] || fail "no-new-privileges is off"
+    [[ "$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' "$name")" = true ]] || fail "root file system is writable"
+    echo "ok   read-only root, no capabilities, no-new-privileges"
+  fi
+fi
 
 html=$(curl -fsS "$base/") || fail "GET /"
 grep -q '<title>Paprika</title>' <<<"$html" || fail "GET / is not the canvas"
@@ -63,8 +114,9 @@ echo "ok   GET / (canvas)"
 js=$(grep -o '/assets/index-[^"]*\.js' <<<"$html" | head -1)
 [[ -n "$js" ]] || fail "no script in the app shell"
 chunk=""
-for name in "${js#/assets/}" $(curl -fsS "$base$js" | grep -o '[A-Za-z0-9_.-]*\.js' | sort -u); do
-  chunk=$(curl -fsS "$base/assets/$name" 2>/dev/null | grep -o 'paprika_render-[A-Za-z0-9_-]*\.js' | head -1) || true
+# not `name`: that is the container's
+for asset in "${js#/assets/}" $(curl -fsS "$base$js" | grep -o '[A-Za-z0-9_.-]*\.js' | sort -u); do
+  chunk=$(curl -fsS "$base/assets/$asset" 2>/dev/null | grep -o 'paprika_render-[A-Za-z0-9_-]*\.js' | head -1) || true
   [[ -n "$chunk" ]] && break
 done
 [[ -n "$chunk" ]] || fail "WASM renderer chunk not in the canvas build"
@@ -102,21 +154,32 @@ outline=$(tool 5 get_document_outline '{}')
 grep -q 'Docker smoke' <<<"$outline" || fail "node lost after restart: $(head -c 400 <<<"$outline")"
 echo "ok   SQLite on the volume survives a restart"
 
-team_args=(serve --host 0.0.0.0 --port 4777 --team --team-name smoke --team-no-relay --team-bind 0.0.0.0:4778)
-team_id() {
-  for _ in $(seq 1 50); do
-    local body
-    body=$(curl -fsS "$base/api/team" 2>/dev/null) && grep -q '"fingerprint"' <<<"$body" && { json 'r.id' <<<"$body"; return 0; }
-    sleep 0.2
-  done
-  fail "GET /api/team did not answer with the team status"
-}
-start "${team_args[@]}"
-key1=$(team_id)
-[[ -n "$key1" ]] || fail "team status without a key id"
-start "${team_args[@]}"
-key2=$(team_id)
-[[ "$key1" = "$key2" ]] || fail "team key changed after a restart ($key1 -> $key2)"
-echo "ok   team mode: paprika-sync up, key kept on the volume ($key1)"
+if [[ "$team" = "1" ]]; then
+  team_args=(serve --host 0.0.0.0 --port 4777 --team --team-name smoke --team-no-relay --team-bind 0.0.0.0:4778)
+  team_id() {
+    for _ in $(seq 1 50); do
+      local body
+      body=$(curl -fsS "$base/api/team" 2>/dev/null) && grep -q '"fingerprint"' <<<"$body" && { json 'r.id' <<<"$body"; return 0; }
+      sleep 0.2
+    done
+    fail "GET /api/team did not answer with the team status"
+  }
+  start "${team_args[@]}"
+  key1=$(team_id)
+  [[ -n "$key1" ]] || fail "team status without a key id"
+  start "${team_args[@]}"
+  key2=$(team_id)
+  [[ "$key1" = "$key2" ]] || fail "team key changed after a restart ($key1 -> $key2)"
+  echo "ok   team mode: paprika-sync up, key kept on the volume ($key1)"
+fi
+
+# SIGTERM must stop the server on its own (PID 1 forwards it), well before Docker's 10 s kill.
+start
+t0=$SECONDS
+docker stop -t 10 "$name" >/dev/null
+elapsed=$((SECONDS - t0))
+code=$(docker inspect -f '{{.State.ExitCode}}' "$name")
+[[ "$code" = 0 && "$elapsed" -lt 8 ]] || fail "docker stop took ${elapsed}s and the exit code was $code (expected a clean exit well under 10 s)"
+echo "ok   docker stop: clean exit in ${elapsed}s"
 
 echo "docker smoke: all checks passed for $image"

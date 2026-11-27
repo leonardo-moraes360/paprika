@@ -419,12 +419,18 @@ jobs:
         run: |
           docker compose -f compose.yaml config -q
           docker compose -f compose.yaml -f compose.team.yaml config -q
+      # hadolint 2.15.1, by digest (a `docker run` is not an action, so the pin check does not cover
+      # it: bump it by hand). The ignores are inline in the Dockerfile, each with its reason.
+      - name: Dockerfile lint (hadolint)
+        run: docker run --rm -i hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d < Dockerfile
       # Layer cache in the GitHub Actions cache. Without it every run rebuilt every stage from
       # scratch (~330 s, the release build of paprika-sync alone ~340 s cold). With it a stage is
-      # rebuilt only when its inputs change: a PR that does not touch crates/sync or crates/render
-      # reuses those stages. The `gha` backend needs the Actions runtime token, which only an
-      # action gets (not a `run:` step), hence these two official docker/* actions. The Dockerfile
-      # still pins its own inputs (base image tags, checksums, lockfiles).
+      # rebuilt only when its inputs change: the Dockerfile compiles the dependencies of the Rust
+      # crates and of the Go server in layers of their own (inputs: Cargo.toml/Cargo.lock, go.mod/go.sum),
+      # so a PR that edits only source recompiles only the crate or the packages it touched. The `gha`
+      # backend needs the Actions runtime token, which only an action gets (not a `run:` step), hence
+      # these two official docker/* actions. The Dockerfile still pins its own inputs (base image
+      # digests, checksums, lockfiles).
       # Read-only here: .github/workflows/docker-cache.yml writes the cache from main, which every
       # PR can read. Writing from the PR too cost ~210 s per run (mode=max, ~90 layers) for entries
       # only that same PR could ever read.
@@ -436,6 +442,12 @@ jobs:
           load: true
           tags: paprika:ci
           cache-from: type=gha,scope=docker
+          build-args: |
+            REVISION=${{ github.sha }}
+            CREATED=${{ github.event.pull_request.updated_at }}
+          provenance: false
+      # Hardened run (read-only root, no capabilities, no-new-privileges), non-root and no-shell checks,
+      # HEALTHCHECK, render_screenshot, restart persistence, team mode, `docker stop`.
       - name: Smoke test (runtime target)
         run: .github/scripts/docker-smoke.sh paprika:ci
       # Reuses every stage built above (same builder); only the final distroless layer is new.
@@ -447,8 +459,12 @@ jobs:
           load: true
           tags: paprika:ci-slim
           cache-from: type=gha,scope=docker
+          build-args: |
+            REVISION=${{ github.sha }}
+            CREATED=${{ github.event.pull_request.updated_at }}
+          provenance: false
       - name: Smoke test (slim target)
-        run: SCREENSHOT=0 .github/scripts/docker-smoke.sh paprika:ci-slim
+        run: SCREENSHOT=0 TEAM=0 .github/scripts/docker-smoke.sh paprika:ci-slim
       - name: Image sizes
         run: docker image ls paprika --format '| {{.Tag}} | {{.Size}} |' | tee -a "$GITHUB_STEP_SUMMARY"
 
