@@ -710,7 +710,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		}
 		send(c.Writer, 200, jsonv.NewObject("svg", res.SVG, "width", res.Width, "height", res.Height, "warnings", ws), "")
 	})
-	engine.GET("/fonts/inter.css", func(c *gin.Context) {
+	engine.Match([]string{http.MethodGet, http.MethodHead}, "/fonts/inter.css", func(c *gin.Context) {
 		css, err := export.InterFontFaceCSS(func(file string) (string, error) { return "/fonts/" + file, nil })
 		if err != nil {
 			send(c.Writer, 500, errBody(err.Error()), "")
@@ -718,7 +718,7 @@ func StartHTTP(store *Store, opts HTTPOptions) (*RunningServer, error) {
 		}
 		sendEmbedded(c.Writer, c.Request, []byte(css), "text/css; charset=utf-8")
 	})
-	engine.GET("/fonts/:file", func(c *gin.Context) {
+	engine.Match([]string{http.MethodGet, http.MethodHead}, "/fonts/:file", func(c *gin.Context) {
 		raw, ok := export.InterFile(c.Param("file"))
 		if !ok {
 			send(c.Writer, 404, errBody("font not found"), "")
@@ -836,13 +836,13 @@ func safeFileName(s string) string {
 
 var webEntries = []string{"_shell.html", "index.html"}
 
-func webEntryIn(root *os.Root) string {
+func entryIn(root *os.Root) string {
 	for _, name := range webEntries {
 		if st, err := root.Stat(name); err == nil && !st.IsDir() {
 			return name
 		}
 	}
-	return webEntries[len(webEntries)-1]
+	return ""
 }
 
 func WebEntry(dir string) string {
@@ -851,12 +851,19 @@ func WebEntry(dir string) string {
 		return ""
 	}
 	defer root.Close()
-	for _, name := range webEntries {
-		if st, err := root.Stat(name); err == nil && !st.IsDir() {
-			return name
+	return entryIn(root)
+}
+
+// missingIsNotFound tells a request for a file that does not exist (an asset, an API route, anything with an
+// extension) from a client-side route of the app, which gets the shell.
+func missingIsNotFound(rel string) bool {
+	slash := filepath.ToSlash(rel)
+	for _, p := range []string{"assets/", "api/", "fonts/", "mcp"} {
+		if strings.HasPrefix(slash, p) {
+			return true
 		}
 	}
-	return ""
+	return !strings.HasPrefix(slash, "w/") && path.Ext(slash) != ""
 }
 
 func serveStatic(w http.ResponseWriter, r *http.Request, webRoot string) {
@@ -882,7 +889,13 @@ func serveStatic(w http.ResponseWriter, r *http.Request, webRoot string) {
 	defer root.Close()
 	file := rel
 	if st, err := root.Stat(file); file == "" || err != nil || st.IsDir() {
-		file = webEntryIn(root)
+		if file != "" && err != nil && missingIsNotFound(rel) {
+			send(w, 404, errBody("not found"), "")
+			return
+		}
+		if file = entryIn(root); file == "" {
+			file = webEntries[len(webEntries)-1]
+		}
 	}
 	data, err := root.ReadFile(file)
 	if err != nil {

@@ -160,5 +160,25 @@ func TestInterFontsAreCachedWithETag(t *testing.T) {
 		if resp.StatusCode != 304 || len(body) != 0 {
 			t.Fatalf("%s revalidation: %d, %d bytes", p, resp.StatusCode, len(body))
 		}
+		req, _ = http.NewRequest("GET", srv.URL+p, nil)
+		req.Header.Set("If-None-Match", "W/"+tag)
+		resp, err = http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != 304 {
+			t.Fatalf("%s weak revalidation: %d", p, resp.StatusCode)
+		}
+		req, _ = http.NewRequest("HEAD", srv.URL+p, nil)
+		resp, err = http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != 200 || len(body) != 0 || resp.Header.Get("etag") != tag || strings.Contains(resp.Header.Get("content-type"), "html") {
+			t.Fatalf("%s HEAD: %d %q etag %q, %d bytes", p, resp.StatusCode, resp.Header.Get("content-type"), resp.Header.Get("etag"), len(body))
+		}
 	}
 }

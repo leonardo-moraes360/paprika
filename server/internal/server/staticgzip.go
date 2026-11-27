@@ -120,7 +120,7 @@ func sendEmbedded(w http.ResponseWriter, r *http.Request, data []byte, ct string
 	h.Set("x-content-type-options", "nosniff")
 	if match := r.Header.Get("If-None-Match"); match != "" {
 		for part := range strings.SplitSeq(match, ",") {
-			if p := strings.TrimSpace(part); p == tag || p == "*" {
+			if p := strings.TrimSpace(part); strings.TrimPrefix(p, "W/") == tag || p == "*" {
 				w.WriteHeader(http.StatusNotModified)
 				return
 			}
