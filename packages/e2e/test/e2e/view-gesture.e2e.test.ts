@@ -5,7 +5,7 @@ import type { Page } from "playwright";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { callTool, closeSeededCanvas, connectAgent, openSeededCanvas, repoRoot, webDist, type CanvasSession } from "./seededCanvas.js";
 
-const wasmBuilt = existsSync(join(repoRoot, "web-legacy/src/wasm/paprika_render.js"));
+const wasmBuilt = existsSync(join(repoRoot, "apps/web/src/wasm/paprika_render.js"));
 
 type Probe = { renders: number; nodes: number };
 
@@ -16,11 +16,11 @@ describe.skipIf(!existsSync(webDist))("E2E: pan, scroll and zoom do not re-rende
 
   const probe = (): Promise<Probe> =>
     page.evaluate(() => {
-      const world = document.querySelector(".world") as unknown as { __paprikaNodeRenders: number };
-      return { renders: world.__paprikaNodeRenders, nodes: document.querySelectorAll(".world [data-paprika-id]").length };
+      const world = document.querySelector("[data-canvas-world]") as unknown as { __paprikaNodeRenders: number };
+      return { renders: world.__paprikaNodeRenders, nodes: document.querySelectorAll("[data-canvas-world] [data-paprika-id]").length };
     });
   const view = async () => {
-    const t = (await page.locator(".world").getAttribute("style"))!.match(/translate\(\s*(-?[\d.]+)px,\s*(-?[\d.]+)px\)\s*scale\(\s*([\d.]+)/)!;
+    const t = (await page.locator("[data-canvas-world]").getAttribute("style"))!.match(/translate\(\s*(-?[\d.]+)px,\s*(-?[\d.]+)px\)\s*scale\(\s*([\d.]+)/)!;
     return { x: Number(t[1]), y: Number(t[2]), zoom: Number(t[3]) };
   };
   const center = async () => {
@@ -63,20 +63,27 @@ describe.skipIf(!existsSync(webDist))("E2E: pan, scroll and zoom do not re-rende
     expect((await probe()).renders).toBe(before.renders);
   });
 
-  it("selecting and deselecting a node renders no node", async () => {
+  // O app novo marca a seleção em cada nó (`data-selected`): selecionar e desselecionar renderiza só o nó que mudou, nunca a página (no antigo, nenhum).
+  it("selecting and deselecting a node renders only that node, not the page", async () => {
     const before = await probe();
+    await page.locator('[data-layer-id="login"]').hover();
     await page.locator('[data-layer-id="login"]').click();
     await expect.poll(() => page.getByTestId("selection").count()).toBe(1);
+    await settle();
+    const selected = (await probe()).renders - before.renders;
     await page.keyboard.press("Escape");
     await expect.poll(() => page.getByTestId("selection").count()).toBe(0);
     await settle();
-    expect((await probe()).renders).toBe(before.renders);
+    const delta = (await probe()).renders - before.renders;
+    expect(selected).toBeLessThanOrEqual(1);
+    expect(delta).toBeLessThanOrEqual(2);
+    expect(delta).toBeLessThan(before.nodes / 4);
   });
 
   it("changing one node renders only that node and the nodes around it, not the page", async () => {
     const before = await probe();
     const leaf = await page.evaluate(() => {
-      const el = [...document.querySelectorAll<HTMLElement>(".world [data-paprika-id]")].find((e) => e.dataset.paprikaType === "text" && !e.querySelector("[data-paprika-id]"));
+      const el = [...document.querySelectorAll<HTMLElement>("[data-canvas-world] [data-paprika-id]")].find((e) => e.dataset.paprikaType === "text" && !e.querySelector("[data-paprika-id]"));
       let depth = 0;
       for (let p = el!.parentElement; p; p = p.parentElement) if (p.dataset.paprikaId) depth++;
       return { id: el!.dataset.paprikaId!, depth };
@@ -105,7 +112,7 @@ describe.skipIf(!existsSync(webDist))("E2E: pan, scroll and zoom do not re-rende
     const b1 = (await page.locator('[data-paprika-id="login"]').boundingBox())!;
     expect(b1.x - b0.x).toBeCloseTo(-60, 0);
     expect(b1.y - b0.y).toBeCloseTo(-140, 0);
-    const sel = (await page.getByTestId("selection").boundingBox())!;
+    const sel = (await page.locator("[data-testid=\"selection\"] [data-selection-box]").boundingBox())!;
     expect(Math.abs(sel.x - b1.x)).toBeLessThan(2);
     expect(Math.abs(sel.y - b1.y)).toBeLessThan(2);
     expect(Math.abs(sel.width - b1.width)).toBeLessThan(2);
@@ -141,9 +148,9 @@ describe.skipIf(!existsSync(webDist))("E2E: pan, scroll and zoom do not re-rende
   }, 60_000);
 
   it.skipIf(!wasmBuilt)("with the WASM layer on, a pan and a zoom render no node either and the layer stays shown", async () => {
-    await page.goto(`${session!.url}/w/${encodeURIComponent((await session!.external.doc()).id)}?renderer=wasm`);
+    await page.goto(`${session!.url}/w/${encodeURIComponent((await session!.external.doc()).id)}?renderer=cpu`);
     await page.waitForSelector('[data-paprika-id="login"]');
-    await page.waitForFunction(() => ["cpu", "webgpu"].includes(document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')?.dataset.backend ?? ""), undefined, { timeout: 60_000 });
+    await page.waitForFunction(() => ["cpu", "webgpu"].includes(document.querySelector<HTMLElement>('[data-testid="wasm-layer"]')?.dataset.backend ?? ""), undefined, { timeout: 60_000 });
     await settle();
     const c = await center();
     await page.mouse.move(c.x, c.y);
@@ -154,6 +161,6 @@ describe.skipIf(!existsSync(webDist))("E2E: pan, scroll and zoom do not re-rende
     await page.keyboard.up("Control");
     await settle();
     expect((await probe()).renders).toBe(before.renders);
-    await expect.poll(() => page.locator(".world").getAttribute("data-wasm-active")).toBe("1");
+    await expect.poll(() => page.locator("[data-canvas-world]").getAttribute("data-wasm-active")).toBe("1");
   }, 90_000);
 });
