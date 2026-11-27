@@ -29,6 +29,8 @@ export function NewPinForm({
   submitShortcut,
   maxLength = 500,
   defaultAttachRegion = true,
+  showAttachRegion = true,
+  showChangeHint = true,
   className,
 }: NewPinFormProps) {
   const { t } = useTranslation();
@@ -63,7 +65,7 @@ export function NewPinForm({
           <Pill icon={<Crosshair />} className="min-w-0 max-w-full">
             <span className="truncate">{t("frontends.pins.target", { target: targetLabel(t, target) })}</span>
           </Pill>
-          <span className="text-xs text-muted">{t("frontends.pins.changeTarget")}</span>
+          {showChangeHint ? <span className="text-xs text-muted">{t("frontends.pins.changeTarget")}</span> : null}
         </div>
         <TextArea
           autoFocus
@@ -79,7 +81,7 @@ export function NewPinForm({
             action.clearError();
           }}
         />
-        <Checkbox checked={attachRegion} onCheckedChange={(next) => setAttachRegion(next === true)} label={t("frontends.pins.attachRegion")} />
+        {showAttachRegion ? <Checkbox checked={attachRegion} onCheckedChange={(next) => setAttachRegion(next === true)} label={t("frontends.pins.attachRegion")} /> : null}
         {onAttachReference || references.length > 0 ? (
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2">

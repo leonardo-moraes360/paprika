@@ -293,6 +293,16 @@ describe("NewPinForm", () => {
     expect(screen.getByText("Enter")).toBeInTheDocument();
   });
 
+  it("hides the crop checkbox and the change-target hint when the owner has no canvas for them", () => {
+    const { unmount } = form();
+    expect(screen.getByRole("checkbox")).toBeInTheDocument();
+    expect(screen.getByText("click the canvas to change")).toBeInTheDocument();
+    unmount();
+    form({ showAttachRegion: false, showChangeHint: false });
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByText("click the canvas to change")).toBeNull();
+  });
+
   it.each(emptyFailures)("shows the generic text when sending fails with %s", async (_, make) => {
     const user = userEvent.setup();
     form({ onSubmit: vi.fn(() => Promise.reject(make())) });

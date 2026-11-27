@@ -72,5 +72,9 @@ export type NewPinFormProps = {
   submitShortcut?: readonly string[];
   maxLength?: number;
   defaultAttachRegion?: boolean;
+  /** Hides the "attach a crop of the area" checkbox, for an owner that cannot attach one (default: shown). */
+  showAttachRegion?: boolean;
+  /** Hides the "click the canvas to change" hint, for an owner without a canvas to click (default: shown). */
+  showChangeHint?: boolean;
   className?: string;
 };

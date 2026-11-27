@@ -1,4 +1,5 @@
 import { createRegion, shallow } from "@/components/frontends/_shared";
+import type { AgentEntry } from "@/components/frontends/agents";
 
 /**
  * State of ONE open editor (made per instance by `EditorProvider`, never shared, never at module scope).
@@ -39,6 +40,8 @@ export type EditorState = {
   hoveredId: string | null;
   /** Pin selected in the pins list or on the canvas. */
   pinId: string | null;
+  /** Tone of each agent client (`actor`), given on first sight and kept for the life of the editor (batch 4: roster, pins, workspace notice). */
+  agentTones: Readonly<Record<string, AgentColor>>;
 };
 
 export type EditorActions = {
@@ -59,7 +62,12 @@ export type EditorActions = {
   toggleDialog: (dialog: EditorDialog) => void;
   setHovered: (id: string | null) => void;
   setPin: (id: string | null) => void;
+  /** Gives a tone to each actor that has none yet, in order of arrival, cycling through the four tones. */
+  assignAgentTones: (actors: readonly string[]) => void;
 };
+
+type AgentColor = AgentEntry["tone"];
+const agentColors: readonly AgentColor[] = ["agent-1", "agent-2", "agent-3", "agent-4"];
 
 export const clampZoom = (zoom: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 
@@ -77,6 +85,7 @@ export function initialEditorState(overrides: Partial<EditorState> = {}): Editor
     dialogs: { history: false, pins: false, export: false, import: false, agents: false, team: false },
     hoveredId: null,
     pinId: null,
+    agentTones: {},
     ...overrides,
   };
 }
@@ -106,6 +115,14 @@ export const EditorRegion = createRegion<EditorState, EditorActions>("Editor", (
   toggleDialog: (dialog) => setState((s) => setDialog(s, dialog, !s.dialogs[dialog])),
   setHovered: (hoveredId) => setState((s) => (s.hoveredId === hoveredId ? s : { ...s, hoveredId })),
   setPin: (pinId) => setState((s) => (s.pinId === pinId ? s : { ...s, pinId })),
+  assignAgentTones: (actors) =>
+    setState((s) => {
+      const fresh = actors.filter((actor, i) => !(actor in s.agentTones) && actors.indexOf(actor) === i);
+      if (fresh.length === 0) return s;
+      const next: Record<string, AgentColor> = { ...s.agentTones };
+      for (const actor of fresh) next[actor] = agentColors[Object.keys(next).length % agentColors.length]!;
+      return { ...s, agentTones: next };
+    }),
 }));
 
 export const EditorProvider = EditorRegion.Provider;
