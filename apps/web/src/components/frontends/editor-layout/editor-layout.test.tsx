@@ -42,7 +42,7 @@ const sep = (index: 0 | 1) => separators()[index] as HTMLElement;
 const leftHandle = () => screen.getByRole("button", { name: /layers panel/ });
 const rightHandle = () => screen.getByRole("button", { name: /properties panel/ });
 const panel = (side: "left" | "center" | "right") => document.getElementById(`editor-layout-${side}`) as HTMLElement;
-const stored = () => window.localStorage.getItem("paprika.ui-sdk-resizable:layout");
+const stored = () => window.localStorage.getItem("paprika.ui-sdk-resizable:editor");
 
 describe("EditorLayout", () => {
   it("renders the three slots with named regions and separators", async () => {
