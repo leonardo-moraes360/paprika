@@ -64,7 +64,7 @@ function CanvasBody(props: CanvasProps) {
       pageId: () => pageRef.current,
       callbacks: () => {
         const p = latest.current;
-        return { select: p.onSelect, hover: p.onHover, apply: p.onApply, toolDone: p.onToolDone, error: p.onError, text: (path, options) => (textRef.current as unknown as (key: string, options?: object) => string)(`frontends.canvas.${path}`, options) };
+        return { select: p.onSelect, hover: p.onHover, apply: p.onApply, toolDone: p.onToolDone, error: p.onError, vectorDefaults: p.vectorDefaults, text: (path, options) => (textRef.current as unknown as (key: string, options?: object) => string)(`frontends.canvas.${path}`, options) };
       },
     });
     return runtime;

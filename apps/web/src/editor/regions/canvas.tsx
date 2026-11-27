@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Canvas } from "@/components/frontends/canvas";
 import { useLiveClient } from "@/data/live";
 import { showStatusToast } from "@/lib/notify";
+import { vectorDefaults } from "../canvas-defaults";
 import { createEditorFeed } from "../canvas-feed";
 import { useEditorStore } from "../editor-store";
 import { useApplyOps } from "../use-apply";
@@ -28,5 +29,5 @@ export function CanvasRegion() {
   // The layers menu acts on the ids it was opened on.
   const onConvertToPath = useCallback((ids: readonly string[]) => void selection.convert(ids), [selection]);
   const onCenterContent = useCallback((ids: readonly string[]) => void selection.center(ids), [selection]);
-  return <Canvas feed={feed} onSelect={onSelect} onHover={onHover} onZoomChange={onZoomChange} onApply={apply} onToolDone={onToolDone} onError={onError} onConvertToPath={onConvertToPath} onCenterContent={onCenterContent} />;
+  return <Canvas feed={feed} onSelect={onSelect} onHover={onHover} onZoomChange={onZoomChange} onApply={apply} vectorDefaults={vectorDefaults} onToolDone={onToolDone} onError={onError} onConvertToPath={onConvertToPath} onCenterContent={onCenterContent} />;
 }

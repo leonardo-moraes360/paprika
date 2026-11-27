@@ -13,6 +13,7 @@ import {
   type Node,
 } from "@paprika/core";
 import { createContext, memo, useCallback, useContext, useLayoutEffect, useSyncExternalStore, type CSSProperties } from "react";
+import { hasContentPatch, linkedPatches, routedConnector, sameLinked, withPatch, type Linked } from "./preview-node";
 import { useCanvasState } from "./region";
 import type { RenderStore } from "./render-index";
 
@@ -49,7 +50,7 @@ function TextRuns({ doc, node }: { doc: Document; node: TextNode }) {
   );
 }
 
-const sameView = (a: { flags: number; patch: unknown }, b: { flags: number; patch: unknown }) => a.flags === b.flags && a.patch === b.patch;
+const sameView = (a: { flags: number; patch: unknown; linked: Linked }, b: { flags: number; patch: unknown; linked: Linked }) => a.flags === b.flags && a.patch === b.patch && sameLinked(a.linked, b.linked);
 const SELECTED = 1;
 const HOVERED = 2;
 const EDITING = 4;
@@ -66,16 +67,23 @@ export const NodeView = memo(function NodeViewOf({ id }: { id: string }) {
   const read = useCallback(() => store.snapshot(id), [store, id]);
   const snap = useSyncExternalStore(subscribe, read, read);
   // One subscription per node, not two: every write to the canvas store asks each subscriber, and a page has thousands of nodes.
-  const { flags, patch } = useCanvasState(
-    (s) => ({ flags: (s.selected.has(id) ? SELECTED : 0) | (s.hoveredId === id ? HOVERED : 0) | (s.editingId === id ? EDITING : 0), patch: s.preview[id] }),
+  // A connector also follows the patches of the nodes it is attached to (and of the connector itself): it is routed again over them.
+  const { flags, patch, linked } = useCanvasState(
+    (s) => ({
+      flags: (s.selected.has(id) ? SELECTED : 0) | (s.hoveredId === id ? HOVERED : 0) | (s.editingId === id ? EDITING : 0),
+      patch: s.preview[id],
+      linked: linkedPatches(s.preview, store.doc(), snap.node),
+    }),
     sameView,
   );
   const attach = useCallback((el: HTMLElement | null) => (el ? store.attach(id, el) : undefined), [store, id]);
   // Once per committed render (a StrictMode double render is not counted twice).
   useLayoutEffect(() => store.countRender(id));
-  const node = snap.node;
-  if (!node || node.type === "page") return null;
   const doc = store.doc();
+  const held = snap.node;
+  if (!held || held.type === "page") return null;
+  // What the gesture shows over the node: a path's outline, a connector's route, a frame's gap and padding.
+  const node = held.type === "connector" && linked.length > 0 ? routedConnector(doc, held, linked) : hasContentPatch(patch) ? withPatch(held, patch) : held;
   const css = { ...nodeStyle(doc, node) } as CSSProperties;
   if (patch) {
     if (patch.x !== undefined) css.left = patch.x;

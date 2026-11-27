@@ -1,13 +1,18 @@
 import type { CanvasOverlay } from "../types";
+import { ConnectorHandles, LinkDraft } from "./connector-handles";
 import { ConnectorLabelEditor } from "./connector-label-editor";
 import { CreateGhost } from "./create-ghost";
-import { FrameLabels } from "./frame-labels";
 import { DropMarker } from "./drop-marker";
+import { FrameLabels } from "./frame-labels";
+import { GradientHandles } from "./gradient-handles";
 import { SelectionHandlesOverlay } from "./handles";
 import { HoverOutline } from "./hover-outline";
 import { MarqueeBox } from "./marquee-box";
+import { PathEditOverlay } from "./path-edit";
+import { PenDraftOverlay } from "./pen-draft";
 import { SelectionOutline } from "./selection-outline";
 import { ShapeTextEditor } from "./shape-text-editor";
+import { SpacingHandles } from "./spacing-handles";
 import { TextEditor } from "./text-editor";
 
 /**
@@ -19,10 +24,19 @@ export const overlays: readonly CanvasOverlay[] = [
   { id: "frame-labels", Component: FrameLabels },
   { id: "hover-outline", Component: HoverOutline },
   { id: "selection-outline", Component: SelectionOutline },
+  // What a gesture draws while it runs (never interactive).
   { id: "drop-marker", Component: DropMarker },
   { id: "marquee-box", Component: MarqueeBox },
-  { id: "selection-handles", Component: SelectionHandlesOverlay },
   { id: "create-ghost", Component: CreateGhost },
+  { id: "pen-draft", Component: PenDraftOverlay },
+  { id: "link-draft", Component: LinkDraft },
+  // The handles of what is selected.
+  { id: "selection-handles", Component: SelectionHandlesOverlay },
+  { id: "path-edit", Component: PathEditOverlay },
+  { id: "connector-handles", Component: ConnectorHandles },
+  { id: "gradient-handles", Component: GradientHandles },
+  { id: "spacing-handles", Component: SpacingHandles },
+  // The editors, over everything.
   { id: "text-editor", Component: TextEditor },
   { id: "shape-text-editor", Component: ShapeTextEditor },
   { id: "connector-label-editor", Component: ConnectorLabelEditor },
