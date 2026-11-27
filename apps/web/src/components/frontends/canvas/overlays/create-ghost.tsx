@@ -1,0 +1,55 @@
+import { nodeStyle, shapeAttrs, SHAPE_SVG_CSS, SHAPE_TEXT_CSS } from "@paprika/core";
+import type { CSSProperties } from "react";
+import { CREATE_KEY, type CreateDraft } from "../gestures/create";
+import { ghostDocument, ghostNode } from "../labels";
+import { useCanvasState } from "../region";
+import { useCanvasRuntime } from "../runtime";
+
+const GHOST_OPACITY = 0.45;
+/** At least this much (in both directions) is a drag: the rectangle of the drag shows. */
+const DRAG_SIZE = 4;
+
+/**
+ * What a creation tool is about to make, drawn over the page while the pointer is down: the node itself, faint, at the size
+ * the release would give it, and the dashed box of the drag. It reads only the draft the gesture writes (one store slot), so
+ * moving the pointer renders this and nothing else, and nothing is sent until release.
+ */
+export function CreateGhost() {
+  const rt = useCanvasRuntime();
+  const draft = useCanvasState((s) => s.ui[CREATE_KEY] as CreateDraft | null | undefined);
+  if (!draft) return null;
+  const { tool, x, y, width, height, origin, clicked } = draft;
+  const doc = rt.doc();
+  const node = ghostNode(tool, width, height);
+  const ghostDoc = ghostDocument(doc, node);
+  const css = nodeStyle(ghostDoc, node, { asRoot: true }) as CSSProperties;
+  const shape = node.type === "shape" ? shapeAttrs(ghostDoc, node) : null;
+  const left = origin.x + x;
+  const top = origin.y + y;
+  return (
+    <div data-testid="create-ghost" aria-hidden="true">
+      {!clicked && width >= DRAG_SIZE && height >= DRAG_SIZE ? (
+        <div
+          data-testid="create-drag"
+          className="pointer-events-none absolute border-dashed border-select bg-select/10"
+          style={{ left, top, width, height, borderWidth: "calc(1px / var(--view-zoom))" }}
+        />
+      ) : null}
+      <div data-testid="draft-ghost" data-ghost-tool={tool} className="pointer-events-none absolute overflow-visible" style={{ left, top, width, height }}>
+        <div style={{ ...css, position: "relative", left: 0, top: 0, opacity: GHOST_OPACITY }}>
+          {node.type === "text" ? node.text : null}
+          {shape && node.type === "shape" ? (
+            <>
+              <svg xmlns="http://www.w3.org/2000/svg" width={shape.svg.width} height={shape.svg.height} style={SHAPE_SVG_CSS as CSSProperties}>
+                {shape.svgInner ? <g dangerouslySetInnerHTML={{ __html: shape.svgInner }} /> : null}
+                <path d={shape.path.d} fill={shape.path.fill} stroke={shape.path.stroke} strokeWidth={shape.path.strokeWidth} strokeLinejoin="round" />
+                {shape.fold && <path d={shape.fold.d} fill={shape.fold.fill} />}
+              </svg>
+              <div style={SHAPE_TEXT_CSS as CSSProperties}>{node.text}</div>
+            </>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}

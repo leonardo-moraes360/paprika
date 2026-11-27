@@ -9,7 +9,7 @@ const fire = (type: string, init: PointerEventInit = {}) => window.dispatchEvent
 
 describe("gesture dispatch", () => {
   it("lists the gestures in order: pan before the click that selects", () => {
-    expect(gestures.map((g) => g.id)).toEqual(["pan", "select-click"]);
+    expect(gestures.map((g) => g.id)).toEqual(["pan", "create", "select-click"]);
     expect(new Set(gestures.map((g) => g.id)).size).toBe(gestures.length);
   });
 

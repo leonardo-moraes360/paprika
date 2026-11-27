@@ -1,7 +1,8 @@
+import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useCamera } from "./camera";
 import { startGesture } from "./gestures/run";
-import { gestures } from "./gestures";
+import { doubleClicks, gestures } from "./gestures";
 import { gridStyle } from "./geometry";
 import { RenderStoreContext, RootViews } from "./node-view";
 import { overlays } from "./overlays";
@@ -40,6 +41,9 @@ function CanvasBody(props: CanvasProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const latest = useRef(props);
   latest.current = props;
+  const { t } = useTranslation();
+  const translate = useRef(t);
+  translate.current = t;
   const pageRef = useRef(feed.get().pageId);
   /** The zoom the owner holds (what it gave us last, or what we told it last). */
   const ownerZoom = useRef(feed.get().zoom);
@@ -60,6 +64,7 @@ function CanvasBody(props: CanvasProps) {
         const p = latest.current;
         return { select: p.onSelect, hover: p.onHover, apply: p.onApply, toolDone: p.onToolDone, error: p.onError };
       },
+      t: (key, values) => String((translate.current as unknown as (key: string, values?: Record<string, unknown>) => string)(key, values)),
     });
     return runtime;
   });
@@ -166,6 +171,9 @@ function CanvasBody(props: CanvasProps) {
             viewportRef.current?.focus({ preventScroll: true });
             stopGesture.current?.();
             stopGesture.current = startGesture(rt, gestures as readonly Gesture[], event.nativeEvent);
+          }}
+          onDoubleClick={(event) => {
+            for (const handler of doubleClicks) if (handler(rt, event.nativeEvent)) break;
           }}
           onPointerMove={(event) => {
             if (stopGesture.current || event.buttons !== 0) return;
