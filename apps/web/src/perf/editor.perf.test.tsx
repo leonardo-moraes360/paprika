@@ -77,7 +77,7 @@ describe("editor commits with a document of 5 000 nodes", () => {
     vi.useRealTimers();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Renderer: DOM" }));
-    await user.click(screen.getByRole("menuitemradio", { name: "WASM" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "WASM · CPU" }));
     expect(await screen.findByRole("button", { name: "Renderer: WASM · CPU" })).toBeInTheDocument();
     expect(view.socket.sentOf("hello")).toHaveLength(helloBefore + 1);
     expect(view.socket.sentOf("ops")).toEqual([]);
