@@ -276,7 +276,7 @@ function CanvasBody(props: CanvasProps) {
           className={cn(
             "absolute inset-0 overflow-hidden bg-canvas contain-layout contain-paint outline-none touch-none",
             "data-[tool=frame]:cursor-crosshair data-[tool=rect]:cursor-crosshair data-[tool=ellipse]:cursor-crosshair data-[tool=text]:cursor-crosshair data-[tool=pen]:cursor-crosshair",
-            "data-[sampling]:cursor-crosshair data-[sampling]:**:cursor-crosshair! data-[tool=pin]:cursor-crosshair data-[file-over]:outline-2 data-[file-over]:-outline-offset-2 data-[file-over]:outline-select",
+            "data-[sampling]:cursor-crosshair data-[sampling]:**:cursor-crosshair! data-[tool=pin]:cursor-crosshair data-[file-over]:outline-2 data-[file-over]:outline-solid data-[file-over]:-outline-offset-2 data-[file-over]:outline-select-brand",
             "data-[capture]:fixed data-[capture]:z-[100000] data-[capture]:bg-transparent",
             "data-[pan=ready]:**:cursor-grab! data-[pan=ready]:cursor-grab data-[pan=panning]:**:cursor-grabbing! data-[pan=panning]:cursor-grabbing",
             className,
@@ -323,7 +323,7 @@ function CanvasBody(props: CanvasProps) {
           {/* The WASM layer, under the world: what it paints sits below the DOM's text, images and selection. */}
           <WasmCanvas layer={wasm} />
           {/* The page, painted by the DOM. `scheme-light`: a document is drawn the same in a dark app. */}
-          <div data-canvas-world="" data-testid="canvas-world" className="absolute top-0 left-0 origin-top-left scheme-light [&_[data-build]]:outline-[1.5px] [&_[data-build]]:outline-offset-1 [&_[data-build]]:outline-(--build) [&_[data-paprika-id]]:select-none">
+          <div data-canvas-world="" data-testid="canvas-world" className="absolute top-0 left-0 origin-top-left scheme-light [&_[data-paprika-id]]:select-none">
             <RootViews />
           </div>
           <div

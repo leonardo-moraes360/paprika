@@ -7,8 +7,10 @@ import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
 import { spacingHandles, type LocalBox, type SpacingHandle } from "../vector/spacing";
 import { placeBox } from "./place";
+import { ring } from "./stroke";
 import { useDocVersion } from "./use-doc-version";
 
+const EDGE = ring(1.5, "var(--color-select-brand)");
 const px = (n: number) => `calc(${n}px / var(--view-zoom, 1))`;
 
 type Model = { w: number; h: number; handles: SpacingHandle[]; values: Record<string, number> };
@@ -22,6 +24,12 @@ const sameModel = (a: Model | null, b: Model | null) => a === b || (!!a && !!b &
  * focused handle by 1 px (10 with Shift); Alt makes a padding the same on all four sides.
  */
 export function SpacingHandles() {
+  // The handles are the select tool's: with another tool armed a press on them would make something, so they are not drawn.
+  const select = useCanvasState((s) => s.tool === "select");
+  return select ? <SpacingHandlesShown /> : null;
+}
+
+function SpacingHandlesShown() {
   const rt = useCanvasRuntime();
   const { t } = useTranslation();
   const id = useCanvasState((s) => (s.selection.length === 1 ? s.selection[0]! : null));
@@ -98,8 +106,8 @@ export function SpacingHandles() {
             data-spacing-side={h.side}
             data-spacing-frame={id}
             onKeyDown={onKey(h)}
-            className="pointer-events-auto absolute cursor-grab border-select-brand bg-panel outline-none focus-visible:ring-2 focus-visible:ring-select-brand active:cursor-grabbing"
-            style={{ left: h.x, top: h.y, width: px(vertical ? 8 : 22), height: px(vertical ? 22 : 8), borderRadius: px(4), borderWidth: px(1.5), transform: "translate(-50%, -50%)" }}
+            className="pointer-events-auto absolute cursor-grab bg-panel outline-hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-select-brand active:cursor-grabbing"
+            style={{ left: h.x, top: h.y, width: px(vertical ? 8 : 22), height: px(vertical ? 22 : 8), borderRadius: px(4), ...EDGE, transform: "translate(-50%, -50%)" }}
           />
         );
       })}

@@ -29,7 +29,7 @@ export function FrameRename({ id, name }: { id: string; name: string }) {
       aria-label={rt.text("editors.frameName")}
       defaultValue={name}
       maxLength={200}
-      className="h-[18px] w-45 rounded-xs px-1 py-0 text-xs"
+      className="h-[18px] w-45 rounded-xs border-select-brand focus-visible:border-select-brand has-[input:focus-visible]:border-select-brand focus-visible:outline-select-brand has-[input:focus-visible]:outline-select-brand px-1 py-0 text-xs"
       onFocus={(e) => e.currentTarget.select()}
       onClick={(e) => e.stopPropagation()}
       onDoubleClick={(e) => e.stopPropagation()}

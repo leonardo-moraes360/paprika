@@ -39,8 +39,15 @@ export const create: Gesture = {
     show(event.clientX, event.clientY);
     const clear = () => rt.overlay.set(CREATE_KEY, null);
     return {
-      move: (e) => void show(e.clientX, e.clientY),
+      move: (e) => {
+        if (rt.tool() === tool) show(e.clientX, e.clientY);
+      },
       up: (e) => {
+        // The tool was changed in the middle of the drag (Escape, a key for another tool): nothing is made.
+        if (rt.tool() !== tool) {
+          clear();
+          return;
+        }
         const box = draftBox(tool, a, local(e.clientX, e.clientY));
         clear();
         const id = newId();

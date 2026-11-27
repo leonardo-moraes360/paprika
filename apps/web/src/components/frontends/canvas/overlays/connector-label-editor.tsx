@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { TextField } from "@/components/ui/text-field";
 import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
+import { useDocVersion } from "./use-doc-version";
 import { useNode } from "./use-node";
 
 type ConnectorNode = Extract<Node, { type: "connector" }>;
@@ -32,19 +33,26 @@ function LabelSurface({ node }: { node: ConnectorNode }) {
   const done = useRef(false);
   /** The label the document had last: what the field started from, or what another client wrote since. A change is measured against it. */
   const base = useRef(initial.label ?? "");
-  const at = connectorMidpoint(initial.d);
+  const at = connectorMidpoint(node.d);
   const look = connectorLabelAttrs(rt.doc(), { ...initial, label: initial.label || " " });
+  const version = useDocVersion();
+  const atX = at?.x;
+  const atY = at?.y;
 
+  // The field follows the arrow: another client may move it (or one of its ends) while the label is open.
   useLayoutEffect(() => {
     const box = rt.measure(initial.id);
     const el = shell.current;
-    if (el && box && at) {
-      el.style.left = `${box.x + at.x - WIDTH / 2}px`;
-      el.style.top = `${box.y + at.y - HEIGHT / 2}px`;
+    if (el && box && atX !== undefined && atY !== undefined) {
+      el.style.left = `${box.x + atX - WIDTH / 2}px`;
+      el.style.top = `${box.y + atY - HEIGHT / 2}px`;
     }
+  }, [rt, initial, atX, atY, version]);
+
+  useLayoutEffect(() => {
     field.current?.focus();
     field.current?.select();
-  }, [rt, initial, at]);
+  }, [rt, initial]);
 
   // Another client wrote the label while this one is open: a field nobody has touched shows it, one with typing in it keeps what was typed.
   const label = node.label ?? "";
@@ -78,7 +86,7 @@ function LabelSurface({ node }: { node: ConnectorNode }) {
         data-testid="connector-label-editor"
         aria-label={rt.text("editors.connectorLabel")}
         defaultValue={initial.label ?? ""}
-        className="pointer-events-auto box-border h-full w-full rounded-xs border-select px-1 text-center outline-none"
+        className="pointer-events-auto box-border h-full w-full rounded-xs border-select-brand focus-visible:border-select-brand has-[input:focus-visible]:border-select-brand focus-visible:outline-select-brand has-[input:focus-visible]:outline-select-brand px-1 text-center outline-none"
         // The label keeps the look of the arrow's own label (its colour over its halo): both are the document's.
         style={{ background: look.stroke, color: look.fill, fontFamily: look.fontFamily, fontSize: look.fontSize, fontWeight: look.fontWeight }}
         onPointerDown={(e) => e.stopPropagation()}

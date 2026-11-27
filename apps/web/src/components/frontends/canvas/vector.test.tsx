@@ -596,15 +596,25 @@ describe("the handles of an edit need the select tool", () => {
     ["spacing", ["flow"], '[data-spacing="gap-0"]', { x: 196, y: 450 }, { x: 216, y: 450 }],
     ["gradient", ["grad"], '[data-gradient-handle="stop:0"]', { x: 400, y: 170 }, { x: 460, y: 170 }],
     ["arrow end", ["arrow"], '[data-connector-handle="to"]', { x: 670, y: 650 }, { x: 900, y: 300 }],
-  ])("a drag from the %s handle with the rectangle tool draws a rectangle and edits nothing", async (_name, selection, selector, from, to) => {
+  ])("the %s handle is not drawn with the rectangle tool, and a drag from where it is draws a rectangle and edits nothing", async (_name, selection, selector, from, to) => {
     const m = mount({ selection, tool: "rect" });
-    drag(m.container.querySelector(selector) as Element, m.at(from.x, from.y), m.at(to.x, to.y));
+    expect(m.container.querySelector(selector)).toBeNull();
+    drag(m.container.querySelector('[data-testid="viewport"]') as Element, m.at(from.x, from.y), m.at(to.x, to.y));
     await flush();
     const labels = m.onApply.mock.calls.map((c) => c[1]);
     expect(labels).not.toContain("gap");
     expect(labels).not.toContain("gradient");
     expect(labels).not.toContain("attach end");
     expect(labels).toEqual(["create rectangle"]);
+  });
+
+  it.each([
+    ["spacing", ["flow"], '[data-spacing="gap-0"]'],
+    ["gradient", ["grad"], '[data-gradient-handle="stop:0"]'],
+    ["arrow end", ["arrow"], '[data-connector-handle="to"]'],
+  ])("the %s handle is drawn with the select tool", (_name, selection, selector) => {
+    const m = mount({ selection });
+    expect(m.container.querySelector(selector)).not.toBeNull();
   });
 });
 

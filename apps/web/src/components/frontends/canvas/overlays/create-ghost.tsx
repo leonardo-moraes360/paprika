@@ -3,7 +3,11 @@ import type { CSSProperties } from "react";
 import { CREATE_KEY, type CreateDraft } from "../gestures/create";
 import { ghostDocument, ghostNode } from "../labels";
 import { useOverlayValue } from "../overlay-bus";
+import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
+import { dashedRing } from "./stroke";
+
+const DRAG_EDGE = dashedRing(1, "var(--color-select-brand)");
 
 const GHOST_OPACITY = 0.45;
 /** At least this much (in both directions) is a drag: the rectangle of the drag shows. */
@@ -17,8 +21,10 @@ const DRAG_SIZE = 4;
 export function CreateGhost() {
   const rt = useCanvasRuntime();
   const draft = useOverlayValue<CreateDraft>(CREATE_KEY);
-  if (!draft) return null;
-  const { tool, x, y, width, height, origin, clicked } = draft;
+  const tool = useCanvasState((s) => s.tool);
+  // The tool changed in the middle of the drag (Escape, a key): the gesture is called off, and so is what it showed.
+  if (!draft || draft.tool !== tool) return null;
+  const { x, y, width, height, origin, clicked } = draft;
   const doc = rt.doc();
   const node = ghostNode(tool, width, height, rt.defaults());
   const ghostDoc = ghostDocument(doc, node);
@@ -31,8 +37,8 @@ export function CreateGhost() {
       {!clicked && width >= DRAG_SIZE && height >= DRAG_SIZE ? (
         <div
           data-testid="create-drag"
-          className="pointer-events-none absolute border-dashed border-select bg-select/10"
-          style={{ left, top, width, height, borderWidth: "calc(1px / var(--view-zoom))" }}
+          className="pointer-events-none absolute bg-select-brand/10"
+          style={{ left, top, width, height, ...DRAG_EDGE }}
         />
       ) : null}
       <div data-testid="draft-ghost" data-ghost-tool={tool} className="pointer-events-none absolute overflow-visible" style={{ left, top, width, height }}>
