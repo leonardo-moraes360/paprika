@@ -110,6 +110,12 @@ describe("LayersPanel", () => {
     expect(tree.parentElement).toHaveClass("pe-3.5");
   });
 
+  it("shows the hide and lock toggles while the row has keyboard focus, not only on hover (the focus is on the row, not inside it)", () => {
+    setup();
+    const toggle = screen.getByRole("button", { name: "Hide Title" });
+    expect(toggle.className).toContain("group-[:is([role=treeitem]:focus-visible>*)]/layer:flex");
+  });
+
   it("shows the empty message when there are no layers", () => {
     setup({ rows: [] });
     expect(screen.getByText("Empty. Draw a frame (F) or ask an agent through MCP.")).toBeInTheDocument();
@@ -373,6 +379,26 @@ describe("LayersPanel", () => {
     expect(first).toHaveFocus();
     await user.keyboard("{ArrowDown}");
     expect(screen.getByRole("treeitem", { name: "Layer 1" })).toHaveFocus();
+  });
+
+  it("scrolls a layer selected elsewhere into view in a long list, and leaves a visible one alone", () => {
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(280);
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(280);
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(600 * 30);
+    // jsdom has no `scrollTo`: the list's scroll element moves by it, so a spy stands in and sees where the list is asked to go.
+    const scrollTo = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: scrollTo });
+    const many = (selected?: string): LayerRowData[] => Array.from({ length: 600 }, (_, index) => ({ ...base, id: `n${index}`, name: `Layer ${index}`, kind: "rect" as const, selected: `n${index}` === selected }));
+    const handlers = { onSelect: vi.fn(), onRename: vi.fn(), onMove: vi.fn(), onToggleVisible: vi.fn(), onToggleLocked: vi.fn() };
+    const { rerender } = render(<LayersPanel rows={many()} {...handlers} />);
+    scrollTo.mockClear();
+    rerender(<LayersPanel rows={many("n2")} {...handlers} />);
+    expect(scrollTo.mock.calls.every(([options]) => options.top === 0)).toBe(true);
+    scrollTo.mockClear();
+    rerender(<LayersPanel rows={many("n500")} {...handlers} />);
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo.mock.calls[0]![0].top).toBeGreaterThan(500 * 30 - 280 - 1);
+    Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
   });
 
   it("renders in Portuguese", async () => {
