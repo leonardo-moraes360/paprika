@@ -443,6 +443,10 @@ jobs:
           build-args: |
             REVISION=${{ github.sha }}
             CREATED=${{ github.event.pull_request.updated_at }}
+          # No provenance attestation: build-push-action adds one by default, which makes the result an
+          # image index, and `load: true` (docker exporter, classic image store) cannot load an index
+          # ("docker exporter does not currently support exporting manifest lists"). Nothing is pushed
+          # here, so there is nothing to attest.
           provenance: false
       # Hardened run (read-only root, no capabilities, no-new-privileges), non-root and no-shell checks,
       # HEALTHCHECK, render_screenshot, restart persistence, team mode, `docker stop`.
@@ -460,6 +464,10 @@ jobs:
           build-args: |
             REVISION=${{ github.sha }}
             CREATED=${{ github.event.pull_request.updated_at }}
+          # No provenance attestation: build-push-action adds one by default, which makes the result an
+          # image index, and `load: true` (docker exporter, classic image store) cannot load an index
+          # ("docker exporter does not currently support exporting manifest lists"). Nothing is pushed
+          # here, so there is nothing to attest.
           provenance: false
       - name: Smoke test (slim target)
         run: SCREENSHOT=0 TEAM=0 .github/scripts/docker-smoke.sh paprika:ci-slim

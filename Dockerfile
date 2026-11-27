@@ -28,6 +28,13 @@ ADD --checksum=sha256:9687f3bb551b9f66f37ed32a40d7913a00f7962db653054e56857bc306
     https://github.com/wasm-bindgen/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl.tar.gz \
     /wasm-bindgen.tgz
 
+FROM scratch AS pnpm-tgz
+# Must match `packageManager` in package.json (checked in the `web` stage); the checksum is the
+# sha256 of https://registry.npmjs.org/pnpm/-/pnpm-<version>.tgz. Bump the two together.
+ARG PNPM_VERSION=10.0.0
+ADD --checksum=sha256:43abf6e720fb7bc53c591b0862605c7d323d0a9d2dd33bcac07b062e13cf4948 \
+    https://registry.npmjs.org/pnpm/-/pnpm-${PNPM_VERSION}.tgz /pnpm.tgz
+
 FROM scratch AS chrome-zip
 # Chrome for Testing's headless shell, the same build Playwright 1.65.1 (packages/e2e) runs the
 # screenshot tests with. Bump CHROME_VERSION and its checksum together with Playwright.
@@ -89,10 +96,12 @@ RUN touch src/lib.rs src/main.rs \
 # ------------------------------------------------------------------ web app (apps/web + packages/core)
 FROM node:26-bookworm-slim@sha256:0042e17d232a87a2cd485be1da7900fca4d10a4ad11b29e9285da1d2e54798c9 AS web
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=1 npm_config_update_notifier=false
-# Node 25+ no longer ships corepack, so pnpm comes from npm; the version must be the one in
-# package.json `packageManager` (checked below). Before any repo file, so it is cached for good.
+# Node 25+ no longer ships corepack, so pnpm comes from npm: the checksum-pinned tarball of the
+# `pnpm-tgz` stage, whose version must be the one in package.json `packageManager` (checked below).
+# Before any repo file, so it is cached for good.
 ARG PNPM_VERSION=10.0.0
-RUN npm install --global --no-audit --no-fund --ignore-scripts "pnpm@${PNPM_VERSION}"
+RUN --mount=type=bind,from=pnpm-tgz,source=/pnpm.tgz,target=/tmp/pnpm.tgz \
+    npm install --global --no-audit --no-fund --ignore-scripts /tmp/pnpm.tgz
 WORKDIR /src
 # Manifests first, so `pnpm install` stays cached until a dependency changes. No `pnpm fetch` +
 # `--offline`: the store is a cache mount, which the layer cache of CI does not restore, so an
@@ -261,7 +270,8 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     rm -f /etc/apt/apt.conf.d/docker-clean \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
-      ca-certificates fontconfig-config fonts-liberation fonts-noto-color-emoji tini unzip \
+      ca-certificates fontconfig-config fonts-droid-fallback fonts-liberation fonts-noto-color-emoji \
+      fonts-noto-core tini unzip \
       libasound2t64 libatk-bridge2.0-0t64 libatk1.0-0t64 libatspi2.0-0t64 libdbus-1-3 libgbm1 \
       libglib2.0-0t64 libnspr4 libnss3 libx11-6 libxcb1 libxcomposite1 libxdamage1 libxext6 \
       libxfixes3 libxkbcommon0 libxrandr2
@@ -300,8 +310,14 @@ mkdir -p "$R/usr/lib64" && cp -a /usr/lib64/ld-linux-x86-64.so.2 "$R/usr/lib64/"
 ln -s usr/lib "$R/lib" && ln -s usr/lib64 "$R/lib64"
 mkdir -p "$R/etc/ld.so.conf.d" && printf '/usr/lib/x86_64-linux-gnu\n' > "$R/etc/ld.so.conf"
 ldconfig -r "$R"
-# fontconfig, fonts, trusted roots
-cp -a --parents /etc/fonts /usr/share/fontconfig /usr/share/fonts/truetype/liberation /usr/share/fonts/truetype/noto "$R/"
+# fontconfig, fonts, trusted roots. Scripts Chrome can draw: Latin, Greek, Cyrillic, Hebrew (Liberation),
+# emoji, CJK (Droid Sans Fallback, 4 MB) and Arabic, Devanagari, Thai (Noto Sans, Regular and Bold).
+# Not the rest of fonts-noto-core (42 MB), which is installed only to take these six files from it.
+cp -a --parents /etc/fonts /usr/share/fontconfig /usr/share/fonts/truetype/liberation /usr/share/fonts/truetype/droid \
+  /usr/share/fonts/truetype/noto/NotoColorEmoji.ttf \
+  /usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf /usr/share/fonts/truetype/noto/NotoSansArabic-Bold.ttf \
+  /usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf /usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf \
+  /usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf /usr/share/fonts/truetype/noto/NotoSansThai-Bold.ttf "$R/"
 mkdir -p "$R/etc/ssl/certs" && cp /etc/ssl/certs/ca-certificates.crt "$R/etc/ssl/certs/"
 # the files of the image's own account database and name service switch
 printf 'root:x:0:0:root:/root:/sbin/nologin\npaprika:x:65532:65532:paprika:/tmp:/sbin/nologin\n' > "$R/etc/passwd"
