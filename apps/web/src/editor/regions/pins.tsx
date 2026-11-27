@@ -151,6 +151,13 @@ function useOneAtATime(open: boolean, pinning: boolean) {
     if (!prev.pinning) closeDialog("pins");
     else setTool("select");
   }, [open, pinning, closeDialog, setTool]);
+  // A window made narrower while both are open: the panel (the older of the two) goes.
+  useEffect(() => {
+    if (!open || !pinning) return;
+    const onResize = () => window.innerWidth < SIDE_BY_SIDE_MIN && closeDialog("pins");
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [open, pinning, closeDialog]);
 }
 
 /**

@@ -207,6 +207,18 @@ describe("Pins region on a narrow window", () => {
     expect(screen.queryByTestId("new-pin-form")).toBeNull();
   });
 
+  it("closes the pins panel when the window shrinks below the width they need with both open", async () => {
+    setWidth(1440);
+    const view = await setup([pin({ id: "x1", n: 1 })], { selection: ["n3"] });
+    await open(view);
+    act(() => view.handle.current!.actions.setTool("pin"));
+    await screen.findByTestId("new-pin-form");
+    setWidth(1280);
+    act(() => void window.dispatchEvent(new Event("resize")));
+    await waitFor(() => expect(view.handle.current!.state.dialogs.pins).toBe(false));
+    expect(screen.getByTestId("new-pin-form")).toBeInTheDocument();
+  });
+
   it("keeps both open on a window wide enough for them side by side", async () => {
     setWidth(1440);
     const view = await setup([pin({ id: "x1", n: 1 })], { selection: ["n3"] });
