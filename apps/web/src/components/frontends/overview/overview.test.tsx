@@ -514,7 +514,7 @@ describe("Overview", () => {
     expect(new Set(ids).size).toBe(2);
     const mains = screen.getAllByRole("main");
     expect(mains.map((m) => m.getAttribute("aria-labelledby"))).toEqual(ids);
-    expect(screen.getAllByText(/^Ctrl\+K$|^⌘K$/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^Ctrl K$|^⌘ K$/).length).toBeGreaterThan(0);
   });
 
   it("refreshes the relative time while it stays mounted", () => {

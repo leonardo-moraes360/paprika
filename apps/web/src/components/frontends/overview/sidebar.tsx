@@ -85,7 +85,7 @@ export function Sidebar({
           ref={searchRef}
           aria-label={t("frontends.overview.sidebar.search")}
           placeholder={t("frontends.overview.sidebar.search")}
-          shortcut={formatForDisplay("Mod+K")}
+          shortcut={formatForDisplay("Mod+K", { parts: true })}
           clearLabel={t("frontends.overview.sidebar.clearSearch")}
           value={query}
           onValueChange={onQueryChange}

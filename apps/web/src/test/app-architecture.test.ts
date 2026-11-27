@@ -50,8 +50,8 @@ describe("architecture of the app layers: the real tree", () => {
     expect(files.length).toBeGreaterThan(0);
     // `adapters/doc-fonts.ts` keeps a `let last` that makes its result depend on the previous call (review finding A1, the
     // performance package replaces it): delete this exception together with that `let`.
-    // `noActiveAgents` is an empty sentinel typed `ReadonlyMap`: nothing ever writes to it.
-    const exceptions = { "adapters/active-agents.ts": [mutableCollectionRule.id] };
+    // `noActiveAgents` is an empty sentinel typed `ReadonlyMap`: nothing ever writes to it. Same for `noSelection` and `noTouched` in layer-rows.
+    const exceptions = { "adapters/active-agents.ts": [mutableCollectionRule.id], "adapters/layer-rows.ts": [mutableCollectionRule.id] };
     const violations = files.flatMap((file) => checkAdapterFile(disk, file, disk.read(file) as string, exceptions));
     expect(violations).toEqual([]);
   });
