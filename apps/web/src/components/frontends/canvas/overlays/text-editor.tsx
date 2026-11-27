@@ -48,6 +48,7 @@ function TextSurface({ node }: { node: TextNode }) {
   const [href, setHref] = useState("");
   const [linked, setLinked] = useState<string | null>(null);
   const wasLinked = useRef(false);
+  const follow = useRef<() => void>(() => {});
   // Whether Apply link has something to act on: a selection, or a caret on a link. Kept from the last time the selection was in the text.
   const [hasTarget, setHasTarget] = useState(false);
   const [tried, setTried] = useState(false);
@@ -111,7 +112,7 @@ function TextSurface({ node }: { node: TextNode }) {
 
   // A caret or selection inside a link puts its address in the field and offers to remove it.
   useEffect(() => {
-    const follow = () => {
+    follow.current = () => {
       const el = surface.current;
       if (!el || done.current) return;
       const at = selectionOffsets(el);
@@ -132,8 +133,9 @@ function TextSurface({ node }: { node: TextNode }) {
       }
       wasLinked.current = Boolean(run?.href);
     };
-    document.addEventListener("selectionchange", follow);
-    return () => document.removeEventListener("selectionchange", follow);
+    const onChange = () => follow.current();
+    document.addEventListener("selectionchange", onChange);
+    return () => document.removeEventListener("selectionchange", onChange);
   }, []);
 
   const finish = (refocus: boolean) => {
@@ -199,6 +201,8 @@ function TextSurface({ node }: { node: TextNode }) {
       onKeyDown={(e) => e.stopPropagation()}
       onPaste={(e) => e.stopPropagation()}
       onBlur={(e) => {
+        // The text is losing the focus (to the bar by the Tab key, say): the selection is still in it, and the browser reports its last change a task later, when it has already left.
+        if (e.target === surface.current) follow.current();
         // Focus moving between the text and the bar keeps the editor open; leaving both confirms.
         const next = e.relatedTarget;
         if (next instanceof globalThis.Node && shell.current?.contains(next)) return;

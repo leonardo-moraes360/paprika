@@ -72,6 +72,19 @@ describe("link field of the text bar", () => {
     expect(a?.textContent).toBe("Just");
   });
 
+  it("the selection is kept when the focus leaves the text before the browser reported the change", () => {
+    const t = open("plain");
+    t.surface.focus();
+    act(() => selectOffsets(t.surface, 0, 4));
+    fireEvent.blur(t.surface, { relatedTarget: t.field() });
+    t.field().focus();
+    act(() => window.getSelection()?.removeAllRanges());
+    fireEvent.change(t.field(), { target: { value: "https://kb.dev" } });
+    expect(t.getByRole("button", { name: "Apply link" })).not.toHaveAttribute("aria-disabled", "true");
+    fireEvent.keyDown(t.field(), { key: "Enter" });
+    expect(t.surface.querySelector("a")?.textContent).toBe("Just");
+  });
+
   it("Esc in the link field confirms the text and closes the editor", () => {
     const t = open("plain");
     t.select(0, 4);
