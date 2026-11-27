@@ -1,6 +1,5 @@
 import { act, fireEvent, screen } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { editorRegionIds } from "@/editor/editor";
 import { stubLayout } from "@/test/canvas-fixtures";
 import { nodeDelta, renderEditorRig, serveDocument } from "@/test/live-harness";
 import { letRealTimersRun } from "@/test/real-settle";
@@ -11,7 +10,6 @@ import { letRealTimersRun } from "@/test/real-settle";
  * one after). Durations are jsdom's and information only; the browser's are in the report.
  */
 const NODES = 5000;
-const regions = [...editorRegionIds, "canvas"];
 const quiet = ["header", "pages", "history", "pins", "notice", "export", "import"];
 
 let restoreLayout: () => void;

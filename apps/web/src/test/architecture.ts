@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, posix, relative, resolve, sep } from "node:path";
 
 export type Scanned = { code: string; text: string };
