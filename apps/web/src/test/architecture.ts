@@ -588,6 +588,7 @@ export const editorRegions: Record<string, string> = {
   "pages.tsx": "Pages",
   "layers.tsx": "Layers",
   "stage.tsx": "Stage",
+  "canvas.tsx": "CanvasRegion",
   "properties.tsx": "Properties",
   "activity.tsx": "Activity",
   "history.tsx": "History",
@@ -599,7 +600,7 @@ export const editorRegions: Record<string, string> = {
   "import.tsx": "Import",
 };
 
-/** Every region file exists, exports its component, and the editor (`editor.tsx`, plus `right-panel.tsx` for properties, activity and the team tab, and `agents.tsx` for the roster the header hosts) mounts it inside `<RegionProfiler id="...">`. */
+/** Every region file exists, exports its component, and the editor (`editor.tsx`, plus `right-panel.tsx` for properties, activity and the team tab, `agents.tsx` for the roster the header hosts and `stage.tsx` for the canvas it hosts) mounts it inside `<RegionProfiler id="...">`. */
 export function checkEditorRegions(files: Record<string, string | null>, editorSource: string): string[] {
   const out: string[] = [];
   const editor = scan(editorSource).text;

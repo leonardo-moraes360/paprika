@@ -58,7 +58,7 @@ describe("architecture of the app layers: the real tree", () => {
 
   it("every editor region exists, exports its component and is mounted inside its RegionProfiler", () => {
     const files = Object.fromEntries(Object.keys(editorRegions).map((name) => [name, read(`editor/regions/${name}`)]));
-    expect(checkEditorRegions(files, [read("editor/editor.tsx"), read("editor/regions/right-panel.tsx"), read("editor/regions/agents.tsx")].join("\n"))).toEqual([]);
+    expect(checkEditorRegions(files, [read("editor/editor.tsx"), read("editor/regions/right-panel.tsx"), read("editor/regions/agents.tsx"), read("editor/regions/stage.tsx")].join("\n"))).toEqual([]);
   });
 
   it("data/ is where the socket and the fetch live (the rule is not vacuous)", () => {
