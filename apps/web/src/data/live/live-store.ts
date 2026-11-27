@@ -26,6 +26,8 @@ export type Activity = {
   /** The server's kind of step (`ops`, `undo`, `redo`, `reload`...), as the message brought it. */
   kind: string;
   at: number;
+  /** The nodes a delta created, kept per entry so a batch of steps from several actors can still be told apart; absent for a full snapshot. */
+  created?: string[];
 };
 
 export type { WorkspaceNotice };
@@ -258,9 +260,9 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
     armStale(staleResyncMs);
   };
 
-  const record = (state: LiveState, doc: Document, message: DocMessage | DeltaMessage): LiveState => {
+  const record = (state: LiveState, doc: Document, message: DocMessage | DeltaMessage, created?: string[]): LiveState => {
     const quiet = message.kind === "reload" && message.actor === "server";
-    const entry: Activity = { id: message.version, actor: message.actor, label: message.label, kind: message.kind, at: now() };
+    const entry: Activity = { id: message.version, actor: message.actor, label: message.label, kind: message.kind, at: now(), ...(created ? { created } : {}) };
     return {
       ...state,
       doc,
@@ -319,7 +321,7 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
           break;
         }
         const result = applyDelta(current.doc, message, owned);
-        current = record(current, result.doc, message);
+        current = record(current, result.doc, message, result.created);
       }
       // Who is where: every presence of the frame, in order, in the same update as the document (one commit per region, not one per message).
       if (presences.length > 0) {

@@ -80,6 +80,20 @@ describe("the build replay of the canvas", () => {
     expect(feedRef.current!.get().build).toEqual([]);
   });
 
+  it("walks the creations of two agents that arrive in one frame side by side, not one after the other", async () => {
+    const view = await setup();
+    const doc = view.rig.client.store.state.doc!;
+    const frame = doc.nodes["frame-0-0"] as Node & { children: string[] };
+    const rect = (id: string) => ({ id, type: "rect", name: id, parentId: "frame-0-0", x: 0, y: 0, width: 5, height: 5, rotation: 0, opacity: 1, visible: true, locked: false }) as unknown as Node;
+    const ids = { a: ["a-1", "a-2", "a-3", "a-4"], b: ["b-1", "b-2", "b-3", "b-4"] };
+    const step = (version: number, actor: string, own: string[], children: string[]) =>
+      deltaMessage(doc, version, { actor, nodes: { set: { ...Object.fromEntries(own.map((id) => [id, rect(id)])), "frame-0-0": { ...frame, children } as Node } } });
+    view.rig.deliver(step(2, "agent:claude", ids.a, [...frame.children, ...ids.a]), step(3, "agent:codex", ids.b, [...frame.children, ...ids.a, ...ids.b]));
+    expect(feedRef.current!.get().build.map((s) => s.id)).toEqual(["a-1", "b-1"]);
+    act(() => void vi.advanceTimersByTime(BUILD_STEP_MS + 5));
+    expect(feedRef.current!.get().build.map((s) => s.id)).toEqual(["a-2", "b-2"]);
+  });
+
   it("does not replay what a person made, or a reload", async () => {
     const view = await setup();
     created(view, 2, "user", ["mine"]);

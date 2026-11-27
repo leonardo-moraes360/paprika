@@ -28,6 +28,7 @@ export function startCollab(collab: CollabStore, live: Store<LiveState>, editor:
   const verb = verbOf(t);
   let walks: BuildWalk[] = [];
   let doc = live.state.doc;
+  let seen = live.state.version;
   let agentsSeen: LiveState["agents"] | null = null;
   let tonesSeen: EditorState["agentTones"] | null = null;
   let buildTimer: ReturnType<typeof setInterval> | undefined;
@@ -59,13 +60,23 @@ export function startCollab(collab: CollabStore, live: Store<LiveState>, editor:
     if (state.doc !== doc) {
       const before = doc;
       doc = state.doc;
+      const since = seen;
+      seen = state.version;
       if (state.doc && before && state.doc.id === before.id) {
-        // The newest step is the one this document is from: when an agent made it, what it created is walked.
-        const step = state.activity.find((entry) => entry.id === state.version) ?? state.activity[0];
-        if (step && step.actor.startsWith("agent") && step.kind !== "reload" && !reducedMotion()) {
+        const agentSteps = state.activity.filter((entry) => entry.id > since && entry.actor.startsWith("agent") && entry.kind !== "reload").reverse();
+        if (agentSteps.length > 0 && !reducedMotion()) {
           const created = createdInOrder(before, state.doc);
           if (created.length > 0) {
-            walks = appendBuild(walks, step.actor, created, now());
+            // One frame may carry the steps of several agents: each one walks what its own step created.
+            if (agentSteps.every((entry) => entry.created)) {
+              for (const entry of agentSteps) {
+                const own = new Set(entry.created);
+                walks = appendBuild(walks, entry.actor, created.filter((id) => own.has(id)), now());
+              }
+            } else {
+              const newest = state.activity.find((entry) => entry.id === state.version) ?? state.activity[0];
+              if (newest && newest.actor.startsWith("agent") && newest.kind !== "reload") walks = appendBuild(walks, newest.actor, created, now());
+            }
             showBuild();
             kickBuild();
           }
