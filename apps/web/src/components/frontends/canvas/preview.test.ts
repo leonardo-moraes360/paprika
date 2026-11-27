@@ -1,8 +1,8 @@
 import type { Document } from "@paprika/core";
 import { createStore } from "@tanstack/react-store";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { everyKindDocument } from "@/test/canvas-fixtures";
-import { createPreviewController } from "./preview";
+import { createPreviewController, UNANSWERED_MS } from "./preview";
 import { canvasActions, initialCanvasState, type CanvasActions, type CanvasState } from "./region";
 
 const doc = everyKindDocument();
@@ -22,6 +22,36 @@ function setup() {
 }
 
 describe("the preview controller", () => {
+  it("gives the node back when the server never answers the commit", () => {
+    vi.useFakeTimers();
+    try {
+      const { store, ctl } = setup();
+      ctl.set({ plain: { x: 40 } });
+      ctl.commit(["plain"], new Promise<boolean>(() => undefined));
+      vi.advanceTimersByTime(UNANSWERED_MS - 1);
+      expect(store.state.preview.plain).toEqual({ x: 40 });
+      vi.advanceTimersByTime(2);
+      expect(store.state.preview.plain).toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps waiting for the echo of a commit the server did ack, however long it takes", async () => {
+    vi.useFakeTimers();
+    try {
+      const { store, ctl } = setup();
+      const answer = deferred();
+      ctl.set({ plain: { x: 40 } });
+      ctl.commit(["plain"], answer.promise);
+      answer.resolve(true);
+      await vi.advanceTimersByTimeAsync(UNANSWERED_MS * 3);
+      expect(store.state.preview.plain).toEqual({ x: 40 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("shows what the gesture shows while it runs and clears it when asked", () => {
     const { store, ctl } = setup();
     ctl.set({ plain: { x: 5, y: 6 } });

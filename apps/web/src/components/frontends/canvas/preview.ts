@@ -23,6 +23,9 @@ export type PreviewController = {
 
 type Held = { ids: Set<string>; base: Document; acked: boolean };
 
+/** A commit the server never answers (a frame lost with the socket still open) gives the node back after this long (the old app's grace). */
+export const UNANSWERED_MS = 3000;
+
 const GEOMETRY = ["x", "y", "width", "height", "rotation"] as const;
 /** What a patch may change besides the geometry: the document must hold the same value (by content) for the patch to be done. */
 const CONTENT = ["d", "from", "to", "control", "layout"] as const;
@@ -81,6 +84,10 @@ export function createPreviewController(actions: Pick<CanvasActions, "setPreview
         }
       };
       result.then(answer, () => answer(false));
+      const timer = setTimeout(() => {
+        if (!disposed && held.includes(entry) && !entry.acked) release([...entry.ids]);
+      }, UNANSWERED_MS);
+      void result.finally(() => clearTimeout(timer)).catch(() => undefined);
       // The echo may already be in.
       reconcile(read().doc);
     },
