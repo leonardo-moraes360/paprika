@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockedIndexes, buildItems, canDrop, dropPosition, keyboardMove, subtreeEnd, topmostIds } from "./tree-data";
+import { blockedIndexes, buildItems, canDrop, dropPosition, keyboardMove, sameStrings, sameStructure, subtreeEnd, topmostIds } from "./tree-data";
 import type { LayerRowData } from "./types";
 
 const row = (id: string, level: number, extra: Partial<LayerRowData> = {}): LayerRowData => ({
@@ -96,5 +96,25 @@ describe("tree-data", () => {
       expect(keyboardMove(rows, ["b"], "up")).toBeNull();
       expect(keyboardMove([row("a", 0, { draggable: false }), row("b", 0)], ["a"], "down")).toBeNull();
     });
+  });
+});
+
+describe("sameStructure and sameStrings", () => {
+  const r = (id: string, name = id, level = 0): LayerRowData => row(id, level, { name, kind: "rect" });
+
+  it("ignore selection, visibility and lock, and notice ids, names, levels and length", () => {
+    const rows = [r("a"), r("b", "B", 1)];
+    expect(sameStructure(rows, rows)).toBe(true);
+    expect(sameStructure(rows, [{ ...r("a"), selected: true, visible: false, locked: true }, { ...r("b", "B", 1) }])).toBe(true);
+    expect(sameStructure(rows, [r("a"), r("b", "C", 1)])).toBe(false);
+    expect(sameStructure(rows, [r("a"), r("b", "B", 0)])).toBe(false);
+    expect(sameStructure(rows, [r("b", "B", 1), r("a")])).toBe(false);
+    expect(sameStructure(rows, [r("a")])).toBe(false);
+  });
+
+  it("sameStrings compares by value", () => {
+    expect(sameStrings(["a", "b"], ["a", "b"])).toBe(true);
+    expect(sameStrings(["a", "b"], ["b", "a"])).toBe(false);
+    expect(sameStrings([], ["a"])).toBe(false);
   });
 });
