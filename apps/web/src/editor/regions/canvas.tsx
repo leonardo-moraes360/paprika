@@ -11,6 +11,7 @@ import { useCanvasInputHandler } from "../canvas-input";
 import { readCaptureParams } from "../capture";
 import { useEditorStore } from "../editor-store";
 import { createWasmLoader } from "../wasm-module";
+import { writeRendererPreference } from "../renderer-preference";
 import { useApplyOps } from "../use-apply";
 import { useSelectionActions } from "../use-selection-actions";
 
@@ -52,8 +53,11 @@ export function CanvasRegion() {
   const onRendererError = useCallback(
     (message: string, mode: "cpu" | "gpu") => {
       if (working.current === mode) working.current = null;
-      const back = working.current ?? "dom";
+      // A GPU that does not start goes to the CPU when this build has it (the same page, drawn by the same module); a CPU that fails has nowhere but the DOM.
+      const back = working.current ?? (mode === "gpu" && wasm ? "cpu" : "dom");
       editor.actions.setRenderer(back);
+      // Saved, so the next opening starts on what works and the warning is said once.
+      writeRendererPreference(back);
       // The exception ("Failed to fetch dynamically imported module: ...") is for the console; the person gets a sentence.
       console.warn(`[paprika] WASM renderer (${mode}) stopped:`, message);
       const backLabel = t(`app.shell.renderers.${back === "dom" ? "dom" : back}`);
@@ -63,7 +67,7 @@ export function CanvasRegion() {
         description: t(mode === "gpu" ? "app.canvas.renderer.gpuFailed" : "app.canvas.renderer.failed", { back: backLabel }),
       });
     },
-    [editor, t],
+    [editor, t, wasm],
   );
   // The layers menu acts on the ids it was opened on.
   const onConvertToPath = useCallback((ids: readonly string[]) => void selection.convert(ids), [selection]);

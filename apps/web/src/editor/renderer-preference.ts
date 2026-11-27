@@ -11,10 +11,11 @@ export const hasWebGpu = () => typeof navigator !== "undefined" && "gpu" in navi
  * `dom`, `cpu` and `gpu` are the three modes. `wasm` is the value the old app wrote (URL and saved choice) when there was a single WASM
  * mode that picked its backend by itself: it means `gpu` where the browser has WebGPU and `cpu` where it does not, and the server's
  * screenshot (`?renderer=wasm&capture=...`) always gets `cpu`, so a capture never depends on the machine's GPU. Only this legacy value
- * decides by itself; a person who picks `gpu` and has none is told (the canvas reports the failure).
+ * decides by itself; a person who picks `gpu` (URL) and has none is told (the canvas reports the failure and goes to the CPU). A capture is always `cpu`.
  */
 export function parseRenderer(value: string | null, gpu: boolean = hasWebGpu(), capture: boolean = false): EditorRenderer | null {
-  if (value === "dom" || value === "cpu" || value === "gpu") return value;
+  if (value === "gpu") return capture ? "cpu" : "gpu";
+  if (value === "dom" || value === "cpu") return value;
   if (value === "wasm") return gpu && !capture ? "gpu" : "cpu";
   return null;
 }
@@ -29,7 +30,9 @@ export function readRendererPreference(): EditorRenderer {
   } catch {
     // fall through to the saved choice
   }
-  return parseRenderer(readPersisted(key), hasWebGpu(), capture) ?? "dom";
+  // A saved gpu in a browser that has no WebGPU cannot start: it opens on the CPU instead of warning at every opening.
+  const saved = parseRenderer(readPersisted(key), hasWebGpu(), capture);
+  return saved === "gpu" && !hasWebGpu() ? "cpu" : (saved ?? "dom");
 }
 
 export function writeRendererPreference(renderer: EditorRenderer) {

@@ -37,10 +37,63 @@ describe("link field of the text bar", () => {
     expect(t.getByRole("button", { name: "Apply link" })).toHaveAttribute("aria-disabled", "true");
     expect(t.queryByRole("button", { name: "Remove link" })).toBeNull();
     fireEvent.change(t.field(), { target: { value: "/docs" } });
+    expect(t.getByRole("button", { name: "Apply link" })).toHaveAttribute("aria-disabled", "true");
+    t.select(0, 4);
     expect(t.getByRole("button", { name: "Apply link" })).not.toHaveAttribute("aria-disabled", "true");
   });
 
-  it("with an address: Enter applies it to the selection, by keyboard alone", () => {
+  it("with no selection and no link under the caret, Apply link is disabled and says why; a selection or a link enables it", () => {
+    const t = open("plain");
+    fireEvent.change(t.field(), { target: { value: "/docs" } });
+    const apply = t.getByRole("button", { name: "Apply link" });
+    expect(apply).toHaveAttribute("aria-disabled", "true");
+    expect(apply).toHaveAccessibleDescription("Select some text, or put the caret on a link, to apply a link");
+    expect(t.field()).toHaveAccessibleDescription("Select some text, or put the caret on a link, to apply a link");
+    fireEvent.click(apply);
+    fireEvent.keyDown(t.field(), { key: "Enter" });
+    expect(t.surface.querySelector("a")).toBeNull();
+    t.select(0, 4);
+    expect(apply).not.toHaveAttribute("aria-disabled", "true");
+    expect(apply).not.toHaveAccessibleDescription(/Select some text/);
+    t.select(2, 2);
+    expect(apply).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("by keyboard alone: select text, move the focus to the field, type and Enter applies the link", () => {
+    const t = open("plain");
+    t.select(0, 4);
+    t.field().focus();
+    expect(document.activeElement).toBe(t.field());
+    act(() => window.getSelection()?.removeAllRanges());
+    fireEvent.change(t.field(), { target: { value: "https://kb.dev" } });
+    fireEvent.keyDown(t.field(), { key: "Enter" });
+    const a = t.surface.querySelector("a");
+    expect(a?.getAttribute("href")).toBe("https://kb.dev");
+    expect(a?.textContent).toBe("Just");
+  });
+
+  it("the selection is kept when the focus leaves the text before the browser reported the change", () => {
+    const t = open("plain");
+    t.surface.focus();
+    act(() => selectOffsets(t.surface, 0, 4));
+    fireEvent.blur(t.surface, { relatedTarget: t.field() });
+    t.field().focus();
+    act(() => window.getSelection()?.removeAllRanges());
+    fireEvent.change(t.field(), { target: { value: "https://kb.dev" } });
+    expect(t.getByRole("button", { name: "Apply link" })).not.toHaveAttribute("aria-disabled", "true");
+    fireEvent.keyDown(t.field(), { key: "Enter" });
+    expect(t.surface.querySelector("a")?.textContent).toBe("Just");
+  });
+
+  it("Esc in the link field confirms the text and closes the editor", () => {
+    const t = open("plain");
+    t.select(0, 4);
+    t.field().focus();
+    fireEvent.keyDown(t.field(), { key: "Escape" });
+    expect(t.queryByRole("textbox", { name: "Link address" })).toBeNull();
+  });
+
+  it("with an address: Enter applies it to the selection", () => {
     const t = open("plain");
     t.select(0, 4);
     fireEvent.change(t.field(), { target: { value: "https://paprika.dev/docs" } });
@@ -91,6 +144,19 @@ describe("link field of the text bar", () => {
     fireEvent.click(t.getByRole("button", { name: "Remove link" }));
     expect(t.surface.querySelector("a")).toBeNull();
     expect(t.surface.textContent).toBe("Hello brave world");
+    expect(t.field().value).toBe("");
+    expect(t.queryByRole("button", { name: "Remove link" })).toBeNull();
+  });
+
+  it("leaving a link takes its address out of the field, but an address typed off a link stays", () => {
+    const t = open("title");
+    t.select(14, 14);
+    expect(t.field().value).toBe("https://example.com");
+    t.select(2, 2);
+    expect(t.field().value).toBe("");
+    fireEvent.change(t.field(), { target: { value: "/mine" } });
+    t.select(3, 3);
+    expect(t.field().value).toBe("/mine");
   });
 
   it("off a link: no Remove link button", () => {

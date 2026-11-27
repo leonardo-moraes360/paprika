@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Cpu, Monitor } from "lucide-react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -58,8 +58,19 @@ describe("ZoomBar", () => {
     expect(await screen.findByRole("menuitemradio", { name: "WASM · GPU" })).toBeChecked();
     await user.click(screen.getByRole("menuitemradio", { name: "DOM (SVG)" }));
     expect(onRendererChange).toHaveBeenCalledWith("dom");
-    await user.keyboard("{Escape}");
+  });
+
+  it("closes the menu when a mode is chosen, and the focus goes back to the button", async () => {
+    const user = userEvent.setup();
+    setup();
+    const trigger = screen.getByRole("button", { name: "Renderer: WASM · GPU" });
+    await user.click(trigger);
+    await user.click(await screen.findByRole("menuitemradio", { name: "DOM (SVG)" }));
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
     expect(trigger).toHaveFocus();
+    await user.click(trigger);
+    expect(await screen.findByRole("menu")).toBeInTheDocument();
   });
 
   it("does not emit when the current renderer is chosen again", async () => {

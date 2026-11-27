@@ -47,6 +47,10 @@ function TextSurface({ node }: { node: TextNode }) {
   const [color, setColor] = useState(hexOf(node.color));
   const [href, setHref] = useState("");
   const [linked, setLinked] = useState<string | null>(null);
+  const wasLinked = useRef(false);
+  const follow = useRef<() => void>(() => {});
+  // Whether Apply link has something to act on: a selection, or a caret on a link. Kept from the last time the selection was in the text.
+  const [hasTarget, setHasTarget] = useState(false);
   const [tried, setTried] = useState(false);
 
   const version = useDocVersion();
@@ -108,21 +112,30 @@ function TextSurface({ node }: { node: TextNode }) {
 
   // A caret or selection inside a link puts its address in the field and offers to remove it.
   useEffect(() => {
-    const follow = () => {
+    follow.current = () => {
       const el = surface.current;
       if (!el || done.current) return;
       const at = selectionOffsets(el);
       if (!at) return;
       const current = readEditable(el);
+      // The last selection inside the text, whether the mouse or the keys made it: with the focus in the link field it is what Apply link acts on.
+      saved.current = at;
       const run = linkAt(current.runs, at.start, at.end);
       setLinked(run?.href ?? null);
+      setHasTarget(at.start !== at.end || Boolean(run));
       if (run?.href) {
         setHref(run.href);
         setTried(false);
+      } else if (wasLinked.current) {
+        // Leaving a link leaves its address behind: the next Apply would put it on another text.
+        setHref("");
+        setTried(false);
       }
+      wasLinked.current = Boolean(run?.href);
     };
-    document.addEventListener("selectionchange", follow);
-    return () => document.removeEventListener("selectionchange", follow);
+    const onChange = () => follow.current();
+    document.addEventListener("selectionchange", onChange);
+    return () => document.removeEventListener("selectionchange", onChange);
   }, []);
 
   const finish = (refocus: boolean) => {
@@ -162,6 +175,14 @@ function TextSurface({ node }: { node: TextNode }) {
     change(marks.link(href.trim()), true);
   };
 
+  const unlink = () => {
+    change(marks.unlink, true);
+    wasLinked.current = false;
+    setLinked(null);
+    setHref("");
+    setTried(false);
+  };
+
   const showError = tried && !linkOk(href.trim());
   const number = Number(size);
   const sizeOk = Number.isFinite(number) && number >= 1 && number <= 1000;
@@ -180,6 +201,8 @@ function TextSurface({ node }: { node: TextNode }) {
       onKeyDown={(e) => e.stopPropagation()}
       onPaste={(e) => e.stopPropagation()}
       onBlur={(e) => {
+        // The text is losing the focus (to the bar by the Tab key, say): the selection is still in it, and the browser reports its last change a task later, when it has already left.
+        if (e.target === surface.current) follow.current();
         // Focus moving between the text and the bar keeps the editor open; leaving both confirms.
         const next = e.relatedTarget;
         if (next instanceof globalThis.Node && shell.current?.contains(next)) return;
@@ -234,26 +257,42 @@ function TextSurface({ node }: { node: TextNode }) {
           <TextField
             aria-label={text("linkField")}
             aria-invalid={showError || undefined}
-            aria-describedby={showError ? "text-link-error" : undefined}
+            aria-describedby={showError ? "text-link-error" : hasTarget ? undefined : "text-link-hint"}
             className={`h-7 w-32 px-1.5 text-sm ${showError ? "border-red-ink" : ""} focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-select`}
             value={href}
             placeholder={text("linkPlaceholder")}
             onChange={(e) => setHref(e.target.value)}
             onKeyDown={(e) => {
+              if (confirmKey(e)) {
+                e.preventDefault();
+                finish(true);
+                return;
+              }
               if (e.key !== "Enter") return;
               e.preventDefault();
               if (href.trim() !== "") apply();
             }}
           />
-          <ToolbarButton aria-label={text("applyLink")} disabled={href.trim() === ""} onClick={apply}>
+          <ToolbarButton
+            aria-label={text("applyLink")}
+            aria-describedby={hasTarget ? undefined : "text-link-hint"}
+            title={hasTarget ? undefined : text("linkNeedsText")}
+            disabled={href.trim() === "" || !hasTarget}
+            onClick={apply}
+          >
             <Link2 aria-hidden="true" />
           </ToolbarButton>
           {linked !== null ? (
-            <ToolbarButton aria-label={text("removeLink")} onClick={() => change(marks.unlink, true)}>
+            <ToolbarButton aria-label={text("removeLink")} onClick={unlink}>
               <Unlink aria-hidden="true" />
             </ToolbarButton>
           ) : null}
         </Toolbar>
+        {hasTarget ? null : (
+          <span id="text-link-hint" className="sr-only">
+            {text("linkNeedsText")}
+          </span>
+        )}
         {showError ? (
           <p id="text-link-error" role="alert" className="mt-1 rounded-sm bg-surface px-1.5 py-1 text-xs font-medium text-red-ink">
             {text("linkInvalid")}
