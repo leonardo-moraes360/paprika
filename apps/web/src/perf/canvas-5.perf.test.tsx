@@ -81,7 +81,7 @@ describe("the WASM layer with 5 000 nodes", { timeout: 60_000 }, () => {
     expect(rendered).toBeLessThanOrEqual(NODES);
     expect(measured).toBe(1);
     view.unmount();
-  });
+  }, 30_000);
 
   it("switching back to DOM, and again to WASM, creates no second renderer", async () => {
     const view = await open();
@@ -91,7 +91,7 @@ describe("the WASM layer with 5 000 nodes", { timeout: 60_000 }, () => {
     await chooseWasm(view);
     expect(fakeWasm.renderers.filter((r) => !r.freed)).toHaveLength(created);
     view.unmount();
-  });
+  }, 30_000);
 
   it("with WASM on, panning and zooming commit nothing, render no node and measure nothing", async () => {
     const view = await open();
@@ -118,7 +118,7 @@ describe("the WASM layer with 5 000 nodes", { timeout: 60_000 }, () => {
     expect(view.measures() - measuresBefore).toBeLessThanOrEqual(1);
     process.stderr.write(`[perf canvas-5 jsdom] pan+zoom with WASM: draws ${(fakeWasm.last?.renders.length ?? 0) - drawsBefore}, measures ${view.measures() - measuresBefore}\n`);
     view.unmount();
-  });
+  }, 30_000);
 
   it("a delta on one node with WASM on is one measure pass and renders that node only", async () => {
     const view = await open();
@@ -132,5 +132,5 @@ describe("the WASM layer with 5 000 nodes", { timeout: 60_000 }, () => {
     expect(view.renders() - rendersBefore).toBe(1);
     expect(view.measures() - measuresBefore).toBe(1);
     view.unmount();
-  });
+  }, 30_000);
 });

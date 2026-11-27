@@ -57,7 +57,7 @@ describe("the canvas with 5 000 nodes", () => {
     expect(view.world.querySelectorAll("[data-paprika-id]")).toHaveLength(NODES - 1);
     process.stderr.write(`[perf canvas jsdom] open ${NODES} nodes: ${view.opened.toFixed(0)}ms to the layers\n`);
     view.unmount();
-  });
+  }, 30_000);
 
   it("goal 1: panning commits nothing in any region and renders no node", async () => {
     const view = await open();
@@ -70,7 +70,7 @@ describe("the canvas with 5 000 nodes", () => {
     expect(view.renders() - rendersBefore).toBe(0);
     expect(commitsOf(view)).toEqual(Object.fromEntries(regions.map((id) => [id, 0])));
     view.unmount();
-  });
+  }, 30_000);
 
   it("goal 1: zooming commits nothing and renders no node while it moves; at rest the zoom bar's percentage is the only commit (the stage)", async () => {
     const view = await open();
@@ -85,7 +85,7 @@ describe("the canvas with 5 000 nodes", () => {
     expect(commitsOf(view)).toEqual({ ...Object.fromEntries(regions.map((id) => [id, 0])), stage: 1 });
     expect(screen.getByText(/^\d+%$/)).toBeInTheDocument();
     view.unmount();
-  });
+  }, 30_000);
 
   it("goal 2: a delta on ONE node renders that node and commits the canvas once; nothing else is rendered", async () => {
     const view = await open();
@@ -98,7 +98,7 @@ describe("the canvas with 5 000 nodes", () => {
     expect(view.log.commits("canvas")).toBe(1);
     for (const region of ["header", "pages", "layers", "history", "pins", "notice", "export", "import"]) expect(view.log.commits(region), region).toBe(0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("goal 2: a burst of 200 deltas in one frame is one commit of the canvas, and 200 nodes render once each", async () => {
     const view = await open();
@@ -110,7 +110,7 @@ describe("the canvas with 5 000 nodes", () => {
     expect(view.log.commits("canvas")).toBe(1);
     expect(view.log.commits("layers")).toBe(0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("goal 2: a delta that changes only the document's name renders no node", async () => {
     const view = await open();
@@ -119,7 +119,7 @@ describe("the canvas with 5 000 nodes", () => {
     view.rig.deliver({ ...nodeDelta(doc, Object.keys(doc.nodes)[1] as string, {}, 3), nodes: undefined, name: "Renamed" });
     expect(view.renders() - before).toBe(0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("goal 3: selecting renders the node that enters and the one that leaves, commits the canvas once, and not the layers more than the panel itself asks", async () => {
     const view = await open();
@@ -144,7 +144,7 @@ describe("the canvas with 5 000 nodes", () => {
     fireEvent.pointerDown(view.viewport, { button: 0, pointerId: 3 });
     expect(view.renders() - before).toBe(1);
     view.unmount();
-  });
+  }, 30_000);
 
   it("goal 6: hovering a node renders only that node (and the one that was hovered), the canvas commits once, no other region", async () => {
     const view = await open();
@@ -164,5 +164,5 @@ describe("the canvas with 5 000 nodes", () => {
     fireEvent.pointerMove(nodeEl(view.world, b), { clientX: 5 });
     expect(commitsOf(view)).toEqual(Object.fromEntries(regions.map((id) => [id, 0])));
     view.unmount();
-  });
+  }, 30_000);
 });

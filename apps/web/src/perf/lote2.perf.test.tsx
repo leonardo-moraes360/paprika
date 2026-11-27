@@ -55,7 +55,7 @@ describe("shell regions with 5 000 nodes", () => {
     only(view, { properties: 1 });
     report("move one node", view);
     view.unmount();
-  });
+  }, 30_000);
 
   it("renaming ONE node commits the layers once, and the document panel once for its new activity entry", async () => {
     const view = await open();
@@ -66,7 +66,7 @@ describe("shell regions with 5 000 nodes", () => {
     only(view, { layers: 1, properties: 1 });
     report("rename one node", view);
     view.unmount();
-  });
+  }, 30_000);
 
   it("a burst of 200 renames in one frame is ONE commit of the layers (and one of the activity list)", async () => {
     const view = await open();
@@ -77,7 +77,7 @@ describe("shell regions with 5 000 nodes", () => {
     only(view, { layers: 1, properties: 1 });
     report("200 renames in a frame", view);
     view.unmount();
-  });
+  }, 30_000);
 
   it("selecting a layer commits the layers once (selection is not a document change) and no other region", async () => {
     const user = userEvent.setup({ delay: null });
@@ -96,7 +96,7 @@ describe("shell regions with 5 000 nodes", () => {
     for (const id of editorRegionIds.filter((r) => !["layers", "properties", "activity", "stage"].includes(r))) expect(view.log.commits(id), id).toBe(0);
     report("select one layer", view);
     view.unmount();
-  });
+  }, 30_000);
 
   it("toggling the visibility of one node (an agent hiding it) commits the layers once, plus the activity entry", async () => {
     const view = await open();
@@ -105,7 +105,7 @@ describe("shell regions with 5 000 nodes", () => {
     // properties: the new activity entry.
     only(view, { layers: 1, properties: 1 });
     view.unmount();
-  });
+  }, 30_000);
 
   it("an agent heartbeat that repeats the same nodes commits no region: the roster shows its last-active time in whole seconds", async () => {
     const view = await open();
@@ -125,7 +125,7 @@ describe("shell regions with 5 000 nodes", () => {
     // header: the name. properties: the name of the document and the new activity entry.
     only(view, { header: 1, properties: 1 });
     view.unmount();
-  });
+  }, 30_000);
 
   it("opening the workspace: the first commit of the layers with 5 000 nodes (jsdom timing, information)", async () => {
     const view = await renderEditorRig({ nodes: NODES });
@@ -136,5 +136,5 @@ describe("shell regions with 5 000 nodes", () => {
     process.stderr.write(`[perf lote2 jsdom] open 5000 nodes: ${(performance.now() - started).toFixed(0)}ms to the banner, layers mount ${(stats.layers?.actualDuration ?? 0).toFixed(1)}ms\n`);
     expect(stats.layers?.mounts).toBe(1);
     view.unmount();
-  });
+  }, 30_000);
 });

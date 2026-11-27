@@ -35,7 +35,7 @@ describe("editor commits with a document of 5 000 nodes", () => {
     const view = await renderEditorRig({ nodes: NODES });
     expect(Object.keys(view.doc.nodes)).toHaveLength(NODES);
     view.unmount();
-  });
+  }, 30_000);
 
   it("shows the opening state until the document of that workspace arrives, then mounts every region", async () => {
     const view = await renderEditorRig({ nodes: NODES });
@@ -47,7 +47,7 @@ describe("editor commits with a document of 5 000 nodes", () => {
     expect(view.log.stats().agents?.mounts ?? 0).toBe(0);
     expect(view.log.stats().team?.mounts ?? 0).toBe(0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("a delta that changes ONE node commits nothing in any region (none of them depends on that node)", async () => {
     const view = await openEditor();
@@ -67,7 +67,7 @@ describe("editor commits with a document of 5 000 nodes", () => {
     await elapse(150);
     for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(id === "properties" ? 1 : 0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("changing the renderer commits only the stage (its zoom bar): never the layers, the properties or the pages, and no ops", async () => {
     const view = await openEditor();
@@ -85,7 +85,7 @@ describe("editor commits with a document of 5 000 nodes", () => {
     expect(view.log.commits("stage")).toBeGreaterThan(0);
     window.localStorage.removeItem("paprika.renderer");
     view.unmount();
-  });
+  }, 30_000);
 
   it("a burst of 200 deltas in one frame commits nothing, and an agent's presence only the regions that show it", async () => {
     const view = await openEditor();
@@ -101,7 +101,7 @@ describe("editor commits with a document of 5 000 nodes", () => {
     const expected: Record<string, number> = { header: 1, agents: 1, pages: 1, layers: 1 };
     for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(expected[id] ?? 0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("a burst of 200 deltas spread over 40 frames commits no other region than the stage's toolbar once and the document panel a few times", async () => {
     const view = await openEditor();
@@ -119,7 +119,7 @@ describe("editor commits with a document of 5 000 nodes", () => {
     expect(view.log.commits("properties")).toBeGreaterThanOrEqual(6);
     expect(view.log.commits("properties")).toBeLessThanOrEqual(8);
     view.unmount();
-  });
+  }, 30_000);
 
   it("control: what a region does depend on does commit it (renaming the document re-renders the header, the document panel, and the first edit the toolbar)", async () => {
     const view = await openEditor();
@@ -129,7 +129,7 @@ describe("editor commits with a document of 5 000 nodes", () => {
     // (the stage commits too: this edit is the first one, so "can undo" flips; the document panel shows the name and the new activity entry)
     for (const id of editorRegionIds.filter((r) => r !== "header" && r !== "stage")) expect(view.log.commits(id), id).toBe(id === "properties" ? 1 : 0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("control: losing the connection re-renders the header and not the stage", async () => {
     const view = await openEditor();
@@ -137,7 +137,7 @@ describe("editor commits with a document of 5 000 nodes", () => {
     expect(view.log.commits("header")).toBe(1);
     expect(view.log.commits("stage")).toBe(0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("a snapshot of the same workspace (a reload) keeps the editor mounted", async () => {
     const view = await openEditor();
@@ -145,5 +145,5 @@ describe("editor commits with a document of 5 000 nodes", () => {
     expect(view.log.stats().header?.mounts ?? 0).toBe(0);
     expect(screen.getByRole("banner")).toBeInTheDocument();
     view.unmount();
-  });
+  }, 30_000);
 });

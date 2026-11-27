@@ -73,7 +73,7 @@ describe("the canvas with 5 000 nodes: selection and transformation", { timeout:
     silent(view);
     expect(view.sent()).toHaveLength(0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("goal 4: dragging one node renders only that node per pointermove; no apply until the pointer is released, then exactly one", async () => {
     const view = await open();
@@ -110,7 +110,7 @@ describe("the canvas with 5 000 nodes: selection and transformation", { timeout:
     expect(el.style.left).toBe("100px");
     expect(view.sent()).toHaveLength(1);
     view.unmount();
-  });
+  }, 30_000);
 
   it("goal 4: a refused move puts the node back and sends nothing more", async () => {
     const view = await open();
@@ -126,7 +126,7 @@ describe("the canvas with 5 000 nodes: selection and transformation", { timeout:
     await elapse(50);
     expect(el.style.left).toBe(left);
     view.unmount();
-  });
+  }, 30_000);
 
   it("goal 4: resizing and turning render only the node per move, and send one apply each", async () => {
     const view = await open();
@@ -151,7 +151,7 @@ describe("the canvas with 5 000 nodes: selection and transformation", { timeout:
     up({}, 3);
     expect(view.sent()).toHaveLength(2);
     view.unmount();
-  });
+  }, 30_000);
 
   it("the marquee over the page renders only the nodes that enter the selection, and sends nothing", async () => {
     const view = await open();
@@ -169,7 +169,7 @@ describe("the canvas with 5 000 nodes: selection and transformation", { timeout:
     expect(view.sent()).toHaveLength(0);
     process.stderr.write(`[perf canvas-1 jsdom] marquee over ${roots.children.length} top-level nodes: selected ${selected}, canvas commits ${view.log.commits("canvas")}\n`);
     view.unmount();
-  });
+  }, 30_000);
 
   it("hover still works, and costs one node, after a drag", async () => {
     const view = await open();
@@ -183,7 +183,7 @@ describe("the canvas with 5 000 nodes: selection and transformation", { timeout:
     expect(nodeEl(view.world, b)).toHaveAttribute("data-hovered");
     expect(view.renders() - before).toBeLessThanOrEqual(2);
     view.unmount();
-  });
+  }, 30_000);
 
   it("Enter goes through the editor shortcuts and renders only the nodes that enter the selection", async () => {
     const view = await open();
@@ -198,5 +198,5 @@ describe("the canvas with 5 000 nodes: selection and transformation", { timeout:
     expect(view.world.querySelectorAll("[data-selected]").length).toBe(50);
     expect(view.renders() - before).toBe(51);
     view.unmount();
-  });
+  }, 30_000);
 });

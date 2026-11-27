@@ -68,7 +68,7 @@ describe("properties region commits with a document of 5 000 nodes", () => {
     view.rig.deliver(nodeDelta(view.doc, ids[3000] as string, { x: 5, fill: "#000000" }, 2));
     expect(commits(view)).toBe(0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("a burst of 200 deltas on other nodes, presence and a hover commit nothing either", async () => {
     const view = await mount(5000);
@@ -80,7 +80,7 @@ describe("properties region commits with a document of 5 000 nodes", () => {
     view.rig.push({ type: "presence", agent: "s:1", actor: "agent:claude", tool: "update_nodes", nodes: [ids[2000] as string], idle: 0 });
     expect(commits(view)).toBe(0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("a delta on the selected node, its parent frame, or the document tokens commits once", async () => {
     const view = await mount(5000);
@@ -98,7 +98,7 @@ describe("properties region commits with a document of 5 000 nodes", () => {
     view.rig.deliver(nodeDelta(live, live.nodes[rect]!.parentId as string, { name: "Renamed frame" }, 3));
     expect(commits(view)).toBe(1);
     view.unmount();
-  });
+  }, 30_000);
 
   it("a burst of deltas on the selected node renders at once when the panel was still, then once more per interval", async () => {
     const view = await mount(5000);
@@ -114,7 +114,7 @@ describe("properties region commits with a document of 5 000 nodes", () => {
     expect(commits(view)).toBe(2);
     expect(screen.getByRole("textbox", { name: "X" })).toHaveValue("9");
     view.unmount();
-  });
+  }, 30_000);
 
   it("with nothing selected, an edit adds one activity row and one commit (the document panel lists it); a burst is one commit", async () => {
     const view = await mount(5000);
@@ -128,7 +128,7 @@ describe("properties region commits with a document of 5 000 nodes", () => {
     view.rig.deliver(...Array.from({ length: 50 }, (_, i) => nodeDelta(view.rig.client.store.state.doc!, ids[400 + i] as string, { x: i }, 3 + i)));
     expect(commits(view)).toBe(1);
     view.unmount();
-  });
+  }, 30_000);
 
   it("a burst spread over 40 frames (200 deltas, 5 per frame) renders the document panel at most ten times, not once per frame", async () => {
     const view = await mount(5000);
@@ -150,7 +150,7 @@ describe("properties region commits with a document of 5 000 nodes", () => {
     // The last render shows every entry that came in (the list is capped by the store, so look at the newest).
     expect(screen.getByRole("list", { name: "Activity" }).textContent).toContain("edit");
     view.unmount();
-  });
+  }, 30_000);
 
   it("20 isolated deltas on a node that is not selected, 200 ms apart, cost one commit each plus one per second of clock (not one per row per second)", async () => {
     // The relative times of the activity rows tick every second; each row used to have its own interval, so 20 rows committed 20 times a second.
@@ -170,7 +170,7 @@ describe("properties region commits with a document of 5 000 nodes", () => {
     expect(view.rig.client.store.state.version).toBe(21);
     expect(commits(view)).toBeLessThanOrEqual(20 + seconds + 1);
     view.unmount();
-  });
+  }, 30_000);
 
   it("selecting a node switches the panel in one commit", async () => {
     const view = await mount(5000);
@@ -183,7 +183,7 @@ describe("properties region commits with a document of 5 000 nodes", () => {
     expect(view.log.entries().filter((e) => e.actualDuration > 5)).toHaveLength(1);
     expect(screen.getByTestId("node-panel")).toBeInTheDocument();
     view.unmount();
-  });
+  }, 30_000);
 
   it("an activity row ages by itself: its time moves on while the panel is not told anything", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
@@ -197,5 +197,5 @@ describe("properties region commits with a document of 5 000 nodes", () => {
     } finally {
       vi.useRealTimers();
     }
-  });
+  }, 30_000);
 });

@@ -79,7 +79,7 @@ describe("overlay-only values with 5 000 nodes", { timeout: 30_000 }, () => {
     await elapse(20);
     expect(view.sent()).toHaveLength(1);
     view.unmount();
-  });
+  }, 30_000);
 
   it("the draft of the pen: each press adds an anchor and the pointer moving pulls a handle", async () => {
     const view = await open();
@@ -95,7 +95,7 @@ describe("overlay-only values with 5 000 nodes", { timeout: 30_000 }, () => {
     expect(view.viewport.querySelectorAll("[data-pen-anchor]").length).toBeGreaterThanOrEqual(2);
     expectQuiet(view, before);
     view.unmount();
-  });
+  }, 30_000);
 
   it("an arrow being drawn with the connector tool", async () => {
     const view = await open();
@@ -111,7 +111,7 @@ describe("overlay-only values with 5 000 nodes", { timeout: 30_000 }, () => {
     fireEvent.pointerUp(window, { pointerId: 1, clientX: 1060, clientY: 220 });
     await elapse(20);
     view.unmount();
-  });
+  }, 30_000);
 
   it("the area of the pin tool being dragged", async () => {
     const view = await open();
@@ -126,7 +126,7 @@ describe("overlay-only values with 5 000 nodes", { timeout: 30_000 }, () => {
     fireEvent.pointerUp(window, { pointerId: 1, clientX: 1060, clientY: 220 });
     await elapse(20);
     view.unmount();
-  });
+  }, 30_000);
 
   it("the marquee over empty space", async () => {
     const view = await open();
@@ -140,5 +140,5 @@ describe("overlay-only values with 5 000 nodes", { timeout: 30_000 }, () => {
     expect(view.writes() - before.writes, "writes to the canvas store").toBe(0);
     fireEvent.pointerUp(window, { pointerId: 1, clientX: 5160, clientY: 5120 });
     view.unmount();
-  });
+  }, 30_000);
 });

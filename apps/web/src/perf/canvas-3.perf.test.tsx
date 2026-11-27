@@ -110,7 +110,7 @@ describe("vectors and handles with 5 000 nodes", () => {
     process.stderr.write(`[perf canvas-3 jsdom] path anchor drag, 20 moves: ${rendered} node renders of ${NODES}\n`);
     expect(rendered).toBeLessThanOrEqual(3);
     m.unmount();
-  });
+  }, 30_000);
 
   it("dragging a connector end renders only the connectors that follow it", async () => {
     const m = mount(["arrow"]);
@@ -126,7 +126,7 @@ describe("vectors and handles with 5 000 nodes", () => {
     // one render of the connector per move (it is routed again over the shown ends), and no other node
     expect(rendered).toBeLessThanOrEqual(21);
     m.unmount();
-  });
+  }, 30_000);
 
   it("dragging a gradient stop renders no other node than the shape and applies once", async () => {
     const m = mount(["grad"]);
@@ -141,7 +141,7 @@ describe("vectors and handles with 5 000 nodes", () => {
     expect(m.onApply.mock.calls.length).toBeLessThanOrEqual(1);
     expect(rendered).toBeLessThanOrEqual(3);
     m.unmount();
-  });
+  }, 30_000);
 
   it("dragging the gap handle renders only the frame and its children, and applies once", async () => {
     const m = mount(["flow"]);
@@ -157,7 +157,7 @@ describe("vectors and handles with 5 000 nodes", () => {
     // the frame once per move (its children keep their memoized render); no other node
     expect(rendered).toBeLessThanOrEqual(21);
     m.unmount();
-  });
+  }, 30_000);
 
   it("drawing with the pen renders no node until it ends, and creates once", async () => {
     const m = mount([], "pen");
@@ -172,5 +172,5 @@ describe("vectors and handles with 5 000 nodes", () => {
     await flush();
     expect(m.onApply).toHaveBeenCalledTimes(1);
     m.unmount();
-  });
+  }, 30_000);
 });

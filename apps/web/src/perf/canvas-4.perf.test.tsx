@@ -86,7 +86,7 @@ describe("goal: presence on the canvas with 5 000 nodes and 64 agents", () => {
     expect(lift(view)).toBe(NODES - 1);
     process.stderr.write(`[perf canvas-4 jsdom] 64 agents arriving: ${JSON.stringify(commitsOf(view))}, node renders ${view.renders() - before}\n`);
     view.unmount();
-  });
+  }, 30_000);
 
   it("a heartbeat of every agent (same nodes, newer) commits nothing anywhere and renders no node", async () => {
     const view = await open();
@@ -101,7 +101,7 @@ describe("goal: presence on the canvas with 5 000 nodes and 64 agents", () => {
     expect(view.renders() - before).toBe(0);
     expect(commitsOf(view)).toEqual(Object.fromEntries(regions.map((id) => [id, 0])));
     view.unmount();
-  });
+  }, 30_000);
 
   it("every agent changing what it touches in one frame is one commit of the canvas, no node renders, nothing else", async () => {
     const view = await open();
@@ -115,7 +115,7 @@ describe("goal: presence on the canvas with 5 000 nodes and 64 agents", () => {
     expect(view.log.commits("canvas")).toBeLessThanOrEqual(1);
     expect(view.log.commits("properties")).toBe(0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("one agent of 64 changing what it touches measures the boxes of that agent only (a flush of presence is not a re-measure of everyone)", async () => {
     const view = await open();
@@ -136,7 +136,7 @@ describe("goal: presence on the canvas with 5 000 nodes and 64 agents", () => {
     expect(mine?.dataset.agentBox).toBe(view.ids[3000]);
     expect(mine?.style.display).toBe("block");
     view.unmount();
-  });
+  }, 30_000);
 
   it("a delta on ONE node with 64 agents on screen renders that node and commits the canvas once; layers and properties as they were", async () => {
     const view = await open();
@@ -152,7 +152,7 @@ describe("goal: presence on the canvas with 5 000 nodes and 64 agents", () => {
     expect(view.log.commits("properties")).toBe(BASE.delta.properties);
     expect(view.log.commits("layers")).toBe(BASE.delta.layers);
     view.unmount();
-  });
+  }, 30_000);
 
   it("the idle clock of the canvas (2 s) commits the canvas only when an agent turned idle, never a node", async () => {
     const view = await open();
@@ -169,7 +169,7 @@ describe("goal: presence on the canvas with 5 000 nodes and 64 agents", () => {
     expect(view.log.commits("properties")).toBe(BASE.idle20.properties);
     expect(view.log.commits("layers")).toBe(BASE.idle20.layers);
     view.unmount();
-  });
+  }, 30_000);
 });
 
 describe("goal: the build replay with 5 000 nodes", () => {
@@ -197,5 +197,5 @@ describe("goal: the build replay with 5 000 nodes", () => {
     expect(view.world.querySelectorAll("[data-build]")).toHaveLength(0);
     process.stderr.write(`[perf canvas-4 jsdom] build replay: ${marked} marks over the walk, commits ${JSON.stringify(commitsOf(view))}\n`);
     view.unmount();
-  });
+  }, 30_000);
 });

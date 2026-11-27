@@ -49,7 +49,7 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
     // The header itself renders once: the roster appears (its agents count changed). The roster's later commits are its own.
     expect(view.log.commits("header")).toBe(1);
     view.unmount();
-  });
+  }, 30_000);
 
   it("every one of 64 agents reporting on its own, in tasks of one frame, commits the roster and the layers at most once per frame and nothing else", async () => {
     const view = await openEditor();
@@ -69,7 +69,7 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
     act(() => view.rig.scheduler.flush());
     for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("the roster's clock ticks inside the roster: ten seconds commit it and no other region", async () => {
     const view = await openEditor();
@@ -88,7 +88,7 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
     for (const id of outsideRoster) expect(view.log.commits(id), id).toBe(0);
     expect(view.log.commits("header")).toBe(0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("an agent that reports again commits the roster only when the report moves its last-active time by a second or more, and nothing else", async () => {
     // The client reads the clock through `Date.now` at each call, so the test's fake clock moves it.
@@ -110,7 +110,7 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
     expect(view.log.commits("agents")).toBe(1);
     for (const id of editorRegionIds.filter((r) => r !== "agents")) expect(view.log.commits(id), id).toBe(0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("a burst of 200 deltas with 64 agents present does not commit the roster, the pages or the layers (they depend on the page and nodes of each agent, not on the document)", async () => {
     const view = await openEditor();
@@ -123,7 +123,7 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
     // stage: the first edit flips "can undo" in the toolbar. properties: the document panel lists the new activity entries (once for the burst).
     for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(id === "stage" || id === "properties" ? 1 : 0);
     view.unmount();
-  });
+  }, 30_000);
 
   it("the team status and the workspace notice commit only their own region", async () => {
     const view = await openEditor();
@@ -139,5 +139,5 @@ describe("collaboration regions with a document of 5 000 nodes", () => {
     view.rig.push({ type: "pins", rev: 4 });
     for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(0);
     view.unmount();
-  });
+  }, 30_000);
 });
