@@ -229,6 +229,16 @@ describe("layers", () => {
 });
 
 describe("stage", () => {
+  it("draws a keyboard focus ring: `outline-none` alone cancels the ring, so the focus-visible class must say the style too", async () => {
+    const view = await openShell();
+    const region = screen.getByRole("region", { name: "Canvas" });
+    expect(region).toHaveAttribute("tabindex", "0");
+    const classes = region.className.split(/\s+/);
+    // Tailwind 4: `outline-none` sets `outline-style: none` and `outline-2` only sets the width; only `outline-solid` brings the style back.
+    for (const needed of ["focus-visible:outline-2", "focus-visible:outline-solid", "focus-visible:outline-select"]) expect(classes).toContain(needed);
+    view.unmount();
+  });
+
   it("has the toolbar with the old app's tools and the zoom bar", async () => {
     const user = userEvent.setup();
     const view = await openShell();

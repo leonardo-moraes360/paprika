@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { Notifications } from "@/components/notifications";
+import { RoutedNotifications } from "./-routed-notifications";
 import { LiveProvider } from "@/data/live";
 import { PerfProvider } from "@/perf";
 import { useTranslation } from "react-i18next";
@@ -34,7 +34,7 @@ function RootComponent() {
         <PerfProvider>
           <LiveProvider>
             <Outlet />
-            <Notifications />
+            <RoutedNotifications />
           </LiveProvider>
         </PerfProvider>
       </ClientOnly>
