@@ -45,7 +45,7 @@ describe("architecture of the app layers: the real tree", () => {
     expect(files.length).toBeGreaterThan(0);
     // `adapters/doc-fonts.ts` keeps a `let last` that makes its result depend on the previous call (review finding A1, the
     // performance package replaces it): delete this exception together with that `let`.
-    const exceptions = { "adapters/doc-fonts.ts": [mutableState.id] };
+    const exceptions = {};
     const violations = files.flatMap((file) => checkAdapterFile(disk, file, disk.read(file) as string, exceptions));
     expect(violations).toEqual([]);
   });
