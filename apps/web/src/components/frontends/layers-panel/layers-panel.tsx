@@ -130,9 +130,7 @@ function LayersPanelView({
     const active = document.activeElement?.closest<HTMLElement>("[data-layer-id]")?.dataset.layerId;
     const { renamingId, dragging } = store.get();
     const keep = [active, renamingId, ...(dragging ?? [])];
-    const extra = keep
-      .map((id) => (id ? (latest.current.visibleIndex.get(id) ?? -1) : -1))
-      .filter((index) => index >= 0 && !base.includes(index));
+    const extra = [...new Set(keep.map((id) => (id ? (latest.current.visibleIndex.get(id) ?? -1) : -1)))].filter((index) => index >= 0 && !base.includes(index));
     return extra.length > 0 ? [...base, ...extra].sort((a, b) => a - b) : base;
   }, [store]);
 

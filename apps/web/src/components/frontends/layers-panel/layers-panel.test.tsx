@@ -399,6 +399,22 @@ describe("LayersPanel", () => {
     Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
   });
 
+  it("keeps a focused row that is also being renamed mounted once when the list scrolls away from it", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(280);
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(280);
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(600 * 30);
+    const many: LayerRowData[] = Array.from({ length: 600 }, (_, index) => ({ ...base, id: `n${index}`, name: `Layer ${index}`, kind: "rect" as const }));
+    setup({ rows: many });
+    screen.getByRole("treeitem", { name: "Layer 2" }).focus();
+    await user.keyboard("{F2}");
+    const viewport = screen.getByRole("tree").closest<HTMLElement>("[data-slot=scroll-area-viewport]") ?? screen.getByRole("tree").parentElement!.parentElement!;
+    viewport.scrollTop = 5000;
+    fireEvent.scroll(viewport);
+    expect(screen.getAllByRole("treeitem").some((row) => Number(row.getAttribute("aria-posinset")) > 100)).toBe(true);
+    expect(document.querySelectorAll('[data-layer-id="n2"]')).toHaveLength(1);
+  });
+
   it("scrolls a layer selected elsewhere into view in a long list, and leaves a visible one alone", () => {
     vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(280);
     vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(280);
