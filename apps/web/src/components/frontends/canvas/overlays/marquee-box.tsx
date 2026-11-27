@@ -1,9 +1,9 @@
-import { useCanvasState } from "../region";
+import { useOverlayValue } from "../overlay-bus";
 import type { Box } from "../types";
 
 /** The box being dragged on the empty page (the marquee gesture writes it in world units). */
 export function MarqueeBox() {
-  const box = useCanvasState((s) => (s.ui.marquee ?? null) as Box | null);
+  const box = useOverlayValue<Box>("marquee");
   if (!box) return null;
   return (
     <div

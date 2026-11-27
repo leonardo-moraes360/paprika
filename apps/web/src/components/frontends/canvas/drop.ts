@@ -1,5 +1,4 @@
 import { isContainer } from "@paprika/core";
-import { elementOf } from "./geometry";
 import { dropAccepts, isFlowFrame, isUnder } from "./target";
 import type { Box, CanvasRuntime, Pt } from "./types";
 
@@ -24,7 +23,7 @@ function flowIndex(rt: CanvasRuntime, parentId: string, clientX: number, clientY
   const kids = parent.children.filter((id) => !dragged.has(id));
   const pos = row ? clientX : clientY;
   for (let i = 0; i < kids.length; i++) {
-    const el = elementOf(vp, kids[i]!);
+    const el = rt.element(kids[i]!);
     if (!el) continue;
     const r = el.getBoundingClientRect();
     if (pos < (row ? r.left + r.width / 2 : r.top + r.height / 2)) return i;
@@ -43,7 +42,7 @@ export function resolveDrop(rt: CanvasRuntime, clientX: number, clientY: number,
   if (vp && typeof document.elementsFromPoint === "function") {
     const restored: [HTMLElement, string][] = [];
     for (const id of dragged) {
-      const el = elementOf(vp, id);
+      const el = rt.element(id);
       if (!el) continue;
       restored.push([el, el.style.pointerEvents]);
       el.style.pointerEvents = "none";
@@ -109,3 +108,6 @@ export function localFor(rt: CanvasRuntime, parentId: string | null, clientX: nu
   const box = parentId ? rt.measure(parentId) : null;
   return box ? { x: p.x - box.x, y: p.y - box.y } : p;
 }
+
+const sameBox = (a: Box | null, b: Box | null) => a === b || (!!a && !!b && a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height);
+export const sameDropUi = (a: DropUi | null, b: DropUi | null) => a === b || (!!a && !!b && sameBox(a.highlight, b.highlight) && sameBox(a.marker, b.marker));

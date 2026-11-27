@@ -3,6 +3,7 @@ import { SelectionHandles } from "@/components/ui/selection-handles";
 import { SelectionSize } from "@/components/ui/selection-size";
 import { boxCorners, type Lock } from "../transform";
 import { unionBox } from "../geometry";
+import { useOverlayValue } from "../overlay-bus";
 import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
 import { isTransformable } from "../target";
@@ -30,7 +31,7 @@ export function SelectionHandlesOverlay() {
   const rt = useCanvasRuntime();
   const selection = useCanvasState((s) => s.selection);
   const preview = useCanvasState((s) => s.preview);
-  const lock = useCanvasState((s) => (s.ui.lock ?? null) as Lock);
+  const lock = useOverlayValue<Lock>("lock");
   const docVersion = useDocVersion();
   const doc = rt.doc();
   const single = selection.length === 1 ? doc.nodes[selection[0]!] : undefined;

@@ -1,9 +1,9 @@
 import type { DropUi } from "../drop";
-import { useCanvasState } from "../region";
+import { useOverlayValue } from "../overlay-bus";
 
 /** While a node is dragged: the container it would go into (a ring, as the layers panel draws "drop inside") and, in an auto-layout flow, the bar between two siblings ("drop between"). */
 export function DropMarker() {
-  const drop = useCanvasState((s) => (s.ui.drop ?? null) as DropUi | null);
+  const drop = useOverlayValue<DropUi>("drop");
   if (!drop) return null;
   const { highlight, marker } = drop;
   return (

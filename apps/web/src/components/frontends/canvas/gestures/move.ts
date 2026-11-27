@@ -1,4 +1,4 @@
-import { dropUi, localFor, resolveDrop, type DropSpot } from "../drop";
+import { dropUi, localFor, resolveDrop, sameDropUi, type DropSpot, type DropUi } from "../drop";
 import { DRAG_THRESHOLD } from "../transform";
 import { isAbsolute, isDeep, isToggle, movableNodes, pickTarget } from "../target";
 import type { Gesture, PreviewPatch } from "../types";
@@ -30,6 +30,7 @@ export const move: Gesture = {
     const origin = rt.toWorld(event.clientX, event.clientY);
     const zoom = rt.view.get().zoom;
     let moved = false;
+    let shownDrop: DropUi | null = null;
     let last: Record<string, { x: number; y: number }> = {};
     let sizes: Map<string, { width: number; height: number }> | null = null;
     const spotAt = (cx: number, cy: number): DropSpot => {
@@ -41,7 +42,7 @@ export const move: Gesture = {
       for (const [key, value] of Object.entries(patches)) out[key] = { ...value, inert: true };
       rt.preview.set(out);
     };
-    const finish = () => rt.store.actions.setUi("drop", null);
+    const finish = () => rt.overlay.set("drop", null);
     return {
       move: (ev) => {
         const p = rt.toWorld(ev.clientX, ev.clientY);
@@ -50,7 +51,9 @@ export const move: Gesture = {
         if (!moved && Math.hypot(dx, dy) * zoom < DRAG_THRESHOLD) return;
         moved = true;
         const spot = spotAt(ev.clientX, ev.clientY);
-        rt.store.actions.setUi("drop", dropUi(rt, spot, dragged));
+        const ui = dropUi(rt, spot, dragged);
+        // The same container and bar as a moment ago is not a change: a store update tells every node of the page.
+        if (!sameDropUi(shownDrop, ui)) rt.overlay.set("drop", (shownDrop = ui));
         if (!absOnly) return;
         if (spot.highlightId && !spot.flow && movable.some((n) => n.parentId !== spot.highlightId)) {
           // Into another container, with no flow: the node is centred on the pointer, in that container's space.

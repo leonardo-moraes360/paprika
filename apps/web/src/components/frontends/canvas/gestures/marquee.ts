@@ -24,7 +24,7 @@ export const marquee: Gesture = {
         if (!dragged && Math.hypot(p.x - origin.x, p.y - origin.y) * zoom < DRAG_THRESHOLD) return;
         dragged = true;
         const rect = { left: Math.min(origin.x, p.x), top: Math.min(origin.y, p.y), right: Math.max(origin.x, p.x), bottom: Math.max(origin.y, p.y) };
-        rt.store.actions.setUi("marquee", { x: rect.left, y: rect.top, width: rect.right - rect.left, height: rect.bottom - rect.top });
+        rt.overlay.set("marquee", { x: rect.left, y: rect.top, width: rect.right - rect.left, height: rect.bottom - rect.top });
         // Layout is read for every top-level node, once, before anything is written.
         const hits = rt.index.roots().filter((id) => {
           const box = rt.measure(id);
@@ -36,8 +36,8 @@ export const marquee: Gesture = {
           rt.select(next);
         }
       },
-      up: () => rt.store.actions.setUi("marquee", null),
-      cancel: () => rt.store.actions.setUi("marquee", null),
+      up: () => rt.overlay.set("marquee", null),
+      cancel: () => rt.overlay.set("marquee", null),
     };
   },
 };

@@ -139,6 +139,10 @@ export type RenderStore = {
   subscribeDoc: (listener: () => void) => () => void;
   /** The count `subscribeDoc` is called at (for `useSyncExternalStore`). */
   docVersion: () => number;
+  /** The element a node is painted in, by id (set by the node itself): a lookup, not a scan of the page, so measuring a few nodes stays cheap with thousands. */
+  element: (id: string) => HTMLElement | null;
+  /** A node tells where it is painted; returns the way to forget it. */
+  attach: (id: string, el: HTMLElement) => () => void;
   /** Node renders so far (what the tests and `?perf=1` count). */
   renders: () => number;
   countRender: (id: string) => void;
@@ -174,6 +178,7 @@ export function createRenderStore(initial: Document | null = null, pageId: strin
   let renders = 0;
   let docVersion = 0;
   const watchers = new Set<(id: string) => void>();
+  const elements = new Map<string, HTMLElement>();
 
   const snapshot = (id: string): NodeSnapshot => {
     let snap = snaps.get(id);
@@ -238,6 +243,13 @@ export function createRenderStore(initial: Document | null = null, pageId: strin
       return () => void docListeners.delete(listener);
     },
     docVersion: () => docVersion,
+    element: (id) => elements.get(id) ?? null,
+    attach: (id, el) => {
+      elements.set(id, el);
+      return () => {
+        if (elements.get(id) === el) elements.delete(id);
+      };
+    },
     renders: () => renders,
     countRender: (id) => {
       renders += 1;

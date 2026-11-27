@@ -33,7 +33,7 @@ export const resize: Gesture = {
     let at = start;
     const run = () => {
       const lock: Lock = held.shift ? (held.alt ? "square" : "ratio") : null;
-      rt.store.actions.setUi("lock", lock);
+      rt.overlay.set("lock", lock);
       let next;
       if (rotation) {
         const world = rt.toWorld(at.x, at.y);
@@ -49,7 +49,7 @@ export const resize: Gesture = {
     });
     const finish = () => {
       unwatch();
-      rt.store.actions.setUi("lock", null);
+      rt.overlay.set("lock", null);
     };
     return {
       move: (ev) => {
