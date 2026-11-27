@@ -79,6 +79,15 @@ export const gridStyle = (v: View) => {
   return { size: `${cell}px ${cell}px`, position: `${v.x % cell}px ${v.y % cell}px` };
 };
 
+/** The box a turned node covers (the bounding box of its rotated rectangle); a node that is not turned covers its own box. */
+export function coveredBox(box: NodeBox): Box {
+  if (!box.rotation) return { x: box.x, y: box.y, width: box.width, height: box.height };
+  const a = (box.rotation * Math.PI) / 180;
+  const width = Math.abs(box.width * Math.cos(a)) + Math.abs(box.height * Math.sin(a));
+  const height = Math.abs(box.width * Math.sin(a)) + Math.abs(box.height * Math.cos(a));
+  return { x: box.x + box.width / 2 - width / 2, y: box.y + box.height / 2 - height / 2, width, height };
+}
+
 /** The selector of a node's element. The id goes through an attribute selector, so quotes and backslashes are escaped. */
 export const nodeSelector = (id: string) => `[data-paprika-id="${id.replace(/["\\]/g, "\\$&")}"]`;
 

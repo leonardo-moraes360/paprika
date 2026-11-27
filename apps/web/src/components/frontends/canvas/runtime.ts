@@ -2,10 +2,11 @@ import type { Document, Op } from "@paprika/core";
 import type { Store } from "@tanstack/react-store";
 import { createContext, useContext } from "react";
 import { elementOf, measureElement, nodeIdOf, toWorld } from "./geometry";
+import type { CanvasCollabFeed } from "./collab";
 import type { PreviewController } from "./preview";
 import type { CanvasActions, CanvasState } from "./region";
 import type { RenderStore } from "./render-index";
-import type { CanvasInputState, CanvasTool, NodeBox, Pt } from "./types";
+import type { CanvasInputState, CanvasPinPoint, CanvasTool, NodeBox, Pt } from "./types";
 import type { ViewStore } from "./view-store";
 
 export type PanMode = "off" | "ready" | "panning";
@@ -42,6 +43,13 @@ export type CanvasRuntime = {
   apply: (ops: Op[], label: string) => Promise<boolean>;
   toolDone: () => void;
   error: (message: string) => void;
+  /** Presence, pins and the build replay, when the owner gives them. */
+  collab: CanvasCollabFeed | undefined;
+  /** The eyedropper is armed. */
+  sampling: () => boolean;
+  pinPoint: (point: CanvasPinPoint) => void;
+  pinSelect: (id: string) => void;
+  sample: (color: string | null) => void;
 };
 
 export type RuntimeParts = {
@@ -52,6 +60,8 @@ export type RuntimeParts = {
   viewport: () => HTMLElement | null;
   world: () => HTMLElement | null;
   pageId: () => string | null;
+  collab?: () => CanvasCollabFeed | undefined;
+  sampling?: () => boolean;
   /** The owner's callbacks, read at call time. */
   callbacks: () => {
     select: (ids: readonly string[]) => void;
@@ -59,11 +69,16 @@ export type RuntimeParts = {
     apply?: (ops: Op[], label: string) => Promise<boolean>;
     toolDone?: () => void;
     error?: (message: string) => void;
+    pinPoint?: (point: CanvasPinPoint) => void;
+    pinSelect?: (id: string) => void;
+    sample?: (color: string | null) => void;
   };
 };
 
 export function createRuntime(parts: RuntimeParts): CanvasRuntime {
   const { view, index, store, preview, viewport, world, pageId, callbacks } = parts;
+  const collab = parts.collab ?? (() => undefined);
+  const sampling = parts.sampling ?? (() => false);
   const input: CanvasInputState = { space: false };
   return {
     view,
@@ -112,6 +127,13 @@ export function createRuntime(parts: RuntimeParts): CanvasRuntime {
     },
     toolDone: () => callbacks().toolDone?.(),
     error: (message) => callbacks().error?.(message),
+    get collab() {
+      return collab();
+    },
+    sampling,
+    pinPoint: (point) => callbacks().pinPoint?.(point),
+    pinSelect: (id) => callbacks().pinSelect?.(id),
+    sample: (color) => callbacks().sample?.(color),
   };
 }
 

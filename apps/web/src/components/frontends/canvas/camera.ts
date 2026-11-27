@@ -149,7 +149,8 @@ export function useCamera(rt: CanvasRuntime, viewportRef: RefObject<HTMLElement 
     const viewport = viewportRef.current;
     if (!viewport || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => {
-      if (!state.current.moved) controller.fit();
+      // A capture (`?capture=`) owns the camera: the server's screenshot reads the node where it put it.
+      if (!state.current.moved && !viewport.hasAttribute("data-capture")) controller.fit();
     });
     observer.observe(viewport);
     return () => observer.disconnect();

@@ -1,6 +1,9 @@
 import type { CanvasOverlay } from "../types";
+import { AgentCursors } from "./agent-cursors";
+import { BuildReplay } from "./build-replay";
 import { FrameLabels } from "./frame-labels";
 import { HoverOutline } from "./hover-outline";
+import { PinDraft, Pins } from "./pins";
 import { SelectionOutline } from "./selection-outline";
 
 /**
@@ -12,4 +15,8 @@ export const overlays: readonly CanvasOverlay[] = [
   { id: "frame-labels", Component: FrameLabels },
   { id: "hover-outline", Component: HoverOutline },
   { id: "selection-outline", Component: SelectionOutline },
+  { id: "pins", Component: Pins },
+  { id: "pin-draft", Component: PinDraft },
+  { id: "agent-cursors", Component: AgentCursors },
+  { id: "build-replay", Component: BuildReplay },
 ];

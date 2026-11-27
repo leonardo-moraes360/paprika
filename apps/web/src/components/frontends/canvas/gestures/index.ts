@@ -1,5 +1,7 @@
 import type { Gesture } from "../types";
+import { eyedropper } from "./eyedropper";
 import { pan } from "./pan";
+import { pinPlace } from "./pin-place";
 import { selectClick } from "./select-click";
 
 /**
@@ -7,4 +9,4 @@ import { selectClick } from "./select-click";
  * the rest never see that press. Put a specific gesture before a general one (the marquee and the move before the click that
  * selects). Each batch adds its own lines here and nothing else is shared, so a merge is the union of the lists.
  */
-export const gestures: readonly Gesture[] = [pan, selectClick];
+export const gestures: readonly Gesture[] = [eyedropper, pan, pinPlace, selectClick];
