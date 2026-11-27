@@ -332,8 +332,7 @@ describe("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => page.getByLabel("Aumentar $brand", { exact: false }).count()).toBe(0);
   });
 
-  // PAP-E2E: três setas seguidas no campo numérico dão 2 passos (o painel só relê o documento a cada 100 ms) e o campo pode ficar com o valor velho
-  it.fails("inspector: três setas seguidas no campo de Opacidade dão três passos e o campo mostra o valor do documento", async () => {
+  it("inspector: três setas seguidas no campo de Opacidade dão três passos e o campo mostra o valor do documento", async () => {
     await page.locator('[data-layer-id="plano"]').click();
     const opacity = page.getByLabel("Opacidade", { exact: true });
     await opacity.click({ clickCount: 3 });
@@ -652,7 +651,7 @@ describe("E2E: canvas + agente via MCP", () => {
     await page.locator('[data-layer-id="login"]').click();
     await page.locator('[data-layer-id="plano"]').click({ modifiers: ["ControlOrMeta"] });
     await expect.poll(() => page.getByTestId("selection").getAttribute("data-count")).toBe("2");
-    await expect(page.getByTestId("multi-panel").textContent()).resolves.toContain("2");
+    await expect(page.getByTestId("multi-panel").textContent()).resolves.toContain("2 elementos selecionados");
 
     await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
     await expect.poll(() => page.getByTestId("selection").count()).toBe(0);
@@ -680,9 +679,9 @@ describe("E2E: canvas + agente via MCP", () => {
     await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
     const card = (await page.locator('[data-paprika-id="plano"]').boundingBox())!;
     await page.mouse.click(card.x + 6, card.y + 6);
-    await expect.poll(() => selectedIds().then((ids) => ids[0])).toBe(g);
+    await expect.poll(selectedIds).toEqual([g]);
     await page.mouse.dblclick(card.x + 6, card.y + 6);
-    await expect.poll(() => selectedIds().then((ids) => ids[0])).toBe("plano");
+    await expect.poll(selectedIds).toEqual(["plano"]);
 
     await page.locator('[data-layer-id="' + g + '"]').click();
     const before = await doc();
@@ -706,9 +705,9 @@ describe("E2E: canvas + agente via MCP", () => {
     await page.getByRole("button", { name: "Selecionar" }).click();
     const marca = (await page.locator('[data-paprika-id="r0980ga944"]').boundingBox())!;
     await page.mouse.click(marca.x + 8, marca.y + 8);
-    await expect.poll(() => selectedIds().then((ids) => ids[0])).toBe("r0980ga944");
+    await expect.poll(selectedIds).toEqual(["r0980ga944"]);
     await page.keyboard.press("Escape");
-    await expect.poll(() => selectedIds().then((ids) => ids[0])).toBe("login");
+    await expect.poll(selectedIds).toEqual(["login"]);
     await page.keyboard.press("Enter");
     const picked = selectedIds;
     const kids = ((await doc()).nodes.login as { children: string[] }).children;
@@ -716,11 +715,11 @@ describe("E2E: canvas + agente via MCP", () => {
 
     await page.keyboard.press("Escape");
     await page.mouse.click(marca.x + 8, marca.y + 8);
-    await expect.poll(() => selectedIds().then((ids) => ids[0])).toBe(kids[0]);
+    await expect.poll(selectedIds).toEqual([kids[0]]);
     await page.keyboard.press("Tab");
-    await expect.poll(() => selectedIds().then((ids) => ids[0])).toBe(kids[1]);
+    await expect.poll(selectedIds).toEqual([kids[1]]);
     await page.keyboard.press("Shift+Tab");
-    await expect.poll(() => selectedIds().then((ids) => ids[0])).toBe(kids[0]);
+    await expect.poll(selectedIds).toEqual([kids[0]]);
 
     await page.locator('[data-layer-id="login"]').click();
     await page.locator('[data-layer-id="plano"]').click({ modifiers: ["ControlOrMeta"] });
@@ -733,9 +732,10 @@ describe("E2E: canvas + agente via MCP", () => {
     await page.keyboard.down("Control");
     await page.mouse.click(card.x + 16, card.y + 16);
     await page.keyboard.up("Control");
-    await expect.poll(() => selectedIds().then((ids) => ids[0])).not.toBe(g);
-    const deepId = (await selectedIds().then((ids) => ids[0]))!;
+    await expect.poll(async () => (await selectedIds()).length).toBe(1);
+    const [deepId] = await selectedIds();
     expect(deepId).toBeTruthy();
+    expect(deepId).not.toBe(g);
 
     await page.mouse.click(card.x + 16, card.y + 16, { button: "right" });
     const menu = page.getByRole("menu", { name: "Camadas sob o cursor" });
@@ -743,7 +743,7 @@ describe("E2E: canvas + agente via MCP", () => {
     await expect(menu.locator(`[data-layer-id="${deepId}"]`).count()).resolves.toBe(1);
     await expect(menu.locator(`[data-layer-id="${g}"]`).count()).resolves.toBe(1);
     await menu.locator(`[data-layer-id="${g}"]`).click();
-    await expect.poll(() => selectedIds().then((ids) => ids[0])).toBe(g);
+    await expect.poll(selectedIds).toEqual([g]);
     await expect.poll(() => menu.count()).toBe(0);
 
     await page.keyboard.press("Enter");
@@ -946,8 +946,6 @@ describe("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => (await pathD())?.split("L").length).toBe(4);
     await expect(page.locator("[data-path-anchor][data-selected]").getAttribute("data-path-anchor")).resolves.toBe("0:1");
     await expect.poll(() => page.locator("[data-path-anchor]").count()).toBe(4);
-    // o Delete lê o documento do navegador, que ainda não tinha a inserção ~30 ms depois dela (corrida só alcançável por script)
-    await page.waitForTimeout(150);
     await page.keyboard.press("Delete");
     await expect.poll(async () => (await pathD())?.split("L").length).toBe(3);
     await expect.poll(async () => !!(await doc()).nodes.pontos).toBe(true);
@@ -1107,7 +1105,7 @@ describe("E2E: canvas + agente via MCP", () => {
     if (shots) await page.screenshot({ path: join(shots, "22-overview-renomear.png") });
     await field.press("Enter");
     await expect.poll(() => card.textContent(), POLL).toContain("Renomeado");
-    expect((await api()).workspaces.find((w) => w.id === extra)?.name).toBe("Renomeado");
+    await expect.poll(async () => (await api()).workspaces.find((w) => w.id === extra)?.name, POLL).toBe("Renomeado");
 
     await cardMenu(demo, "Renomear")();
     await field.fill("Demo (renomeado)");
@@ -1418,12 +1416,11 @@ describe("E2E: canvas + agente via MCP", () => {
       await dragBy(right, -60);
       await expect.poll(() => width(rightPanel)).toBe(380);
       await right.focus();
-      // no separador do painel direito, Home leva ao máximo (480) e a seta para a direita encolhe um passo (1 % do grupo)
+      // no separador do painel direito, Home leva ao máximo (480) e a seta para a direita encolhe um passo (1 % do grupo, 14 px em 1440)
       await p.keyboard.press("Home");
       await expect.poll(() => width(rightPanel)).toBe(480);
       await p.keyboard.press("ArrowRight");
-      await expect.poll(() => width(rightPanel)).toBeGreaterThan(455);
-      await expect.poll(() => width(rightPanel)).toBeLessThan(480);
+      await expect.poll(() => width(rightPanel)).toBe(466);
 
       // o duplo clique no separador recolhe o painel e outro duplo clique devolve a largura que ele tinha (o antigo voltava ao padrão)
       await expect.poll(() => width(leftPanel)).toBe(200);

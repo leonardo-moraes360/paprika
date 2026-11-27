@@ -309,17 +309,22 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
       await page.evaluate(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok))));
     }
     await page.mouse.up();
+    for (let i = 0; i < 2; i++) {
+      const at = (await handle.boundingBox())!;
+      await page.mouse.dblclick(at.x + at.width / 2, y);
+      await page.waitForTimeout(300);
+    }
     const frames = await page.evaluate(() => (window as unknown as { __frames: boolean[] }).__frames);
     expect(frames.length).toBeGreaterThan(4);
     expect(frames.filter((p) => !p)).toEqual([]);
     expect(errors).toEqual([]);
   });
 
-  // PAP-E2E: o app novo não volta o painel à largura inicial com duplo clique no separador (o antigo fazia, PanelResizer.onDoubleClick)
-  it.fails("duplo clique no separador devolve o painel de camadas à largura inicial", async () => {
+  it("duplo clique no separador recolhe o painel de camadas e outro devolve a largura que ele tinha", async () => {
     await open("cpu");
     const handle = page.getByRole("separator", { name: "Redimensionar painel de camadas" });
-    const initial = await handle.getAttribute("aria-valuenow");
+    const panel = page.locator('aside[aria-label="Painel de camadas"]');
+    const width = () => panel.evaluate((el) => Math.round(el.getBoundingClientRect().width));
     const box = (await handle.boundingBox())!;
     const y = box.y + 20;
     const x = box.x + box.width / 2;
@@ -327,9 +332,14 @@ describe.skipIf(!wasmBuilt)("E2E: canvas com renderizador WASM", () => {
     await page.mouse.down();
     await page.mouse.move(x + 60, y, { steps: 6 });
     await page.mouse.up();
-    expect(await handle.getAttribute("aria-valuenow")).not.toBe(initial);
-    await page.mouse.dblclick(x + 60, y);
-    expect(await handle.getAttribute("aria-valuenow")).toBe(initial);
+    const widened = await width();
+    expect(widened).toBeGreaterThan(248);
+    const after = (await handle.boundingBox())!;
+    await page.mouse.dblclick(after.x + after.width / 2, y);
+    await expect.poll(width).toBe(0);
+    const collapsed = (await handle.boundingBox())!;
+    await page.mouse.dblclick(collapsed.x + collapsed.width / 2, y);
+    await expect.poll(width).toBe(widened);
   });
 
   it("o menu alterna o renderizador, cria o dispositivo uma vez só e a escolha fica salva", async () => {

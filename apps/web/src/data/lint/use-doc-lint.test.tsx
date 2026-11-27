@@ -49,7 +49,8 @@ describe("useDocLint feeding", () => {
     view.unmount();
   });
 
-  it("shows what it has sent on window.__paprikaLint, and takes it away on unmount", async () => {
+  it("shows what it has sent on window.__paprikaLint with ?e2e=1, and takes it away on unmount", async () => {
+    window.history.replaceState(null, "", "/?e2e=1");
     const transport: TransportFactory = () => ({ post: () => {}, close: () => {} });
     const rig = createLiveRig();
     const view = render(
@@ -65,5 +66,21 @@ describe("useDocLint feeding", () => {
     expect((window as unknown as { __paprikaLint: unknown }).__paprikaLint).toEqual({ posts: 1, resets: 1, patchedNodes: 0 });
     view.unmount();
     expect("__paprikaLint" in window).toBe(false);
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("does not expose window.__paprikaLint without ?perf=1 or ?e2e=1", async () => {
+    const transport: TransportFactory = () => ({ post: () => {}, close: () => {} });
+    const rig = createLiveRig();
+    const view = render(
+      <LiveProvider client={rig.client}>
+        <DocLintTransportProvider transport={transport}>
+          <Probe enabled />
+        </DocLintTransportProvider>
+      </LiveProvider>,
+    );
+    await rig.connect();
+    expect("__paprikaLint" in window).toBe(false);
+    view.unmount();
   });
 });

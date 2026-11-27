@@ -60,6 +60,21 @@ describe("Properties region", () => {
     view.unmount();
   });
 
+  it("moves the sections stored under the doubled prefix to the current key once, and keeps the current one when both exist", async () => {
+    window.localStorage.clear();
+    window.localStorage.setItem("paprika.paprika.properties.sections", JSON.stringify({ position: false }));
+    const first = await mount();
+    expect(window.localStorage.getItem("paprika.properties.sections")).toBe(JSON.stringify({ position: false }));
+    expect(window.localStorage.getItem("paprika.paprika.properties.sections")).toBeNull();
+    first.unmount();
+    window.localStorage.setItem("paprika.paprika.properties.sections", JSON.stringify({ position: true }));
+    const second = await mount();
+    expect(window.localStorage.getItem("paprika.properties.sections")).toBe(JSON.stringify({ position: false }));
+    expect(window.localStorage.getItem("paprika.paprika.properties.sections")).toBeNull();
+    second.unmount();
+    window.localStorage.clear();
+  });
+
   it("sends an edit as an `update` op with its label and follows the delta the server answers with", async () => {
     const user = userEvent.setup();
     const view = await mount();

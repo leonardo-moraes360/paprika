@@ -29,6 +29,9 @@ export type NumericFieldProps = NumericRange & {
   className?: string;
 };
 
+/** How long a value the field has emitted is taken as the one the document is about to show (the panel re-reads the document at most every 100 ms). */
+const ECHO_WINDOW_MS = 1000;
+
 const stepClasses = `flex h-4 w-6 shrink-0 cursor-pointer items-center justify-center rounded-xs text-fg transition-colors motion-reduce:transition-none hover:bg-surface disabled:cursor-not-allowed disabled:text-field [&_svg]:size-3 [&_svg]:stroke-2 ${focusRing}`;
 
 export function NumericField({ label, prefix, unit, value, onCommit, onClear, min, max, integer, step, keywords, disabled, className }: NumericFieldProps) {
@@ -39,30 +42,41 @@ export function NumericField({ label, prefix, unit, value, onCommit, onClear, mi
   const [seen, setSeen] = useState(baseline);
   const [issue, setIssue] = useState<NumericIssue | null>(null);
   const keepIssue = useRef<NumericIssue | null>(null);
+  const emitted = useRef<{ texts: string[]; at: number }>({ texts: [], at: 0 });
   const range: NumericRange = { min, max, integer };
 
   if (seen !== baseline) {
+    const echoed = emitted.current.texts.indexOf(baseline);
+    emitted.current = { texts: echoed < 0 ? [] : emitted.current.texts.slice(echoed + 1), at: emitted.current.at };
     setSeen(baseline);
     setDraft(baseline);
     setIssue(keepIssue.current);
     keepIssue.current = null;
   }
 
-  const finish = (result: NumericCommit) => {
+  const unechoedText = () => (Date.now() - emitted.current.at < ECHO_WINDOW_MS ? (emitted.current.texts.at(-1) ?? null) : null);
+
+  // A handler that ran before the owner's last render must not put back the value it saw then: only a draft that differs is replaced.
+  const showOwnerValue = () => {
+    if (draft !== baseline) setDraft(baseline);
+  };
+
+  const finish = (result: NumericCommit, stepping = false) => {
     if (!result.ok) {
       keepIssue.current = null;
-      setDraft(baseline);
+      showOwnerValue();
       setIssue(result.issue);
       return;
     }
     keepIssue.current = result.clamped ? (result.issue ?? null) : null;
     setIssue(keepIssue.current);
-    if (result.text === baseline) {
-      setDraft(result.text);
+    if (result.text === ((stepping ? unechoedText() : null) ?? baseline)) {
+      showOwnerValue();
       return;
     }
+    emitted.current = { texts: [...(unechoedText() === null ? [] : emitted.current.texts), result.text], at: Date.now() };
     // The owner decides what the value is: until it re-renders with a new value, show the one it has.
-    setDraft(baseline);
+    showOwnerValue();
     onCommit(result.value);
   };
 
@@ -88,8 +102,8 @@ export function NumericField({ label, prefix, unit, value, onCommit, onClear, mi
   };
 
   const nudge = (direction: 1 | -1, shift: boolean) => {
-    const current = parseNumeric(draft) ?? parseNumeric(baseline);
-    finish(stepNumeric(current, direction, range, { shift, step }));
+    const current = parseNumeric(unechoedText() ?? draft) ?? parseNumeric(baseline);
+    finish(stepNumeric(current, direction, range, { shift, step }), true);
   };
 
   const current = parseNumeric(draft) ?? parseNumeric(baseline);

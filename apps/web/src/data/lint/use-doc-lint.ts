@@ -1,4 +1,5 @@
 import { createContext, createElement, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { probesRequested } from "@/perf";
 import { useLiveClient } from "../live/hooks";
 import { DocLint, workerTransport, type TransportFactory } from "./doc-lint";
 import type { LintSummary } from "./lint-runner";
@@ -22,6 +23,7 @@ export function useDocLint(enabled = true): LintSummary | undefined {
   useEffect(() => () => lint.dispose(), [lint]);
   // What the lint has sent so far, readable from the page (the E2E counts the posts, resets and patched nodes of an incoming write).
   useEffect(() => {
+    if (!probesRequested()) return;
     Object.defineProperty(window, "__paprikaLint", { get: () => ({ ...lint.stats }), configurable: true });
     return () => void Reflect.deleteProperty(window, "__paprikaLint");
   }, [lint]);

@@ -119,7 +119,7 @@ describe.skipIf(!existsSync(webDist))("E2E: acessibilidade do editor pelo teclad
     await page.keyboard.press("Tab");
     const del = await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? "");
     expect(del).toMatch(/^Excluir página /);
-    await expect(page.evaluate(() => getComputedStyle(document.activeElement!).display)).resolves.not.toBe("none");
+    await expect(page.evaluate(() => getComputedStyle(document.activeElement!).opacity)).resolves.toBe("1");
     await page.keyboard.press("Control+z");
   });
 
@@ -332,7 +332,7 @@ describe.skipIf(!existsSync(webDist))("E2E: acessibilidade do editor pelo teclad
         await expect(inside()).resolves.toBe(true);
       }
       await page.keyboard.press("Escape");
-      await expect.poll(() => dialog.count()).toBe(0);
+      await expect.poll(() => dialog.count()).toBe(0);      await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("aria-label"))).toBe("Mais ações");
     });
 
     it("o botão primário e o de perigo passam de 4,5:1 nos dois temas, no repouso e no hover, e não têm a mesma cor (1.4.3)", async () => {
@@ -462,7 +462,7 @@ describe.skipIf(!existsSync(webDist))("E2E: acessibilidade do editor pelo teclad
       await expect.poll(() => dialog.getByRole("button", { name: "Cancelar" }).evaluate((el) => el === document.activeElement)).toBe(true);
       await ov.keyboard.press("Escape");
       await expect.poll(() => dialog.count()).toBe(0);
-      await expect.poll(() => ov.evaluate(() => document.activeElement?.closest("[data-workspace-id]") != null || document.activeElement?.tagName === "BODY")).toBe(true);
+      await expect.poll(() => ov.evaluate(() => document.activeElement?.closest("[data-workspace-id]") != null)).toBe(true);
       expect(await exists()).toBe(true);
       void more;
     }, 15_000);

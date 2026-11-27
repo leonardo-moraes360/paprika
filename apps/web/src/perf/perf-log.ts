@@ -89,3 +89,9 @@ declare global {
 export function perfRequested(search: string = typeof location === "undefined" ? "" : location.search, mode: { dev: boolean; test: boolean } = { dev: import.meta.env.DEV, test: import.meta.env.MODE === "test" }) {
   return (mode.dev || mode.test) && new URLSearchParams(search).get("perf") === "1";
 }
+
+/** The page-side test hooks (`window.__paprikaLint`) are on only with `?perf=1` or `?e2e=1`, in any build. */
+export function probesRequested(search: string = typeof location === "undefined" ? "" : location.search) {
+  const params = new URLSearchParams(search);
+  return params.get("perf") === "1" || params.get("e2e") === "1";
+}

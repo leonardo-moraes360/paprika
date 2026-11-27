@@ -54,7 +54,7 @@ describe.skipIf(!existsSync(webDist))("E2E: incoming write cost does not scale w
     servers.push(srv);
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
     await pinLocale(page, "pt-BR");
-    await page.goto(`${srv.url}/w/${worst.doc.id}`);
+    await page.goto(`${srv.url}/w/${worst.doc.id}?e2e=1`);
     await page.waitForSelector('[data-testid="canvas-world"] [data-paprika-id]', { timeout: 120_000 });
     await page.waitForTimeout(2500);
     await page.waitForFunction(() => ((window as unknown as { __paprikaLint?: { posts: number } }).__paprikaLint?.posts ?? 0) > 0);
