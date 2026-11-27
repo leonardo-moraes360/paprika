@@ -36,6 +36,8 @@ export const pinsKey = (workspaceId: string) => ["pins", workspaceId] as const;
 export const pinsQuery = (workspaceId: string) =>
   queryOptions({
     queryKey: pinsKey(workspaceId),
+    // An empty id would ask for the ACTIVE workspace of the server, which is not necessarily the one in view.
+    enabled: workspaceId !== "",
     queryFn: async ({ signal }): Promise<ServerPin[]> => {
       const data = await api<{ pins?: ServerPin[] }>(`/api/pins?workspaceId=${encodeURIComponent(workspaceId)}&status=all`, { signal });
       return data.pins ?? [];

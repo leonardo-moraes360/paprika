@@ -42,14 +42,16 @@ describe("editor commits with a document of 5 000 nodes", () => {
     view.unmount();
   });
 
-  it("a burst of 200 deltas in one frame and an agent's presence commit nothing either", async () => {
+  it("a burst of 200 deltas in one frame commits nothing, and an agent's presence commits only the roster", async () => {
     const view = await openEditor();
     const before = view.rig.client.store.state.doc!;
     const keys = Object.keys(before.nodes);
     view.rig.deliver(...Array.from({ length: 200 }, (_, i) => nodeDelta(before, keys[100 + i] as string, { x: i }, 2 + i)));
     expect(view.rig.client.store.state.version).toBe(201);
-    view.rig.push({ type: "presence", agent: "s:1", actor: "agent:claude", tool: "update_nodes", nodes: [keys[100] as string], idle: 0 });
     for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(0);
+    view.rig.push({ type: "presence", agent: "s:1", actor: "agent:claude", tool: "update_nodes", nodes: [keys[100] as string], idle: 0 });
+    // The roster is the one region that depends on presence (the others still commit nothing).
+    for (const id of editorRegionIds.filter((region) => region !== "agents")) expect(view.log.commits(id), id).toBe(0);
     view.unmount();
   });
 
