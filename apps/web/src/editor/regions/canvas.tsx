@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Canvas, type CanvasPinPoint } from "@/components/frontends/canvas";
 import { useLiveClient } from "@/data/live";
@@ -36,10 +37,14 @@ export function CanvasRegion() {
   // The layers menu acts on the ids it was opened on.
   const onConvertToPath = useCallback((ids: readonly string[]) => void selection.convert(ids), [selection]);
   const onCenterContent = useCallback((ids: readonly string[]) => void selection.center(ids), [selection]);
+  // The form for the pin opens (and, being the first field, takes the focus) before the pointer's own event ends. React would
+  // render it a task later, and a key typed in that gap lands on the canvas, whose letters are shortcuts (r, i, h...).
   const onPinPoint = useCallback(
     (point: CanvasPinPoint) => {
-      editor.actions.setPinPoint(point);
-      if (point.nodeId) editor.actions.select([point.nodeId]);
+      flushSync(() => {
+        editor.actions.setPinPoint(point);
+        if (point.nodeId) editor.actions.select([point.nodeId]);
+      });
     },
     [editor],
   );

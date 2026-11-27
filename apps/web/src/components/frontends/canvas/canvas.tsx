@@ -186,6 +186,11 @@ function CanvasBody(props: CanvasProps) {
     const world = viewportRef.current?.querySelector<HTMLElement>("[data-canvas-world]");
     if (!world) return;
     Object.defineProperty(world, "__paprikaNodeRenders", { get: rt.index.renders, configurable: true });
+    // Every write to the canvas store wakes each node that reads it (a selector each): a value that only an overlay reads must not make one.
+    let writes = 0;
+    const off = rt.store.subscribe(() => void (writes += 1));
+    Object.defineProperty(world, "__paprikaStateWrites", { get: () => writes, configurable: true });
+    return () => off.unsubscribe();
   }, [rt]);
 
   const stopGesture = useRef<(() => void) | null>(null);
