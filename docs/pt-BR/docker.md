@@ -1,6 +1,6 @@
 # Docker
 
-O `Dockerfile` na raiz monta numa imagem só tudo de que o Paprika precisa: o servidor Go (MCP por HTTP e stdio, API HTTP/WS, SQLite), o app web (`apps/web`, com Tailwind) e o renderizador Rust/WASM (`crates/render`); o alvo padrão também leva um Chrome headless (para o `render_screenshot`) e o sidecar de sincronização de time (`crates/sync`). Nada mais precisa estar instalado no host.
+O `Dockerfile` na raiz monta numa imagem só tudo de que o Paprika precisa: o servidor Go (MCP por HTTP e stdio, API HTTP/WS, SQLite), o app web (`apps/web`, com Tailwind) e o renderizador Rust/WASM (`crates/render`); os dois alvos levam o sidecar de sincronização de time (`crates/sync`), e o padrão também um Chrome headless (para o `render_screenshot`). Nada mais precisa estar instalado no host.
 
 English: [docs/en-US/docker.md](../en-US/docker.md).
 
@@ -55,7 +55,7 @@ PAPRIKA_TEAM_NAME=Ana docker compose -f compose.yaml -f compose.team.yaml up -d 
 - **Nome.** `PAPRIKA_TEAM_NAME` é como os outros membros veem você (padrão `paprika`).
 - **Chave.** A chave, o arquivo do time, os convites e o log de operações ficam em `/data/paprika.team/`, no mesmo volume do banco, então sobrevivem a `docker rm` e a atualizações. Faça backup do volume: perder a chave significa ser convidado de novo.
 - **Rede.** O endpoint Iroh escuta a UDP `4778` no container. Atrás do NAT do Docker, os pares ainda se alcançam por relays; descomente a porta `4778:4778/udp` no `compose.team.yaml` para conexões diretas. Só chaves da lista do time são aceitas, mas essa porta fica aberta para quem alcançar o host.
-- **Qual imagem.** O sidecar `paprika-sync` está só no alvo padrão `runtime`; o `slim` não tem modo time.
+- **Qual imagem.** O sidecar `paprika-sync` fica em `/app/paprika-sync` nos dois alvos (`runtime` e `slim`), então `serve --team` funciona em qualquer um. Se o servidor disser que não o encontra na imagem, a imagem está quebrada ou foi customizada.
 - **Voltar ao local.** `docker compose up -d` (sem o segundo arquivo) sobe o servidor sem `--team`; os dados do time continuam no volume.
 
 ### Dados, porta, exposição
@@ -98,9 +98,9 @@ Pare o container HTTP antes, se os dois fossem escrever no mesmo volume ao mesmo
 | Alvo | Base | Tamanho (camadas / comprimido) | `render_screenshot` | Modo time |
 | --- | --- | --- | --- | --- |
 | `runtime` (padrão) | `scratch` + os arquivos que o Chrome e o `tini` carregam (sem shell, sem gerenciador de pacotes) | 354 MB / 162 MB | sim | sim |
-| `slim` | distroless `static-debian13:nonroot` | 54 MB / 20 MB | não (responde "Chromium not found") | não (sem o sidecar) |
+| `slim` | distroless `static-debian13:nonroot` | não medido de novo desde a inclusão do `paprika-sync` (sem ele eram 54 MB / 20 MB): veja o passo "Image sizes" do job `docker` do CI | não (responde "Chromium not found") | sim |
 
-Medido com `docker history` (soma das camadas) e `docker save | gzip | wc -c`; antes desta reescrita as mesmas imagens tinham 757 MB / 290 MB e 83 MB / 31 MB. A máquina era compartilhada, de 4 núcleos: trate os tempos como ordem de grandeza.
+Medido com `docker history` (soma das camadas) e `docker save | gzip | wc -c`; antes desta reescrita as mesmas imagens tinham 757 MB / 290 MB e 83 MB / 31 MB. A linha do `runtime` já inclui o sidecar; o `slim` cresce o tamanho do binário estático `paprika-sync`. A máquina era compartilhada, de 4 núcleos: trate os tempos como ordem de grandeza.
 
 ```bash
 docker build --target slim -t paprika:slim .
@@ -140,11 +140,11 @@ Imagens base e downloads são fixados: todo `FROM` é `nome:tag@sha256:digest`; 
 
 ## CI
 
-O job `docker` de `.github/workflows/ci.yml` roda o hadolint no `Dockerfile`, constrói o alvo padrão e o `slim` com cache de camadas no cache do GitHub Actions e roda `.github/scripts/docker-smoke.sh` contra cada um. O smoke test roda a imagem endurecida (`--read-only --cap-drop=ALL --security-opt no-new-privileges`, limites de memória e de pids) e confere: usuário numérico sem root, sem shell, o `HEALTHCHECK` ficando saudável, nenhuma capability sobrando, canvas e asset WASM servidos, `Host` estranho recusado, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` em `/mcp` (inclusive que texto em latim, chinês/japonês, árabe, devanágari e tailandês não saia em branco), o banco sobrevivendo a um restart do container, o modo time (sidecar de pé, chave mantida no volume) e um `docker stop` limpo em menos de 8 segundos. Roda quando o PR mexe no `Dockerfile`, `.dockerignore`, `compose.yaml` ou em qualquer coisa que entra na imagem (`server/`, `apps/web/`, `crates/render/`, `crates/sync/`, `packages/core/`), além das execuções completas. Veja [ci.md](ci.md).
+O job `docker` de `.github/workflows/ci.yml` roda o hadolint no `Dockerfile`, constrói o alvo padrão e o `slim` com cache de camadas no cache do GitHub Actions e roda `.github/scripts/docker-smoke.sh` contra cada um. O smoke test roda a imagem endurecida (`--read-only --cap-drop=ALL --security-opt no-new-privileges`, limites de memória e de pids) e confere: usuário numérico sem root, sem shell, o `HEALTHCHECK` ficando saudável, nenhuma capability sobrando, canvas e asset WASM servidos, `Host` estranho recusado, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` em `/mcp` (inclusive que texto em latim, chinês/japonês, árabe, devanágari e tailandês não saia em branco), `/app/paprika-sync` presente e `0555`, o banco sobrevivendo a um restart do container, o modo time (sidecar de pé, chave mantida no volume; a rodada do `slim` faz o mesmo, sem `render_screenshot`) e um `docker stop` limpo em menos de 8 segundos. Roda quando o PR mexe no `Dockerfile`, `.dockerignore`, `compose.yaml` ou em qualquer coisa que entra na imagem (`server/`, `apps/web/`, `crates/render/`, `crates/sync/`, `packages/core/`), além das execuções completas. Veja [ci.md](ci.md).
 
 Rode as mesmas verificações localmente (a porta precisa ser 4777):
 
 ```bash
 docker build -t paprika:dev . && .github/scripts/docker-smoke.sh paprika:dev
-docker build --target slim -t paprika:slim . && SCREENSHOT=0 TEAM=0 .github/scripts/docker-smoke.sh paprika:slim
+docker build --target slim -t paprika:slim . && SCREENSHOT=0 .github/scripts/docker-smoke.sh paprika:slim
 ```

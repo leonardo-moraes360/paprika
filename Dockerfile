@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 #
 # Paprika in one image: the Go server (MCP + HTTP/WS + SQLite), the web app (apps/web), the
-# Rust/WASM renderer (crates/render) and, in `runtime`, the team sync sidecar (crates/sync) and a
+# Rust/WASM renderer (crates/render), the team sync sidecar (crates/sync) and, in `runtime`, a
 # headless Chrome for `render_screenshot`. See docs/en-US/docker.md.
 #
 #   docker build -t paprika .
@@ -10,7 +10,8 @@
 # Targets:
 #   runtime (default)  Chrome headless shell + paprika-sync, on a root file system that holds only
 #                      the files they load (no shell, no package manager): screenshots and team mode.
-#   slim               distroless/static: no Chrome, no sync sidecar. Everything else.
+#   slim               distroless/static: no Chrome (no render_screenshot). Everything else, team mode
+#                      included (/app/paprika-sync).
 #
 # Every base image is pinned by digest (the tag stays in front of it so Dependabot can bump both);
 # downloads are pinned by checksum. Versions that move together (docs/en-US/docker.md): Node 26 +
@@ -231,21 +232,22 @@ go mod init healthcheck
 go build -ldflags="-s -w" -o /out/healthcheck .
 EOF
 
-# ------------------------------------------------------------------ slim: no Chrome, no sync
+# ------------------------------------------------------------------ slim: no Chrome
 FROM gcr.io/distroless/static-debian13:nonroot@sha256:8ce6dd87e9823c5b48dcfb2c8604714ccb351ce59607327bcc4957448da279b5 AS slim
 ARG VERSION=dev
 ARG REVISION=unknown
 ARG CREATED=unknown
 LABEL org.opencontainers.image.title="Paprika (slim)" \
-      org.opencontainers.image.description="Paprika design canvas and MCP server, without Chrome (no render_screenshot) and without the team sync sidecar." \
+      org.opencontainers.image.description="Paprika design canvas and MCP server with the team sync sidecar, without Chrome (no render_screenshot)." \
       org.opencontainers.image.source="https://github.com/leonardo-moraes360/paprika" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.created="${CREATED}"
-COPY --link --chmod=0555 --from=server /out/paprika /app/paprika
+COPY --link --chmod=0555 --from=sync /out/paprika-sync /app/paprika-sync
 COPY --link --chmod=0555 --from=healthcheck /out/healthcheck /app/healthcheck
 COPY --link --from=web /src/apps/web/dist/client/ /app/web/
+COPY --link --chmod=0555 --from=server /out/paprika /app/paprika
 COPY --link --from=server --chown=65532:65532 --chmod=0700 /out/data /data
 ENV PAPRIKA_DB=/data/paprika.db PAPRIKA_WEB_ROOT=/app/web
 USER 65532:65532
@@ -331,7 +333,7 @@ find "$R" -type f -o -type l | sed "s|^$R||" | while read -r f; do dpkg -S "$f" 
   | while read -r pkg; do dpkg-query -s "$pkg" > "$R/var/lib/dpkg/status.d/$pkg"; done
 EOF
 
-# ------------------------------------------------------------------ runtime (default): Chrome + sync
+# ------------------------------------------------------------------ runtime (default): the same plus Chrome
 FROM scratch AS runtime
 ARG VERSION=dev
 ARG REVISION=unknown

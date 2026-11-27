@@ -3,14 +3,14 @@ set -euo pipefail
 
 # usage: docker-smoke.sh IMAGE
 #   SCREENSHOT=0  the image has no Chrome (`slim`): skip render_screenshot
-#   TEAM=0        the image has no paprika-sync (`slim`): skip team mode (default: same as SCREENSHOT)
+#   TEAM=0        skip team mode (default 1: both images carry /app/paprika-sync)
 #   HARDEN=0      run without --read-only, --cap-drop=ALL and no-new-privileges (default: hardened,
 #                 which is how docs/en-US/docker.md says to run it)
 #   PORT          host port (default 4777: the server only accepts Host/Origin localhost:4777)
 image="${1:?usage: docker-smoke.sh IMAGE}"
 port="${PORT:-4777}"
 screenshot="${SCREENSHOT:-1}"
-team="${TEAM:-$screenshot}"
+team="${TEAM:-1}"
 harden="${HARDEN:-1}"
 name="paprika-smoke-$$"
 volume="paprika-smoke-$$"
@@ -80,6 +80,13 @@ done
 echo "ok   no shell in the image"
 [[ -n "$(docker image inspect -f '{{if .Config.Healthcheck}}x{{end}}' "$image")" ]] || fail "image has no HEALTHCHECK"
 echo "ok   image declares a HEALTHCHECK"
+# Both images carry the sidecar next to the binary, where the server looks for it. There is no shell
+# to `ls` with, so read the mode from a tar stream of the file (docker cp works on a created container).
+cid=$(docker create "$image")
+sync_mode=$(docker cp "$cid:/app/paprika-sync" - 2>/dev/null | tar -tvf - 2>/dev/null | awk 'NR==1{print $1}') || true
+docker rm -f "$cid" >/dev/null 2>&1 || true
+[[ "$sync_mode" =~ ^-r-xr-xr-x ]] || fail "/app/paprika-sync is missing or not 0555 in the image (mode '$sync_mode')"
+echo "ok   /app/paprika-sync present, 0555 (team mode)"
 
 start
 

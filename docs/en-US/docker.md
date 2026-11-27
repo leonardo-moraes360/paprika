@@ -1,6 +1,6 @@
 # Docker
 
-The `Dockerfile` at the root builds everything Paprika needs into one image: the Go server (MCP over HTTP and stdio, HTTP/WS API, SQLite), the web app (`apps/web`, with Tailwind) and the Rust/WASM renderer (`crates/render`); the default target also carries a headless Chrome (for `render_screenshot`) and the team sync sidecar (`crates/sync`). Nothing else has to be installed on the host.
+The `Dockerfile` at the root builds everything Paprika needs into one image: the Go server (MCP over HTTP and stdio, HTTP/WS API, SQLite), the web app (`apps/web`, with Tailwind) and the Rust/WASM renderer (`crates/render`); both targets carry the team sync sidecar (`crates/sync`), and the default one also a headless Chrome (for `render_screenshot`). Nothing else has to be installed on the host.
 
 Português: [docs/pt-BR/docker.md](../pt-BR/docker.md).
 
@@ -55,7 +55,7 @@ PAPRIKA_TEAM_NAME=Ana docker compose -f compose.yaml -f compose.team.yaml up -d 
 - **Name.** `PAPRIKA_TEAM_NAME` is how the other members see you (default `paprika`).
 - **Key.** The key, the team file, invites and the operation log live in `/data/paprika.team/`, in the same volume as the database, so they survive `docker rm` and upgrades. Back up the volume: losing the key means being invited again.
 - **Network.** The Iroh endpoint binds UDP `4778` in the container. From Docker's NAT, peers still reach each other through relays; uncomment the `4778:4778/udp` port in `compose.team.yaml` for direct connections. Only keys on the team's allowlist are accepted, but that port is open to whoever can reach the host.
-- **Which image.** The sidecar `paprika-sync` is in the default `runtime` target only; `slim` has no team mode.
+- **Which image.** The sidecar `paprika-sync` is at `/app/paprika-sync` in both targets (`runtime` and `slim`), so `serve --team` works in either. If the server says it cannot find it in the image, the image is broken or custom.
 - **Back to local.** `docker compose up -d` (without the second file) starts the server without `--team`; the team data stays in the volume.
 
 ### Data, port, exposure
@@ -98,9 +98,9 @@ Stop the HTTP container first if both would write to the same volume at once.
 | Target | Base | Size (layers / compressed) | `render_screenshot` | Team mode |
 | --- | --- | --- | --- | --- |
 | `runtime` (default) | `scratch` + the files Chrome and `tini` load (no shell, no package manager) | 354 MB / 162 MB | yes | yes |
-| `slim` | distroless `static-debian13:nonroot` | 54 MB / 20 MB | no (returns "Chromium not found") | no (no sidecar) |
+| `slim` | distroless `static-debian13:nonroot` | not re-measured since `paprika-sync` was added (it was 54 MB / 20 MB without it): see the "Image sizes" step of the CI `docker` job | no (returns "Chromium not found") | yes |
 
-Measured with `docker history` (sum of the layers) and `docker save | gzip | wc -c`; before this rewrite the same images were 757 MB / 290 MB and 83 MB / 31 MB. The machine was a shared 4-core one, so treat timings as orders of magnitude.
+Measured with `docker history` (sum of the layers) and `docker save | gzip | wc -c`; before this rewrite the same images were 757 MB / 290 MB and 83 MB / 31 MB. The `runtime` row already includes the sidecar; `slim` grows by the size of the static `paprika-sync` binary. The machine was a shared 4-core one, so treat timings as orders of magnitude.
 
 ```bash
 docker build --target slim -t paprika:slim .
@@ -140,11 +140,11 @@ Base images and downloads are pinned: every `FROM` is `name:tag@sha256:digest`; 
 
 ## CI
 
-The `docker` job of `.github/workflows/ci.yml` lints the `Dockerfile` with hadolint, builds the default target and `slim` with a layer cache in the GitHub Actions cache, and runs `.github/scripts/docker-smoke.sh` against each. The smoke test runs the image hardened (`--read-only --cap-drop=ALL --security-opt no-new-privileges`, memory and pid limits) and checks: numeric non-root user, no shell, the `HEALTHCHECK` turning healthy, no capabilities left, the canvas and WASM asset served, foreign `Host` refused, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` over `/mcp` (including that Latin, Chinese/Japanese, Arabic, Devanagari and Thai text is not blank), the database surviving a container restart, team mode (sidecar up, key kept on the volume) and a clean `docker stop` in under 8 seconds. It runs when the PR touches the `Dockerfile`, `.dockerignore`, `compose.yaml`, or anything that goes into the image (`server/`, `apps/web/`, `crates/render/`, `crates/sync/`, `packages/core/`), plus on full runs. See [ci.md](ci.md).
+The `docker` job of `.github/workflows/ci.yml` lints the `Dockerfile` with hadolint, builds the default target and `slim` with a layer cache in the GitHub Actions cache, and runs `.github/scripts/docker-smoke.sh` against each. The smoke test runs the image hardened (`--read-only --cap-drop=ALL --security-opt no-new-privileges`, memory and pid limits) and checks: numeric non-root user, no shell, the `HEALTHCHECK` turning healthy, no capabilities left, the canvas and WASM asset served, foreign `Host` refused, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` over `/mcp` (including that Latin, Chinese/Japanese, Arabic, Devanagari and Thai text is not blank), `/app/paprika-sync` present and `0555`, the database surviving a container restart, team mode (sidecar up, key kept on the volume; the `slim` run does the same, without `render_screenshot`) and a clean `docker stop` in under 8 seconds. It runs when the PR touches the `Dockerfile`, `.dockerignore`, `compose.yaml`, or anything that goes into the image (`server/`, `apps/web/`, `crates/render/`, `crates/sync/`, `packages/core/`), plus on full runs. See [ci.md](ci.md).
 
 Run the same checks locally (the port must be 4777):
 
 ```bash
 docker build -t paprika:dev . && .github/scripts/docker-smoke.sh paprika:dev
-docker build --target slim -t paprika:slim . && SCREENSHOT=0 TEAM=0 .github/scripts/docker-smoke.sh paprika:slim
+docker build --target slim -t paprika:slim . && SCREENSHOT=0 .github/scripts/docker-smoke.sh paprika:slim
 ```
