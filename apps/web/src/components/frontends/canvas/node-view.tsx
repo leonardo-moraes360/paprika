@@ -13,8 +13,8 @@ import {
   type Node,
 } from "@paprika/core";
 import { createContext, memo, useCallback, useContext, useLayoutEffect, useSyncExternalStore, type CSSProperties } from "react";
-import { hasContentPatch, linkedPatches, routedConnector, sameLinked, withPatch, type Linked } from "./preview-node";
-import { useCanvasState } from "./region";
+import { hasContentPatch, routedConnector, withPatch } from "./preview-node";
+import { createNodeSlices, EDITING, HOVERED, PAINTED, SELECTED, useCanvasStore } from "./region";
 import type { RenderStore } from "./render-index";
 
 export const RenderStoreContext = createContext<RenderStore | null>(null);
@@ -50,11 +50,6 @@ function TextRuns({ doc, node }: { doc: Document; node: TextNode }) {
   );
 }
 
-const sameView = (a: { flags: number; patch: unknown; linked: Linked }, b: { flags: number; patch: unknown; linked: Linked }) => a.flags === b.flags && a.patch === b.patch && sameLinked(a.linked, b.linked);
-const SELECTED = 1;
-const HOVERED = 2;
-const EDITING = 4;
-const PAINTED = 8;
 
 /**
  * One node of the document as the DOM draws it (`nodeStyle` is the single source of its CSS, shared with the export and the
@@ -67,16 +62,14 @@ export const NodeView = memo(function NodeViewOf({ id }: { id: string }) {
   const subscribe = useCallback((listener: () => void) => store.subscribe(id, listener), [store, id]);
   const read = useCallback(() => store.snapshot(id), [store, id]);
   const snap = useSyncExternalStore(subscribe, read, read);
-  // One subscription per node, not two: every write to the canvas store asks each subscriber, and a page has thousands of nodes.
+  // The canvas state comes through one listener on the store that tells each node only when ITS slice changed (see `createNodeSlices`):
+  // a write to the store costs what changed, not how many nodes the page has.
   // A connector also follows the patches of the nodes it is attached to (and of the connector itself): it is routed again over them.
-  const { flags, patch, linked } = useCanvasState(
-    (s) => ({
-      flags: (s.selected.has(id) ? SELECTED : 0) | (s.hoveredId === id ? HOVERED : 0) | (s.editingId === id ? EDITING : 0) | (s.painted.has(id) ? PAINTED : 0),
-      patch: s.preview[id],
-      linked: linkedPatches(s.preview, store.doc(), snap.node),
-    }),
-    sameView,
-  );
+  const canvas = useCanvasStore();
+  const slices = store.slot(canvas, () => createNodeSlices(canvas, store.doc));
+  const subscribeSlice = useCallback((listener: () => void) => slices.subscribe(id, listener), [slices, id]);
+  const readSlice = useCallback(() => slices.read(id, snap.node), [slices, id, snap.node]);
+  const { flags, patch, linked } = useSyncExternalStore(subscribeSlice, readSlice, readSlice);
   const attach = useCallback((el: HTMLElement | null) => (el ? store.attach(id, el) : undefined), [store, id]);
   // Once per committed render (a StrictMode double render is not counted twice).
   useLayoutEffect(() => store.countRender(id));

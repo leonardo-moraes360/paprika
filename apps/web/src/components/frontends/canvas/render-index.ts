@@ -148,6 +148,8 @@ export type RenderStore = {
   countRender: (id: string) => void;
   /** Tells `listener` which node rendered, each time. For tests; returns the way to stop. */
   watchRenders: (listener: (id: string) => void) => () => void;
+  /** One value per key for the life of this store (what is made once for this canvas and read by every node, like the per-node view of the canvas state). */
+  slot: <T>(key: object, make: () => T) => T;
 };
 
 export const emptyDocument = (): Document => ({ format: "paprika/1", id: "", name: "", tokens: {}, rootIds: [], nodes: {} }) as unknown as Document;
@@ -179,6 +181,7 @@ export function createRenderStore(initial: Document | null = null, pageId: strin
   let docVersion = 0;
   const watchers = new Set<(id: string) => void>();
   const elements = new Map<string, HTMLElement>();
+  const slots = new WeakMap<object, unknown>();
 
   const snapshot = (id: string): NodeSnapshot => {
     let snap = snaps.get(id);
@@ -254,6 +257,10 @@ export function createRenderStore(initial: Document | null = null, pageId: strin
     countRender: (id) => {
       renders += 1;
       for (const watcher of watchers) watcher(id);
+    },
+    slot: <T,>(key: object, make: () => T): T => {
+      if (!slots.has(key)) slots.set(key, make());
+      return slots.get(key) as T;
     },
     watchRenders: (listener) => {
       watchers.add(listener);
