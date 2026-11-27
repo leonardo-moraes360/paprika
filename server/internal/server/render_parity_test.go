@@ -146,7 +146,7 @@ func TestInterFontsAreCachedWithETag(t *testing.T) {
 		}
 		resp.Body.Close()
 		tag := resp.Header.Get("etag")
-		if tag == "" || resp.Header.Get("cache-control") != embeddedCache {
+		if tag == "" || resp.Header.Get("cache-control") != "public, max-age=604800" {
 			t.Fatalf("%s: etag %q cache-control %q", p, tag, resp.Header.Get("cache-control"))
 		}
 		req, _ := http.NewRequest("GET", srv.URL+p, nil)
