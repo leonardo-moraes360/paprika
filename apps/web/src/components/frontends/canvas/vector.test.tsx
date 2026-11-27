@@ -640,3 +640,98 @@ describe("the gestures of this batch", () => {
     expect(ids.indexOf("pan")).toBe(0);
   });
 });
+
+describe("with the selection and the editors of the other batches", () => {
+  const enterEdit = (m: Mounted) => {
+    fireEvent.doubleClick(node(m, "vec"));
+    frames();
+  };
+  const corner = (m: Mounted) => m.container.querySelector('[data-selection-handles] [data-handle="nw"]');
+  const knob = (m: Mounted) => m.container.querySelector("[data-selection-handles] [data-rotate-handle]");
+  const badge = (m: Mounted) => m.container.querySelector<HTMLElement>('[data-selection-handles] [aria-label="Selection size"]');
+
+  it("the resize corners and the turning knob stand aside while the points of a path are edited, and come back when the mode ends", () => {
+    const m = mount({ selection: ["vec"] });
+    expect(corner(m)).not.toBeNull();
+    expect(knob(m)).not.toBeNull();
+    enterEdit(m);
+    expect(m.container.querySelector('[data-testid="path-edit"]')).not.toBeNull();
+    expect(corner(m)).toBeNull();
+    expect(knob(m)).toBeNull();
+    expect(badge(m)).not.toBeNull();
+    fireEvent.keyDown(window, { key: "Escape" });
+    frames();
+    expect(m.container.querySelector('[data-testid="path-edit"]')).toBeNull();
+    expect(corner(m)).not.toBeNull();
+    expect(knob(m)).not.toBeNull();
+  });
+
+  it("they stand aside while the text of a shape is edited too, and come back after", async () => {
+    const m = mount({ selection: ["sa"] });
+    expect(corner(m)).not.toBeNull();
+    fireEvent.doubleClick(node(m, "sa"));
+    expect(m.container.querySelector('[data-testid="shape-text-editor"]')).not.toBeNull();
+    expect(corner(m)).toBeNull();
+    expect(knob(m)).toBeNull();
+    fireEvent.keyDown(m.container.querySelector('[data-testid="shape-text-editor"]') as Element, { key: "Escape" });
+    await flush();
+    expect(m.container.querySelector('[data-testid="shape-text-editor"]')).toBeNull();
+    expect(corner(m)).not.toBeNull();
+  });
+
+  it("the size badge stays through the gestures of this batch: a gradient stop, a gap, a point of the path", async () => {
+    const grad = mount({ selection: ["grad"] });
+    expect(badge(grad)?.textContent).toBe("240 × 140");
+    const id = press(grad.container.querySelector('[data-gradient-handle="stop:0"]') as Element, grad.at(400, 170));
+    move(id, grad.at(460, 170));
+    expect(badge(grad)?.textContent).toBe("240 × 140");
+    expect(badge(grad)?.closest<HTMLElement>("[class*=absolute]")?.style.display).not.toBe("none");
+    release(id, grad.at(460, 170));
+    const flow = mount({ selection: ["flow"] });
+    const g = press(flow.container.querySelector('[data-spacing="gap-0"]') as Element, flow.at(196, 450));
+    move(g, flow.at(216, 450));
+    expect(badge(flow)?.textContent).toBe("360 × 160");
+    release(g, flow.at(216, 450));
+    await flush();
+    const path = mount({ selection: ["vec"] });
+    enterEdit(path);
+    // (jsdom has no layout for an svg: the badge's number is the stub's, what matters is that it is there and unchanged)
+    const shown = badge(path)?.textContent;
+    expect(shown).toMatch(/^\d+ × \d+$/);
+    const a = press(path.container.querySelector('[data-path-anchor="0:0"]') as Element, path.at(100, 200));
+    move(a, path.at(120, 210));
+    expect(badge(path)?.textContent).toBe(shown);
+    release(a, path.at(120, 210));
+  });
+
+  it("an arrow follows a node the move drags: its route changes with the preview, before anything is sent", async () => {
+    const m = mount();
+    const route = () => node(m, "arrow").querySelector("path")?.getAttribute("d") ?? "";
+    const before = route();
+    expect(before).not.toBe("");
+    const box = node(m, "sb");
+    const from = m.at(670, 685);
+    const id = press(box, from);
+    move(id, m.at(700, 690));
+    move(id, m.at(1000, 700));
+    expect(route()).not.toBe(before);
+    expect(m.onApply).not.toHaveBeenCalled();
+    release(id, m.at(1000, 700));
+    await flush();
+    expect(m.onApply).toHaveBeenCalledTimes(1);
+    expect(m.onApply.mock.calls[0]![0].map((op) => (op as { id?: string }).id)).toEqual(["sb"]);
+  });
+
+  it("and goes back to the document's route when the move is refused", async () => {
+    const m = mount({ apply: async () => false });
+    const route = () => node(m, "arrow").querySelector("path")?.getAttribute("d") ?? "";
+    const before = route();
+    const id = press(node(m, "sb"), m.at(670, 685));
+    move(id, m.at(700, 690));
+    move(id, m.at(1000, 700));
+    release(id, m.at(1000, 700));
+    await flush();
+    frames(2);
+    expect(route()).toBe(before);
+  });
+});

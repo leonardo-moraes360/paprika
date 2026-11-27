@@ -8,6 +8,7 @@ import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
 import { isTransformable } from "../target";
 import type { Box, NodeBox } from "../types";
+import { UI_PATH_EDIT, type PathEditUi } from "../vector/ui";
 import { useDocVersion } from "./use-doc-version";
 
 /** The bounding box of a node that may be turned (its four corners). */
@@ -32,10 +33,13 @@ export function SelectionHandlesOverlay() {
   const selection = useCanvasState((s) => s.selection);
   const preview = useCanvasState((s) => s.preview);
   const lock = useOverlayValue<Lock>("lock");
+  // The points of a path, and the editor of a text, a shape or an arrow, are drawn over the node: its resize corners and turning knob would sit on them. The size stays.
+  const editingPath = useOverlayValue<PathEditUi>(UI_PATH_EDIT) !== null;
+  const editingContent = useCanvasState((s) => s.editingId !== null && rt.doc().nodes[s.editingId]?.type !== "frame");
   const docVersion = useDocVersion();
   const doc = rt.doc();
   const single = selection.length === 1 ? doc.nodes[selection[0]!] : undefined;
-  const handles = isTransformable(doc, single);
+  const handles = isTransformable(doc, single) && !editingPath && !editingContent;
   const turn = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLDivElement>(null);
   const badge = useRef<HTMLDivElement>(null);
