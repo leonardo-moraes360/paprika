@@ -2,6 +2,8 @@ import { createContext, Profiler, useContext, useEffect, useState, type ReactNod
 import { createPerfLog, perfRequested, type PerfLog } from "./perf-log";
 
 const PerfContext = createContext<PerfLog | null>(null);
+/** The region whose `RegionProfiler` is the nearest ancestor (so a nested region tells the log whose commits it also appears in). */
+const ParentRegion = createContext<string | undefined>(undefined);
 
 export type PerfProviderProps = {
   /** An explicit register (tests, harness): profiling is on, `window.__paprikaPerf` stays off. */
@@ -31,10 +33,11 @@ export const usePerfLog = () => useContext(PerfContext);
 /** Wraps one region. Without a register it renders `children` and nothing else (no `<Profiler>` in the tree). */
 export function RegionProfiler({ id, children }: { id: string; children: ReactNode }) {
   const log = useContext(PerfContext);
+  const within = useContext(ParentRegion);
   if (!log) return children;
   return (
-    <Profiler id={id} onRender={(_id, phase, actual, base, start, commit) => log.record(id, phase, actual, base, start, commit)}>
-      {children}
+    <Profiler id={id} onRender={(_id, phase, actual, base, start, commit) => log.record(id, phase, actual, base, start, commit, within)}>
+      <ParentRegion value={id}>{children}</ParentRegion>
     </Profiler>
   );
 }

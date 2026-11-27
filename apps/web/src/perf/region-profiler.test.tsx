@@ -39,7 +39,11 @@ describe("perf log", () => {
     for (let i = 0; i < 5100; i += 1) log.record("a", "update", i, i, 0, i);
     expect(log.entries()).toHaveLength(5000);
     expect(log.entries().at(-1)?.actualDuration).toBe(5099);
-    expect(log.commits("a")).toBe(5100);
+    // Oldest first, in order, after the ring wrapped (and still in order after one more lap).
+    expect(log.entries()[0]?.actualDuration).toBe(100);
+    for (let i = 5100; i < 10_050; i += 1) log.record("a", "update", i, i, 0, i);
+    expect(log.entries().map((entry) => entry.actualDuration)).toEqual(Array.from({ length: 5000 }, (_, i) => 5050 + i));
+    expect(log.commits("a")).toBe(10_050);
   });
 });
 
@@ -67,6 +71,44 @@ describe("RegionProfiler", () => {
     expect(log.commits("region")).toBe(1);
     expect(log.commits("other")).toBe(0);
     expect(window.__paprikaPerf).toBeUndefined();
+  });
+
+  it("a region inside another is not counted for the outer one when only the inner one rendered", async () => {
+    function Inner() {
+      const [n, setN] = useState(0);
+      return <button onClick={() => setN(n + 1)}>inner {n}</button>;
+    }
+    function Outer() {
+      const [n, setN] = useState(0);
+      return (
+        <div>
+          <button onClick={() => setN(n + 1)}>outer {n}</button>
+          {Array.from({ length: 300 }, (_, i) => (
+            <span key={i}>{i + n}</span>
+          ))}
+          <RegionProfiler id="inner">
+            <Inner />
+          </RegionProfiler>
+        </div>
+      );
+    }
+    const log = createPerfLog();
+    render(
+      <PerfProvider log={log}>
+        <RegionProfiler id="outer">
+          <Outer />
+        </RegionProfiler>
+      </PerfProvider>,
+    );
+    expect(log.stats().outer?.mounts).toBe(1);
+    expect(log.stats().inner?.mounts).toBe(1);
+    log.reset();
+    await act(async () => screen.getByRole("button", { name: /inner/ }).click());
+    expect(log.commits("inner")).toBe(1);
+    expect(log.commits("outer")).toBe(0);
+    await act(async () => screen.getByRole("button", { name: /outer/ }).click());
+    expect(log.commits("outer")).toBe(1);
+    expect(log.commits("inner")).toBe(2);
   });
 
   it("exposes window.__paprikaPerf only with ?perf=1, and removes it on unmount", async () => {
