@@ -230,6 +230,20 @@ describe("move", () => {
     expect(within(overlays).queryByTestId("drop-target")).toBeNull();
   });
 
+  it("flow children, several, dropped into a frame with no flow are a reparent (as the old canvas labelled it), with no preview to show", () => {
+    const { world, onApply } = mount(documentWithPad(), { selection: ["title", "plain"] });
+    const title = node(world, "title");
+    const pad = node(world, "pad");
+    const at = centre(title);
+    const target = centre(pad);
+    under = [pad];
+    down(title, { clientX: at.x, clientY: at.y });
+    move({ clientX: target.x, clientY: target.y });
+    up({ clientX: target.x, clientY: target.y });
+    expect((onApply.mock.calls[0]![0] as Op[]).filter((o) => o.op === "move").map((o) => (o as { id: string }).id)).toEqual(["title", "plain"]);
+    expect(onApply.mock.calls[0]![1]).toBe("reparent");
+  });
+
   it("dropped over an auto-layout frame it goes to a slot of the flow, with the bar shown; no preview, one `move` with an index", () => {
     const { world, onApply, overlays } = mount();
     const btn = node(world, "btn");
