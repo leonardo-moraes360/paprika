@@ -51,10 +51,10 @@ export function measureBoxes(world: HTMLElement, zoom: number): Map<string, Box>
     return v;
   };
   for (const el of world.querySelectorAll<Element>("[data-paprika-id]")) {
-    const isPath = (el as HTMLElement | SVGElement).dataset.paprikaType === "path";
+    const isPath = el.getAttribute("data-paprika-type") === "path";
     if (el instanceof HTMLElement && !isPath) {
       const b = box(el);
-      if (b) boxes.set(el.dataset.paprikaId!, b);
+      if (b) boxes.set(el.getAttribute("data-paprika-id")!, b);
       continue;
     }
     if ((el instanceof SVGElement || el instanceof HTMLElement) && el.parentElement instanceof HTMLElement) {
@@ -65,7 +65,7 @@ export function measureBoxes(world: HTMLElement, zoom: number): Map<string, Box>
       const w = Number.parseFloat(el.style.width);
       const h = Number.parseFloat(el.style.height);
       if (!p || [left, top, w, h].some((n) => Number.isNaN(n))) continue;
-      boxes.set(el.dataset.paprikaId!, { x: p.x + parent.clientLeft + left, y: p.y + parent.clientTop + top, w, h });
+      boxes.set(el.getAttribute("data-paprika-id")!, { x: p.x + parent.clientLeft + left, y: p.y + parent.clientTop + top, w, h });
     }
   }
   return boxes;
