@@ -4,11 +4,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fakeHttp, jsonResponse, renderRegions, serve } from "@/test/collab-harness";
 import { Export } from "./export";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 /** The editor mounts the dialog only after the document is in, so the flag is raised once it is served. */
 async function setup(initial: Record<string, unknown> = {}, routes: Parameters<typeof fakeHttp>[0] = {}, flag = true) {
   const downloads: Blob[] = [];
+  // The download is a click on a link with a blob URL: jsdom would try to navigate to it and print "Not implemented: navigation".
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: (blob: Blob) => (downloads.push(blob), "blob:x"), revokeObjectURL: () => {} }));
   const calls = fakeHttp({
     "GET /api/health": () => jsonResponse({ ok: true, docId: "doc-1" }),

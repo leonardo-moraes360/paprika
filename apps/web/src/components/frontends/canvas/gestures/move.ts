@@ -93,9 +93,9 @@ export const move: Gesture = {
               ops.push({ op: "update", id: n.id, props: { x: Math.round(local.x), y: Math.round(local.y) } });
             }
           }
-          const label = rt.text(movable.length > 1 ? "history.moveMany" : "history.reparent", { count: movable.length });
-          if (Object.keys(last).length) rt.preview.commit(ids, rt.apply(ops, label));
-          else void rt.apply(ops, label);
+          // With a preview on screen (the nodes were free to move) several nodes read "move N nodes"; with none (flow children dropped into a box with no flow) it is a reparent whatever the count.
+          if (Object.keys(last).length) rt.preview.commit(ids, rt.apply(ops, rt.text(movable.length > 1 ? "history.moveMany" : "history.reparent", { count: movable.length })));
+          else void rt.apply(ops, rt.text("history.reparent"));
           return;
         }
         if (Object.keys(last).length === 0 || !absOnly) {

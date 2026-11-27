@@ -231,6 +231,17 @@ describe("the text editor", () => {
     expect(t.queryByRole("textbox")).toBeNull();
   });
 
+  it("Escape confirms and leaves the selection alone (the old canvas's text editor also cleared it, its shape and label editors did not)", async () => {
+    const t = mount({ selection: ["title"] });
+    const surface = open(t);
+    t.onSelect.mockClear();
+    fireEvent.keyDown(surface, { key: "Escape" });
+    await flush();
+    expect(t.queryByRole("textbox")).toBeNull();
+    expect(t.feed.get().selection).toEqual(["title"]);
+    expect(t.onSelect).not.toHaveBeenCalled();
+  });
+
   it("commits only when something changed", async () => {
     const t = mount();
     const surface = open(t);
@@ -288,6 +299,130 @@ describe("the text editor", () => {
     fireEvent.keyDown(surface, { key: "Escape" });
     await flush();
     expect(ops(t.onApply)[0]).toMatchObject({ props: { text: "Hello", runs: [{ start: 0, end: 5, fontWeight: 700 }] } });
+  });
+});
+
+describe("an editor whose node goes away", () => {
+  const without = (id: string) => applyOps(everyKindDocument(), [{ op: "delete", id }]).doc;
+  const handlesOf = (t: ReturnType<typeof mount>) => t.overlays.querySelectorAll("[data-handle]").length;
+
+  it.each([
+    ["a text", "title", () => ({ name: "Text" })],
+    ["a shape", "box", () => ({ name: "Shape text" })],
+    ["an arrow label", "arrow", () => ({ name: "Arrow label" })],
+  ])("%s: when another client deletes the node, the editor closes and the handles of the next selection come back", async (_kind, id) => {
+    const t = mount();
+    fireEvent.doubleClick(node(t.world, id));
+    expect(t.queryByTestId("text-editor") ?? t.queryByTestId("shape-text-editor") ?? t.queryByTestId("connector-label-editor")).not.toBeNull();
+    act(() => t.feed.update({ doc: without(id) }));
+    await flush();
+    expect(t.queryByTestId("text-editor") ?? t.queryByTestId("shape-text-editor") ?? t.queryByTestId("connector-label-editor")).toBeNull();
+    act(() => t.feed.update({ selection: ["end"] }));
+    await flush();
+    expect(handlesOf(t)).toBeGreaterThan(0);
+  });
+
+  it("a switch of page ends the edit too", async () => {
+    const doc = applyOps(everyKindDocument(), [{ op: "add_page", id: "other", name: "Other" } as unknown as Op]).doc;
+    const t = mount({}, doc);
+    fireEvent.doubleClick(node(t.world, "box"));
+    expect(t.queryByTestId("shape-text-editor")).not.toBeNull();
+    act(() => t.feed.update({ pageId: "other" }));
+    await flush();
+    expect(t.queryByTestId("shape-text-editor")).toBeNull();
+    act(() => t.feed.update({ pageId: "page", selection: ["end"] }));
+    await flush();
+    expect(t.queryByTestId("shape-text-editor")).toBeNull();
+    expect(handlesOf(t)).toBeGreaterThan(0);
+  });
+
+  it("a node that comes back with the same id does not reopen an editor", async () => {
+    const t = mount();
+    fireEvent.doubleClick(node(t.world, "box"));
+    act(() => t.feed.update({ doc: without("box") }));
+    await flush();
+    act(() => t.feed.update({ doc: everyKindDocument() }));
+    await flush();
+    expect(t.queryByTestId("shape-text-editor")).toBeNull();
+    expect(node(t.world, "box").style.visibility).not.toBe("hidden");
+  });
+});
+
+describe("an editor and a change from another client", () => {
+  const edit = (id: string, props: Record<string, unknown>) => applyOps(everyKindDocument(), [{ op: "update", id, props } as unknown as Op]).doc;
+
+  it("a text nobody has typed in shows the remote text, keeps the caret, and a Escape then writes nothing", async () => {
+    const t = mount();
+    fireEvent.doubleClick(node(t.world, "plain"));
+    const surface = t.getByRole("textbox", { name: "Text" });
+    act(() => t.feed.update({ doc: edit("plain", { text: "Remote text" }) }));
+    await flush();
+    expect(surface.textContent).toBe("Remote text");
+    fireEvent.keyDown(surface, { key: "Escape" });
+    await flush();
+    expect(t.onApply).not.toHaveBeenCalled();
+  });
+
+  it("a text with typing in it keeps the typing: the commit is the local text, measured against what the remote wrote", async () => {
+    const t = mount();
+    fireEvent.doubleClick(node(t.world, "plain"));
+    const surface = t.getByRole("textbox", { name: "Text" });
+    surface.append(document.createTextNode("X"));
+    act(() => t.feed.update({ doc: edit("plain", { text: "Remote text" }) }));
+    await flush();
+    expect(surface.textContent).toBe("Just textX");
+    fireEvent.keyDown(surface, { key: "Escape" });
+    await flush();
+    expect(ops(t.onApply)[0]).toMatchObject({ id: "plain", props: { text: "Just textX" } });
+  });
+
+  it("a text whose remote change arrives and is then typed on commits remote text plus the typing", async () => {
+    const t = mount();
+    fireEvent.doubleClick(node(t.world, "plain"));
+    const surface = t.getByRole("textbox", { name: "Text" });
+    act(() => t.feed.update({ doc: edit("plain", { text: "Remote text" }) }));
+    await flush();
+    surface.append(document.createTextNode("!"));
+    fireEvent.keyDown(surface, { key: "Escape" });
+    await flush();
+    expect(ops(t.onApply)[0]).toMatchObject({ props: { text: "Remote text!" } });
+  });
+
+  it("a shape's text, untouched, shows the remote text; typed on, it keeps the typing", async () => {
+    const t = mount();
+    fireEvent.doubleClick(node(t.world, "box"));
+    const area = t.getByTestId("shape-text-editor") as HTMLTextAreaElement;
+    act(() => t.feed.update({ doc: edit("box", { text: "Remote" }) }));
+    await flush();
+    expect(area.value).toBe("Remote");
+    fireEvent.keyDown(area, { key: "Escape" });
+    await flush();
+    expect(t.onApply).not.toHaveBeenCalled();
+    fireEvent.doubleClick(node(t.world, "box"));
+    const typed = t.getByTestId("shape-text-editor") as HTMLTextAreaElement;
+    fireEvent.change(typed, { target: { value: "Mine" } });
+    act(() => t.feed.update({ doc: edit("box", { text: "Remote again" }) }));
+    await flush();
+    expect(typed.value).toBe("Mine");
+    fireEvent.keyDown(typed, { key: "Escape" });
+    await flush();
+    expect(ops(t.onApply)[0]).toMatchObject({ id: "box", props: { text: "Mine" } });
+  });
+
+  it("an arrow's label, untouched, shows the remote label; typed on, it keeps the typing", async () => {
+    const t = mount();
+    fireEvent.doubleClick(node(t.world, "arrow"));
+    const field = t.getByTestId("connector-label-editor") as HTMLInputElement;
+    act(() => t.feed.update({ doc: edit("arrow", { label: "maybe" }) }));
+    await flush();
+    expect(field.value).toBe("maybe");
+    fireEvent.change(field, { target: { value: "mine" } });
+    act(() => t.feed.update({ doc: edit("arrow", { label: "later" }) }));
+    await flush();
+    expect(field.value).toBe("mine");
+    fireEvent.keyDown(field, { key: "Enter" });
+    await flush();
+    expect(ops(t.onApply)[0]).toMatchObject({ id: "arrow", props: { label: "mine" } });
   });
 });
 

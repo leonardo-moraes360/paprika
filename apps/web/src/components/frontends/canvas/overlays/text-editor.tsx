@@ -1,6 +1,6 @@
 import { nodeStyle, type Node, type TextRun } from "@paprika/core";
 import { Bold, Italic, Link2 } from "lucide-react";
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { TextField } from "@/components/ui/text-field";
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/ui/toolbar-group";
 import { ToolbarButton } from "@/components/ui/toolbar-button";
@@ -39,6 +39,8 @@ function TextSurface({ node }: { node: TextNode }) {
   const bar = useRef<HTMLDivElement>(null);
   const surface = useRef<HTMLDivElement>(null);
   const done = useRef(false);
+  /** The text and runs the document had last: what the editable started from, or what another client wrote since. A change is measured against it. */
+  const base = useRef<{ text: string; runs: TextRun[] | null }>({ text: initial.text, runs: initial.runs ?? null });
   const saved = useRef<{ start: number; end: number } | null>(null);
   const [size, setSize] = useState(typeof node.fontSize === "number" ? String(node.fontSize) : "16");
   const [color, setColor] = useState(hexOf(node.color));
@@ -80,12 +82,28 @@ function TextSurface({ node }: { node: TextNode }) {
     sel?.addRange(range);
   }, [rt, initial]);
 
+  // Another client wrote the text while this one is open: an editable nobody has touched shows it (the caret stays where it was); one with typing in it keeps what was typed, and only the base moves on.
+  useEffect(() => {
+    const el = surface.current;
+    const last = base.current;
+    if (!el || done.current || sameText(node.text, node.runs, last.text, last.runs)) return;
+    const mine = readEditable(el);
+    base.current = { text: node.text, runs: node.runs ?? null };
+    if (!sameText(mine.text, mine.runs, last.text, last.runs)) return;
+    const caret = selectionOffsets(el);
+    paintEditable(el, node.text, node.runs);
+    if (caret) {
+      const end = node.text.length;
+      selectOffsets(el, Math.min(caret.start, end), Math.min(caret.end, end));
+    }
+  }, [node.text, node.runs]);
+
   const finish = (refocus: boolean) => {
     if (done.current) return;
     done.current = true;
     const el = surface.current;
-    const next = el ? readEditable(el) : { text: initial.text, runs: initial.runs ?? null };
-    if (!sameText(next.text, next.runs, initial.text, initial.runs)) {
+    const next = el ? readEditable(el) : { text: base.current.text, runs: base.current.runs };
+    if (!sameText(next.text, next.runs, base.current.text, base.current.runs)) {
       void rt.apply([{ op: "update", id: initial.id, props: { text: next.text, runs: next.runs } }], rt.text("history.editText"));
     }
     rt.store.actions.setEditing(null);

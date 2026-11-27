@@ -57,7 +57,7 @@ export function stepSpacing(rt: CanvasRuntime, handle: Handle & { frame: string 
  */
 export const spacingHandle: Gesture = {
   id: "spacing-handle",
-  accepts: (rt, event) => event.button === 0 && handleOf(event.target as Element | null) !== null,
+  accepts: (rt, event) => event.button === 0 && rt.tool() === "select" && handleOf(event.target as Element | null) !== null,
   start: (rt, event) => {
     const handle = handleOf(event.target as Element | null);
     const frame = handle && shownFrame(rt, handle.frame);
