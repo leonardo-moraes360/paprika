@@ -37,7 +37,6 @@ export function planFor(files, { ciFull = false } = {}) {
   const core = area(/^packages\/core\//);
   const e2e = area(/^packages\/e2e\//);
   const rust = area(/^crates\/render\//);
-  const web = area(/^web-legacy\//) || rust;
   const app = area(/^apps\/web\//) || rust;
   const go = area(/^server\//);
   const sync = area(/^crates\/sync\//) || go;
@@ -49,10 +48,10 @@ export function planFor(files, { ciFull = false } = {}) {
   if (app || core) unit.push({ pkg: "@paprika/web", mode: "all" });
 
   const suites = [];
-  if (core || e2e || web || go) suites.push({ suite: "e2e" });
+  if (core || e2e || app || go) suites.push({ suite: "e2e" });
   if (core || e2e || go) suites.push({ suite: "api" });
 
-  const ts = core || e2e || web || app;
+  const ts = core || e2e || app;
   const golden = core || go;
   const build = ts || go || unit.length > 0 || suites.length > 0;
 
@@ -64,7 +63,7 @@ export function planFor(files, { ciFull = false } = {}) {
 
   const site = core || area(/^(apps\/site|scripts\/brand)\//);
 
-  const docker = dockerfiles || core || web || app || go || area(/^crates\/sync\//);
+  const docker = dockerfiles || core || app || go || area(/^crates\/sync\//);
 
   return {
     full,

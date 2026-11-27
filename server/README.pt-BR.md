@@ -53,7 +53,7 @@ paprika completion fish > ~/.config/fish/completions/paprika.fish
 
 Um comando desconhecido sai com código 2 e sugere o mais parecido; uma flag inválida ou qualquer erro em execução sai com código 1.
 
-Padrões: `--db` é `./paprika.db` (ou `$PAPRIKA_DB`); `--doc` é o documento atualizado mais recentemente, e um vazio é criado quando o banco está vazio. `--web` (uma pasta cuja entrada é `_shell.html` ou `index.html`) usa `$PAPRIKA_WEB_ROOT` e depois o app novo (`apps/web/dist/client`, ou `web` ao lado do binário), e só então o antigo (`web-legacy/dist`).
+Padrões: `--db` é `./paprika.db` (ou `$PAPRIKA_DB`); `--doc` é o documento atualizado mais recentemente, e um vazio é criado quando o banco está vazio. `--web` (uma pasta cuja entrada é `_shell.html` ou `index.html`) usa `$PAPRIKA_WEB_ROOT` e depois o app (`apps/web/dist/client`, ou `web` ao lado do binário).
 
 ## Armazenamento
 
