@@ -28,6 +28,13 @@ ADD --checksum=sha256:9687f3bb551b9f66f37ed32a40d7913a00f7962db653054e56857bc306
     https://github.com/wasm-bindgen/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl.tar.gz \
     /wasm-bindgen.tgz
 
+FROM scratch AS pnpm-tgz
+# Must match `packageManager` in package.json (checked in the `web` stage); the checksum is the
+# sha256 of https://registry.npmjs.org/pnpm/-/pnpm-<version>.tgz. Bump the two together.
+ARG PNPM_VERSION=10.0.0
+ADD --checksum=sha256:43abf6e720fb7bc53c591b0862605c7d323d0a9d2dd33bcac07b062e13cf4948 \
+    https://registry.npmjs.org/pnpm/-/pnpm-${PNPM_VERSION}.tgz /pnpm.tgz
+
 FROM scratch AS chrome-zip
 # Chrome for Testing's headless shell, the same build Playwright 1.65.1 (packages/e2e) runs the
 # screenshot tests with. Bump CHROME_VERSION and its checksum together with Playwright.
@@ -89,10 +96,12 @@ RUN touch src/lib.rs src/main.rs \
 # ------------------------------------------------------------------ web app (apps/web + packages/core)
 FROM node:26-bookworm-slim@sha256:0042e17d232a87a2cd485be1da7900fca4d10a4ad11b29e9285da1d2e54798c9 AS web
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=1 npm_config_update_notifier=false
-# Node 25+ no longer ships corepack, so pnpm comes from npm; the version must be the one in
-# package.json `packageManager` (checked below). Before any repo file, so it is cached for good.
+# Node 25+ no longer ships corepack, so pnpm comes from npm: the checksum-pinned tarball of the
+# `pnpm-tgz` stage, whose version must be the one in package.json `packageManager` (checked below).
+# Before any repo file, so it is cached for good.
 ARG PNPM_VERSION=10.0.0
-RUN npm install --global --no-audit --no-fund --ignore-scripts "pnpm@${PNPM_VERSION}"
+RUN --mount=type=bind,from=pnpm-tgz,source=/pnpm.tgz,target=/tmp/pnpm.tgz \
+    npm install --global --no-audit --no-fund --ignore-scripts /tmp/pnpm.tgz
 WORKDIR /src
 # Manifests first, so `pnpm install` stays cached until a dependency changes. No `pnpm fetch` +
 # `--offline`: the store is a cache mount, which the layer cache of CI does not restore, so an
