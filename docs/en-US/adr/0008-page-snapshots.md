@@ -2,6 +2,8 @@
 
 # ADR 0008: Open a workspace one page at a time
 
+> **Note (2026-11):** the app described here, `web-legacy`, was replaced by `apps/web` and removed from the tree; paths to it below are historical and no longer resolve.
+
 - **Status:** Proposed
 - **Date:** 2026-11-26
 - **Code:** `server/internal/server` (`serveWS`, outbox, delta), `web-legacy/src/useDocument.ts` and the consumers of `doc.nodes`

@@ -1,6 +1,6 @@
 import { importHTML, importSVG, isSVGText, nearestFree, newId, PLACE_GAP, placedSiblings, type Document, type NodeInput, type Op, type SpotBox } from "@paprika/core";
 
-/** Limits of the old canvas for pictures (`web-legacy/src/Canvas.tsx`): 3.5 MB of file, 5 M characters of data URI, 480 px on the long side. */
+/** Limits for pictures: 3.5 MB of file, 5 M characters of data URI, 480 px on the long side. */
 export const IMAGE_BYTES = 3_500_000;
 export const IMAGE_DATA_URI_CHARS = 5_000_000;
 export const IMAGE_LONG_SIDE = 480;

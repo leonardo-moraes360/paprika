@@ -2,6 +2,8 @@
 
 # ADR 0002: Canvas renderer in Rust/WASM (WebGPU with a CPU fallback)
 
+> **Note (2026-11):** the app described here, `web-legacy`, was replaced by `apps/web` and removed from the tree; paths to it below are historical and no longer resolve.
+
 - **Status:** Accepted as an **opt-in hybrid renderer** (update below). The DOM stays the default.
 - **Date:** 2026-11-21
 - **Code:** [`crates/render`](../../../crates/render), [`packages/core/src/displayList.ts`](../../../packages/core/src/displayList.ts), [`web-legacy/src/wasmLayer.ts`](../../../web-legacy/src/wasmLayer.ts). Benchmark harness: [`experiments/canvas-wasm/`](https://github.com/leonardo-moraes360/paprika/tree/040b843/experiments/canvas-wasm/README.md)

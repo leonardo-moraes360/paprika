@@ -221,7 +221,7 @@ the canvas draws their cursors like local ones.
 
 ## On the canvas
 
-With `--team`, the top bar shows one chip with the worst state across peers (only this device, connecting, N online · synced, via relay, offline, key rejected) and the right panel gets a **Time** tab next to the Inspector (`web-legacy/src/Team.tsx`):
+With `--team`, the top bar shows one chip with the worst state across peers (only this device, connecting, N online · synced, via relay, offline, key rejected) and the right panel gets a **Time** tab next to the Inspector (`apps/web/src/editor/regions/team.tsx`):
 
 - no team yet: create one, or join with a link;
 - a team: connection and sync state, a button to share the open workspace, people with their path (direct with RTT, relay, offline) and, under each person, the agents running on their instance (remote agents also get their cursor on the canvas, as `name @ person`);
