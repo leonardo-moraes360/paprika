@@ -20,15 +20,75 @@ afterEach(() => {
 const flushMicrotasks = () => act(async () => void (await Promise.resolve()));
 
 describe("opening", () => {
-  it("creates the socket only after start, sends the view on open and hello once the renderer is known", async () => {
+  it("creates the socket only after start, sends hello once the renderer is known and the view only when someone asks for one", async () => {
     const rig = createLiveRig();
     expect(rig.sockets.sockets).toHaveLength(0);
     rig.client.actions.setRenderer("dom");
     const socket = await rig.connect();
     expect(socket.url).toBe("ws://test/ws");
     expect(rig.client.store.state.connected).toBe(true);
+    // Nobody asked for a workspace yet: the server sends the active one after its short wait, so no `view` goes out on open.
+    expect(socket.sent.map((m) => m.type)).toEqual(["hello"]);
+    void rig.client.view(null);
     expect(socket.sent.map((m) => m.type)).toEqual(["hello", "view"]);
     expect(socket.sent[1]).toEqual({ type: "view", reqId: expect.any(String) });
+  });
+
+  it("a view asked after the socket opened is the only one sent: the open does not ask for the active workspace first", async () => {
+    const rig = createLiveRig();
+    const socket = await rig.connect();
+    const done = rig.client.view("a");
+    expect(socket.sentOf("view")).toEqual([{ type: "view", workspaceId: "a", reqId: expect.any(String) }]);
+    act(() => socket.ack(socket.lastReqId("view") as string, 1));
+    await done;
+    expect(socket.sentOf("view")).toHaveLength(1);
+  });
+
+  it("asking again for the workspace the server already confirmed resolves without another snapshot", async () => {
+    const rig = createLiveRig();
+    const socket = await rig.connect();
+    const first = rig.client.view(null);
+    act(() => socket.ack(socket.lastReqId("view") as string, 1));
+    await first;
+    await rig.client.view(null);
+    await rig.client.view(null);
+    expect(socket.sentOf("view")).toHaveLength(1);
+    // Another workspace is asked for; and asking for the first one again after that is a real request.
+    const other = rig.client.view("wb");
+    expect(socket.sentOf("view")).toHaveLength(2);
+    act(() => socket.ack(socket.lastReqId("view") as string, 1));
+    await other;
+    await rig.client.view("wb");
+    expect(socket.sentOf("view")).toHaveLength(2);
+    void rig.client.view(null);
+    expect(socket.sentOf("view")).toHaveLength(3);
+  });
+
+  it("the confirmed workspace is forgotten when the connection drops: the same view is asked again on the new one", async () => {
+    const rig = createLiveRig();
+    const first = await rig.connect();
+    const asked = rig.client.view("wa");
+    act(() => first.ack(first.lastReqId("view") as string, 1));
+    await asked;
+    act(() => first.drop());
+    await act(async () => void (await vi.advanceTimersByTimeAsync(5000)));
+    const second = rig.sockets.last;
+    expect(second).not.toBe(first);
+    act(() => second.open());
+    expect(second.sentOf("view")).toEqual([{ type: "view", workspaceId: "wa", reqId: expect.any(String) }]);
+  });
+
+  it("a refused view is not remembered as confirmed", async () => {
+    const rig = createLiveRig();
+    const socket = await rig.connect();
+    const ok = rig.client.view("wa");
+    act(() => socket.ack(socket.lastReqId("view") as string, 1));
+    await ok;
+    const refused = rig.client.view("ghost");
+    act(() => socket.receive({ type: "error", reqId: socket.lastReqId("view") as string, message: "nope" }));
+    await expect(refused).rejects.toThrow("nope");
+    void rig.client.view("wa");
+    expect(socket.sentOf("view")).toHaveLength(3);
   });
 
   it("applies the first doc message and reads canUndo/canRedo and version from it", async () => {
@@ -150,7 +210,20 @@ describe("delta", () => {
     const before = socket.sentOf("view").length;
     rig.deliver(deltaMessage(makeDocument(3, { id: "other" }), 2, { name: "stranger" }));
     expect(rig.client.store.state.doc?.name).toBe(doc.name);
-    expect(socket.sentOf("view")).toHaveLength(before + 1);
+    // A delta of another workspace says nothing about this one: no snapshot is asked for.
+    expect(socket.sentOf("view")).toHaveLength(before);
+  });
+
+  it("a late delta of the workspace that was in view, after the snapshot of the new one in the same batch, is dropped without a view", async () => {
+    const rig = createLiveRig();
+    const socket = await rig.connect();
+    rig.deliver(docMessage(doc, 1));
+    const other = makeDocument(3, { id: "other", name: "Other" });
+    const before = socket.sentOf("view").length;
+    rig.deliver(docMessage(other, 5), nodeDelta(doc, a, { x: 9 }, 2), nodeDelta(doc, b, { x: 9 }, 3));
+    expect(rig.client.store.state.doc?.id).toBe("other");
+    expect(rig.client.store.state.version).toBe(5);
+    expect(socket.sentOf("view")).toHaveLength(before);
   });
 
   it("resets the activity when a snapshot of another workspace arrives", async () => {
@@ -616,6 +689,45 @@ describe("presence, pins and team", () => {
     expect(after.agents).not.toBe(before.agents);
   });
 
+  it("presence waits for the frame with the document frames: a hundred reports are one update, in order, with the time each arrived", async () => {
+    let now = 1_000_000;
+    const rig = createLiveRig({ now: () => now });
+    const socket = await rig.connect();
+    const updates = vi.fn();
+    rig.client.store.subscribe(updates);
+    const before = updates.mock.calls.length;
+    for (let i = 0; i < 100; i += 1) {
+      now += 1;
+      act(() => socket.receive(presence(`s:${i % 5}`, { tool: i % 2 ? "get_nodes" : "update_nodes" })));
+    }
+    expect(rig.client.store.state.agents).toHaveLength(0);
+    expect(updates.mock.calls.length).toBe(before);
+    act(() => rig.scheduler.flush());
+    expect(updates.mock.calls.length).toBe(before + 1);
+    const agents = rig.client.store.state.agents;
+    expect(agents.map((x) => x.agent)).toEqual(["s:0", "s:1", "s:2", "s:3", "s:4"]);
+    // The last report of each, as if they had been applied one by one.
+    expect(agents[4]).toMatchObject({ tool: "get_nodes", at: 1_000_100 });
+    expect(agents[0]).toMatchObject({ tool: "get_nodes", at: 1_000_096 });
+  });
+
+  it("presence and a document frame of the same frame are one update", async () => {
+    const rig = createLiveRig();
+    const socket = await rig.connect();
+    rig.deliver(docMessage(doc, 1));
+    const updates = vi.fn();
+    rig.client.store.subscribe(updates);
+    act(() => {
+      socket.receive(presence("s:1"));
+      socket.receive(nodeDelta(doc, a, { x: 4 }, 2));
+      socket.receive(presence("s:2"));
+      rig.scheduler.flush();
+    });
+    expect(updates.mock.calls.length).toBe(1);
+    expect(rig.client.store.state.version).toBe(2);
+    expect(rig.client.store.state.agents.map((x) => x.agent)).toEqual(["s:1", "s:2"]);
+  });
+
   it("pins is only a notice: it sets the revision and emits an event for batch 4 to invalidate its query", async () => {
     const rig = createLiveRig();
     await rig.connect();
@@ -641,6 +753,18 @@ describe("presence, pins and team", () => {
     late.push({ type: "team", status: { team: null, from: "ws" } });
     await act(async () => release({ from: "http" }));
     expect(late.client.store.state.team).toEqual({ team: null, from: "ws" });
+  });
+
+  it("team: a fetch that does not know (undefined) leaves the state alone: no update for the subscribers", async () => {
+    const rig = createLiveRig({ fetchTeam: () => Promise.resolve(undefined) });
+    const seen = vi.fn();
+    rig.client.store.subscribe(seen);
+    await rig.connect();
+    await flushMicrotasks();
+    const calls = seen.mock.calls.length;
+    expect(rig.client.store.state.team).toBeUndefined();
+    await flushMicrotasks();
+    expect(seen.mock.calls.length).toBe(calls);
   });
 
   it("team: a fetch that answers with a status is used when nothing came over the socket", async () => {

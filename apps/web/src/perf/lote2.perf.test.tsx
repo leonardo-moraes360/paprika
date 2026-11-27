@@ -105,22 +105,19 @@ describe("shell regions with 5 000 nodes", () => {
     view.unmount();
   });
 
-  it("an agent heartbeat that repeats the same nodes commits only the roster's last-active time after the first presence", async () => {
+  it("an agent heartbeat that repeats the same nodes commits no region: the roster shows its last-active time in whole seconds", async () => {
     const view = await open();
     const keys = Object.keys(view.rig.client.store.state.doc!.nodes);
     const presence = { type: "presence" as const, agent: "a:1", actor: "agent:claude", tool: "update_nodes", nodes: [keys[100] as string], idle: 0 };
     view.rig.push(presence);
     await elapse(500);
-    // A heartbeat comes some time later (the clock moves, as it does for a real agent).
+    // A heartbeat comes some time later (the client reads the real clock, which moves by milliseconds here).
     await elapse(1000);
     view.log.reset();
     view.rig.push(presence, presence, presence);
-    // The roster (in the header) shows when each agent was last active, so a heartbeat commits it once, and the header not at all (its profiler sees the roster's commit, the perf log does not count it for the header); the layers and pages show the same nodes and do not commit.
-    // Under the test clock React also reports a trailing commit of the roster that rendered nothing (about 0.002 ms, a bailout): it is not a render, so renders are counted by time spent.
-    const renders = view.log.entries().filter((entry) => entry.id === "agents" && entry.actualDuration > 0.05);
-    expect(renders).toHaveLength(1);
-    for (const id of editorRegionIds.filter((r) => r !== "agents")) expect(view.log.commits(id), id).toBe(0);
-    expect(view.log.commits("agents")).toBeLessThanOrEqual(2);
+    // Since F1 the roster compares presences ignoring a last-active time that moved by less than a second (what it shows is whole seconds, on its own clock), so
+    // a heartbeat commits nothing: not the roster (it used to commit once per heartbeat), not the header, and the layers and pages show the same nodes. A report a second later does commit it: `collab.perf.test.tsx`.
+    only(view, {});
     view.log.reset();
     view.rig.deliver(deltaMessage(view.rig.client.store.state.doc!, 3, { name: "Still the header only" }));
     // header: the name. properties: the name of the document and the new activity entry.
