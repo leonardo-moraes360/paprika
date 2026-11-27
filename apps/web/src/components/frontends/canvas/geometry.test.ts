@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { elementOf, fitView, focusView, gridCell, gridStyle, measureElement, nodeIdOf, toLocal, toScreen, toWorld, unionBox, wheelPan, wheelZoom, zoomAround } from "./geometry";
+import { elementOf, emptyView, fitView, focusView, gridCell, gridStyle, measureElement, nodeIdOf, toLocal, toScreen, toWorld, unionBox, wheelPan, wheelZoom, zoomAround } from "./geometry";
 
 describe("camera math", () => {
   it("zoomAround keeps the world point under the screen point", () => {
@@ -29,6 +29,11 @@ describe("camera math", () => {
     const big = fitView({ x: 0, y: 0, width: 2000, height: 100 }, { width: 1120, height: 800 });
     expect(big.zoom).toBeCloseTo(0.5, 9);
     expect(fitView({ x: 0, y: 0, width: 1e9, height: 1 }, { width: 1000, height: 800 }).zoom).toBe(0.1);
+  });
+
+  it("emptyView puts the stand-in box of an empty page in the middle at 100 %, whatever the room", () => {
+    expect(emptyView({ width: 870, height: 640 })).toEqual({ zoom: 1, x: 35, y: 20 });
+    expect(emptyView({ width: 400, height: 300 })).toEqual({ zoom: 1, x: -200, y: -150 });
   });
 
   it("focusView centres a box and only shrinks the zoom to fit it", () => {

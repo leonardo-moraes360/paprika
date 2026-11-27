@@ -5,10 +5,10 @@ import { SelectionSize } from "./selection-size";
 export type SelectionCorner = "nw" | "ne" | "sw" | "se";
 
 const corners: Record<SelectionCorner, string> = {
-  nw: "-top-[4.75px] -left-[4.75px] cursor-nwse-resize",
-  ne: "-top-[4.75px] -right-[4.75px] cursor-nesw-resize",
-  sw: "-bottom-[4.75px] -left-[4.75px] cursor-nesw-resize",
-  se: "-right-[4.75px] -bottom-[4.75px] cursor-nwse-resize",
+  nw: "-top-[4px] -left-[4px] cursor-nwse-resize",
+  ne: "-top-[4px] -right-[4px] cursor-nesw-resize",
+  sw: "-bottom-[4px] -left-[4px] cursor-nesw-resize",
+  se: "-right-[4px] -bottom-[4px] cursor-nwse-resize",
 };
 
 export type SelectionHandlesProps = Omit<ComponentProps<"div">, "children"> & {
@@ -29,7 +29,7 @@ export function SelectionHandles({ className, size, onHandlePointerDown, rotate,
           aria-hidden="true"
           onPointerDown={onHandlePointerDown ? (event) => onHandlePointerDown(corner, event) : undefined}
           className={cn(
-            "pointer-events-auto absolute size-[9.5px] rounded-xs border-[1.5px] border-select-brand bg-panel forced-colors:border-[Highlight] forced-colors:bg-[Canvas]",
+            "pointer-events-auto absolute size-2 rounded-xs border-[1.5px] border-select-brand bg-panel forced-colors:border-[Highlight] forced-colors:bg-[Canvas]",
             corners[corner],
           )}
         />

@@ -1,6 +1,6 @@
 import { canvasBounds } from "@paprika/core";
 import { useEffect, useLayoutEffect, useRef, type RefObject } from "react";
-import { fitView, focusView, gridStyle, wheelPan, wheelZoom, zoomAround } from "./geometry";
+import { emptyView, fitView, focusView, gridStyle, wheelPan, wheelZoom, zoomAround } from "./geometry";
 import type { CanvasRuntime } from "./runtime";
 import type { Box, View } from "./types";
 
@@ -53,7 +53,7 @@ export function useCamera(rt: CanvasRuntime, viewportRef: RefObject<HTMLElement 
         } catch {
           bounds = { x: 0, y: 0, width: 800, height: 600 };
         }
-        rt.view.set(fitView(bounds, rect), true);
+        rt.view.set(rt.index.roots().length === 0 ? emptyView(rect) : fitView(bounds, rect), true);
         state.current.moved = false;
         return true;
       },

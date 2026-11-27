@@ -3,8 +3,12 @@ import { createMenuController } from "@ui-sdk/react/menu";
 import { Circle, Component, Diamond, Frame, Group, Image, MoveUpRight, PenTool, RectangleHorizontal, Square, Type, type LucideIcon } from "lucide-react";
 import { useState, type MouseEvent, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuSeparator } from "@/components/ui/menu";
+import { Kbd } from "@/components/ui/kbd";
+import { Menu, MenuCheckboxItem, MenuContent, MenuItem, MenuSeparator, shortcutKeys } from "@/components/ui/menu";
 import type { CanvasProps, CanvasRuntime } from "./types";
+
+/** The key the editor binds to "centre content" (`editor/shortcuts.ts`): the menu shows it, the key itself is the editor's. */
+const CENTER_KEY = "Alt+C";
 
 type Payload = {
   /** The layers under the pointer, topmost first. */
@@ -90,8 +94,15 @@ export function useLayerMenu(rt: CanvasRuntime, props: RefObject<CanvasProps>): 
               })}
               {payload.center || payload.convert ? <MenuSeparator /> : null}
               {payload.center ? (
-                <MenuCheckboxItem value="center" checked={!payload.center.centered} data-testid="center-content">
-                  {t("frontends.canvas.select.menu.center")}
+                <MenuCheckboxItem value="center" checked={!payload.center.centered} aria-keyshortcuts={CENTER_KEY} data-testid="center-content">
+                  <span className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 truncate">{t("frontends.canvas.select.menu.center")}</span>
+                    <span aria-hidden="true" className="flex shrink-0 gap-1">
+                      {shortcutKeys(CENTER_KEY).map((key, index) => (
+                        <Kbd key={`${index}-${key}`}>{key}</Kbd>
+                      ))}
+                    </span>
+                  </span>
                 </MenuCheckboxItem>
               ) : null}
               {payload.convert ? (
