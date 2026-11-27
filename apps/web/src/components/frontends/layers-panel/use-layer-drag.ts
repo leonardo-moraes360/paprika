@@ -63,11 +63,10 @@ export function useLayerDrag({ rows, wrapper, overlay, onMove }: LayerDragOption
       const id = rowEl.dataset.layerId as string;
       const row = current.find((candidate) => candidate.id === id);
       if (!row || row.draggable === false) return;
-      const chosen = row.selected ? new Set(current.filter((candidate) => candidate.selected && candidate.draggable !== false).map((candidate) => candidate.id)) : new Set([id]);
-      const moving = topmostIds(current, chosen);
-      if (moving.length === 0) return;
-      const blocked = blockedIndexes(current, moving);
-      const indexOf = new Map(current.map((candidate, index) => [candidate.id, index]));
+      // A plain click is a press too: the work that only a drag needs (the set being moved, the blocked rows, the index) waits for the drag to start.
+      let moving: string[] = [];
+      let blocked: ReadonlySet<number> = new Set();
+      let indexOf: ReadonlyMap<string, number> = new Map();
       let preview: ReturnType<typeof bindDragPreview> | null = null;
       let target: Target | null = null;
       let last = { x: event.clientX, y: event.clientY };
@@ -107,6 +106,10 @@ export function useLayerDrag({ rows, wrapper, overlay, onMove }: LayerDragOption
         threshold: dragThreshold,
         cancelOnEscape: true,
         onStart: () => {
+          const chosen = row.selected ? new Set(current.filter((candidate) => candidate.selected && candidate.draggable !== false).map((candidate) => candidate.id)) : new Set([id]);
+          moving = topmostIds(current, chosen);
+          blocked = blockedIndexes(current, moving);
+          indexOf = new Map(current.map((candidate, index) => [candidate.id, index]));
           actions.startDrag(moving);
           preview = bindDragPreview(rowEl, { x: event.clientX, y: event.clientY });
           preview.el.classList.add("opacity-80", "shadow-pin", "rounded-md", "bg-surface");

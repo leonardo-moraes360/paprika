@@ -15,7 +15,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { booleanCodec } from "@/lib/persist";
 import { cn } from "@/lib/utils";
 import { usePersistedState } from "@/lib/use-persisted-state";
-import { LAYER_ROW_HEIGHT, LayerItem } from "./layer-item";
+import { LAYER_ROW_PITCH, LayerItem } from "./layer-item";
 import { initialLayersPanelState, LayersPanelRegion } from "./store";
 import { buildItems, keyboardMove, sameStrings, sameStructure, type LayerMoveKey } from "./tree-data";
 import type { LayerContextItem, LayerRowData, LayerSelectMode, LayersPanelProps } from "./types";
@@ -83,17 +83,35 @@ function LayersPanelView({
     onOpenChange?.(next);
   };
 
-  const byId = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows]);
   // The tree's data depends on ids, names and levels only: a new `rows` that changed just the selection, visibility or lock
   // (every click on a layer) keeps the same `items`, `branches`, `expanded` and `visible`, so the tree does not rebuild its collection.
-  const built = useRef<{ rows: readonly LayerRowData[]; items: ReturnType<typeof buildItems> } | null>(null);
-  const items = useMemo(() => {
-    if (built.current && sameStructure(built.current.rows, rows)) return built.current.items;
-    built.current = { rows, items: buildItems(rows) };
-    return built.current.items;
+  // The same structure is what makes `indexById` valid for the new `rows`, so a lookup by id is `rows[index]`, not a map of the rows rebuilt per change.
+  const built = useRef<{ rows: readonly LayerRowData[]; items: ReturnType<typeof buildItems>; indexById: ReadonlyMap<string, number> } | null>(null);
+  const structure = useMemo(() => {
+    if (built.current && sameStructure(built.current.rows, rows)) return built.current;
+    built.current = { rows, items: buildItems(rows), indexById: new Map(rows.map((row, index) => [row.id, index])) };
+    return built.current;
   }, [rows]);
-  const selectedIds = useMemo(() => rows.filter((row) => row.selected).map((row) => row.id), [rows]);
-  const branchList = useMemo(() => rows.filter((row) => row.hasChildren).map((row) => row.id), [rows]);
+  const { items, indexById } = structure;
+  const byId = useMemo(() => ({ get: (id: string): LayerRowData | undefined => rows[indexById.get(id) ?? -1], has: (id: string) => indexById.has(id) }), [rows, indexById]);
+  // One pass over the rows for everything the panel counts or lists (it used to be five).
+  const summary = useMemo(() => {
+    const selected: string[] = [];
+    const branchIds: string[] = [];
+    let hidden = 0;
+    let locked = 0;
+    for (const row of rows) {
+      if (row.selected) selected.push(row.id);
+      if (row.hasChildren) branchIds.push(row.id);
+      if (!row.visible) hidden += 1;
+      if (row.locked && row.lockable !== false) locked += 1;
+    }
+    return { selected, branchIds, hidden, locked };
+  }, [rows]);
+  const lastSelected = useRef(summary.selected);
+  const selectedIds = sameStrings(lastSelected.current, summary.selected) ? lastSelected.current : summary.selected;
+  lastSelected.current = selectedIds;
+  const branchList = summary.branchIds;
   const lastBranches = useRef(branchList);
   const branches = sameStrings(lastBranches.current, branchList) ? lastBranches.current : branchList;
   lastBranches.current = branches;
@@ -102,18 +120,18 @@ function LayersPanelView({
     return branches.filter((id) => !closed.has(id));
   }, [branches, collapsed]);
   const visible = useMemo(() => visibleTreeRows(items, expanded), [items, expanded]);
-  const hiddenCount = useMemo(() => rows.filter((row) => !row.visible).length, [rows]);
-  const lockedCount = useMemo(() => rows.filter((row) => row.locked && row.lockable !== false).length, [rows]);
+  const visibleIndex = useMemo(() => new Map(visible.map((row, index) => [row.item.value, index])), [visible]);
+  const { hidden: hiddenCount, locked: lockedCount } = summary;
 
-  const latest = useRef({ visible });
-  latest.current = { visible };
+  const latest = useRef({ visibleIndex });
+  latest.current = { visibleIndex };
   const rangeExtractor = useCallback((range: Range) => {
     const base = defaultRangeExtractor(range);
     const active = document.activeElement?.closest<HTMLElement>("[data-layer-id]")?.dataset.layerId;
     const { renamingId, dragging } = store.get();
     const keep = [active, renamingId, ...(dragging ?? [])];
     const extra = keep
-      .map((id) => (id ? latest.current.visible.findIndex((row) => row.item.value === id) : -1))
+      .map((id) => (id ? (latest.current.visibleIndex.get(id) ?? -1) : -1))
       .filter((index) => index >= 0 && !base.includes(index));
     return extra.length > 0 ? [...base, ...extra].sort((a, b) => a - b) : base;
   }, [store]);
@@ -121,10 +139,10 @@ function LayersPanelView({
   const virtual = useVirtualizer({
     count: visible.length,
     getScrollElement: () => viewport,
-    estimateSize: () => LAYER_ROW_HEIGHT,
-    overscan: 8,
+    estimateSize: () => LAYER_ROW_PITCH,
+    overscan: 3,
     rangeExtractor,
-    initialRect: { width: 0, height: LAYER_ROW_HEIGHT * 20 },
+    initialRect: { width: 0, height: LAYER_ROW_PITCH * 20 },
   });
   const virtualized = visible.length > virtualizeAfter;
   const indexes = virtualized ? virtual.getVirtualItems().map((item) => item.index) : visible.map((_, index) => index);
@@ -260,7 +278,7 @@ function LayersPanelView({
       >
         {hasLayers ? (
           <ScrollArea className="flex-1" viewportRef={setViewport}>
-            <div ref={wrapper} className="relative pb-2 ps-2 pe-1" onContextMenu={onContextMenu}>
+            <div ref={wrapper} className="relative pb-2 ps-2 pe-3.5" onContextMenu={onContextMenu}>
               <LayerTree
                 aria-label={t("frontends.layersPanel.tree")}
                 mode="multiple"
@@ -269,15 +287,16 @@ function LayersPanelView({
                 expanded={expanded}
                 onValueChange={(next, details) => {
                   const pressed = enterTarget(details.event);
-                  if (pressed) onSelect([pressed], "replace");
-                  else onSelect(next, selectMode(details.event));
+                  const taken = pressed ? onSelect([pressed], "replace") : onSelect(next, selectMode(details.event));
+                  // The owner kept the selection (a click on the only selected layer asks for none): say so, or the tree warns that its value stayed.
+                  if (taken === false) details.cancel();
                 }}
                 onExpandedChange={(next) => changeCollapsed(branches.filter((id) => !next.includes(id)))}
                 onHighlight={(_value, { index }) => virtual.scrollToIndex(index, { align: "auto" })}
                 onPointerDown={onPointerDown}
                 onKeyDown={onKeyDown}
                 onKeyDownCapture={onKeyDownCapture}
-                style={{ position: "relative", height: visible.length * LAYER_ROW_HEIGHT }}
+                style={{ position: "relative", height: visible.length * LAYER_ROW_PITCH }}
               >
                 {indexes.map((index) => {
                   const row = byId.get(visible[index]?.item.value as string) as LayerRowData;
