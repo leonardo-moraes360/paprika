@@ -105,7 +105,7 @@ export function useCanvasInputHandler(): (request: CanvasInputRequest) => void {
             if ("error" in outcome) failures.push(outcome.error);
             else groups.push({ name: outcome.name, nodes: outcome.group, warnings: outcome.warnings });
           }
-          label = request.files.length > 1 ? t("app.canvas.input.importMany", { count: request.files.length }) : t("app.canvas.input.importOne");
+          label = groups.length > 1 ? t("app.canvas.input.importMany", { count: groups.length }) : t("app.canvas.input.importOne");
         }
         const doc = client.store.state.doc;
         if (!doc || groups.length === 0) {

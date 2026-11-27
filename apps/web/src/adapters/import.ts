@@ -35,9 +35,10 @@ export function imageSize(naturalWidth: number, naturalHeight: number): { width:
   return { width: Math.max(1, Math.round(naturalWidth * scale)), height: Math.max(1, Math.round(naturalHeight * scale)) };
 }
 
-export function imageNode(file: { name: string }, src: string, natural: { width: number; height: number }): NodeInput {
+/** `fallbackName` is the name of a picture that came without one, in the language of the interface (the caller translates it). */
+export function imageNode(file: { name: string }, src: string, natural: { width: number; height: number }, fallbackName = "image"): NodeInput {
   const size = imageSize(natural.width, natural.height);
-  const name = (file.name || "image").replace(/\.[^.]+$/, "") || "image";
+  const name = (file.name || fallbackName).replace(/\.[^.]+$/, "") || fallbackName;
   return { type: "image", id: newId(), name, x: 0, y: 0, ...size, src, fit: "contain", alt: file.name || "" } as NodeInput;
 }
 

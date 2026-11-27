@@ -121,11 +121,19 @@ describe("the canvas input handler", () => {
     const files = [new File([SVG], "a.svg", { type: "image/svg+xml" }), new File(["x"], "b.fig"), new File(["x"], "c.pdf"), new File([new Uint8Array([1])], "d.png", { type: "image/png" })];
     act(() => handlerRef.current!(request({ kind: "drop", files, at: { x: 10, y: 10 } })));
     await waitFor(() => expect(sent(view)).toHaveLength(1));
-    expect(sent(view)[0]!.label).toBe("import 4 files");
+    expect(sent(view)[0]!.label).toBe("import 2 files");
     const ops = sent(view)[0]!.ops as unknown as Created[];
     expect(ops.some((op) => op.node.type === "image")).toBe(true);
     expect(await screen.findByText(/\.fig files are not imported/i)).toBeInTheDocument();
     expect(screen.getByText(/PDF files are not imported/i)).toBeInTheDocument();
+  });
+
+  it("one file that goes in among refused ones is 'import file', not a count of what was dropped", async () => {
+    stubImage(100, 100);
+    const view = await setup();
+    act(() => handlerRef.current!(request({ kind: "drop", files: [new File(["x"], "b.fig"), new File([new Uint8Array([1])], "d.png", { type: "image/png" })] })));
+    await waitFor(() => expect(sent(view)).toHaveLength(1));
+    expect(sent(view)[0]!.label).toBe("import file");
   });
 
   it("one file is 'import file'", async () => {
