@@ -1,6 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Properties } from "@/editor/regions/properties";
+import { PANEL_REFRESH_MS, Properties } from "@/editor/regions/properties";
 import { EditorProvider, initialEditorState, useEditorStore, type EditorActions } from "@/editor/editor-store";
 import { dismissToasts } from "@/lib/notify";
 import { createPerfLog, PerfProvider, RegionProfiler } from "@/perf";
@@ -8,7 +8,13 @@ import { Notifications } from "@/components/notifications";
 import { LiveProvider } from "@/data/live";
 import { createLiveRig, docMessage, makeDocument, nodeDelta, type LiveRig } from "@/test/live-harness";
 
-afterEach(() => dismissToasts());
+afterEach(() => {
+  vi.useRealTimers();
+  dismissToasts();
+});
+
+/** Lets the panel's refresh interval pass (real time: the interval is 100 ms). */
+const settle = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, PANEL_REFRESH_MS + 30)));
 
 type Mounted = Awaited<ReturnType<typeof mount>>;
 
@@ -73,9 +79,11 @@ describe("properties region commits with a document of 5 000 nodes", () => {
     const rect = ids.find((id) => id.startsWith("n")) as string;
     view.select([rect]);
     await screen.findByTestId("node-panel");
+    await settle();
     view.log.reset();
     view.rig.deliver(nodeDelta(view.doc, rect, { x: 42 }, 2));
     expect(commits(view)).toBe(1);
+    await settle();
     view.log.reset();
     const live = view.rig.client.store.state.doc!;
     view.rig.deliver(nodeDelta(live, live.nodes[rect]!.parentId as string, { name: "Renamed frame" }, 3));
@@ -83,14 +91,19 @@ describe("properties region commits with a document of 5 000 nodes", () => {
     view.unmount();
   });
 
-  it("a burst of 200 deltas on the selected node commits once per batch", async () => {
+  it("a burst of deltas on the selected node renders at once when the panel was still, then once more per interval", async () => {
     const view = await mount(5000);
     const rect = keys(view).find((id) => id.startsWith("n")) as string;
     view.select([rect]);
     await screen.findByTestId("node-panel");
+    await settle();
     view.log.reset();
-    view.rig.deliver(...Array.from({ length: 200 }, (_, i) => nodeDelta(view.rig.client.store.state.doc!, rect, { x: i }, 2 + i)));
+    for (let i = 0; i < 10; i += 1) view.rig.deliver(nodeDelta(view.rig.client.store.state.doc!, rect, { x: i }, 2 + i));
     expect(commits(view)).toBe(1);
+    expect(screen.getByRole("textbox", { name: "X" })).toHaveValue("0");
+    await settle();
+    expect(commits(view)).toBe(2);
+    expect(screen.getByRole("textbox", { name: "X" })).toHaveValue("9");
     view.unmount();
   });
 
@@ -114,8 +127,8 @@ describe("properties region commits with a document of 5 000 nodes", () => {
     view.log.reset();
     view.select([ids[10] as string]);
     // One render for the switch; the second commit is a nested update of the scroll area (layout effect), not a render of the fields.
-    expect(view.log.entries().filter((e) => e.id === "properties" && e.phase === "update")).toHaveLength(1);
     expect(commits(view)).toBeLessThanOrEqual(2);
+    expect(view.log.entries().filter((e) => e.actualDuration > 5)).toHaveLength(1);
     expect(screen.getByTestId("node-panel")).toBeInTheDocument();
     view.unmount();
   });

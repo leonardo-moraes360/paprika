@@ -1,5 +1,5 @@
 import { useFormatForDisplay } from "@tanstack/react-hotkeys";
-import { memo, useCallback, useMemo, useRef, useSyncExternalStore } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { documentFonts } from "@/adapters/doc-fonts";
 import { panelInput, type PanelInput } from "@/adapters/properties";
@@ -17,28 +17,53 @@ const MemoPanel = memo(PropertiesPanel);
 const STORAGE_KEY = "paprika.properties.sections";
 const ERROR_TOAST_ID = "properties:error";
 
-/** The editor's selection and the live document, as one input that keeps its identity while the panel's view of them does not change. */
-function usePanelInput(): PanelInput {
+/** Shortest gap between two renders of the panel caused by document deltas (a burst of edits to what it shows). */
+export const PANEL_REFRESH_MS = 100;
+
+/**
+ * The editor's selection and the live document, as one input that keeps its identity while the panel's view of them
+ * does not change. A new selection is applied at once; a change to the document is applied at once when the panel has
+ * been still for `refreshMs`, otherwise it waits for the rest of the interval and then shows the latest document (a
+ * burst of 200 edits to the selected node renders the whole panel about ten times a second, not on every frame).
+ */
+export function usePanelInput(refreshMs = PANEL_REFRESH_MS): PanelInput {
   const live = useLiveClient().store;
   const editor = useEditorStore();
-  const held = useRef<PanelInput | null>(null);
-  const subscribe = useCallback(
-    (listener: () => void) => {
-      const a = live.subscribe(listener);
-      const b = editor.subscribe(listener);
-      return () => {
-        a.unsubscribe();
-        b.unsubscribe();
-      };
-    },
-    [live, editor],
-  );
-  const snapshot = () => {
-    const next = panelInput(held.current, live.state.doc, editor.state.selection);
-    held.current = next;
-    return next;
-  };
-  return useSyncExternalStore(subscribe, snapshot, snapshot);
+  const [input, setInput] = useState(() => panelInput(null, live.state.doc, editor.state.selection));
+  const held = useRef(input);
+  const shownAt = useRef(0);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const show = (next: PanelInput) => {
+      held.current = next;
+      shownAt.current = Date.now();
+      setInput(next);
+    };
+    const refresh = () => {
+      timer = undefined;
+      const next = panelInput(held.current, live.state.doc, editor.state.selection);
+      if (next !== held.current) show(next);
+    };
+    const onChange = () => {
+      const next = panelInput(held.current, live.state.doc, editor.state.selection);
+      if (next === held.current) return;
+      const wait = shownAt.current + refreshMs - Date.now();
+      if (next.selected !== held.current.selected || next.doc?.id !== held.current.doc?.id || wait <= 0) {
+        clearTimeout(timer);
+        timer = undefined;
+        show(next);
+      } else if (timer === undefined) timer = setTimeout(refresh, wait);
+    };
+    onChange();
+    const a = live.subscribe(onChange);
+    const b = editor.subscribe(onChange);
+    return () => {
+      clearTimeout(timer);
+      a.unsubscribe();
+      b.unsubscribe();
+    };
+  }, [live, editor, refreshMs]);
+  return input;
 }
 
 /** Font picker for the typography section: the document's families come from a memoized function of the live document. */
