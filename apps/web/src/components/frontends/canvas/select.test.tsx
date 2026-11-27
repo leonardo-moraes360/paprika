@@ -440,6 +440,16 @@ describe("the layers menu", () => {
     expect(onConvertToPath).toHaveBeenCalledWith(["dot"]);
   });
 
+  it("clicking centre content in the menu centres the layers it was opened on, once", async () => {
+    const { world, onCenterContent, viewport } = mount();
+    under = [node(world, "home")];
+    fireEvent.contextMenu(viewport, { clientX: 10, clientY: 10 });
+    const menu = await screen.findByRole("menu");
+    await user().click(within(menu).getByRole("menuitemcheckbox", { name: /Center content/ }));
+    expect(onCenterContent).toHaveBeenCalledTimes(1);
+    expect(onCenterContent).toHaveBeenCalledWith(["home"]);
+  });
+
   it("does nothing over empty space or with another tool", () => {
     const { viewport, feed } = mount();
     const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });

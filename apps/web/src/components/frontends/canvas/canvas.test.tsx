@@ -212,8 +212,8 @@ describe("the camera", () => {
 
   it("Space pans with the focus on the viewport itself, even when it matches :focus-visible after a click", () => {
     const { viewport } = mount();
-    const matches = viewport.matches.bind(viewport);
-    viewport.matches = (selector: string) => selector === ":focus-visible" || matches(selector);
+    const matches = viewport.matches.bind(viewport) as (selector: string) => boolean;
+    vi.spyOn(viewport, "matches").mockImplementation(((selector: string) => selector === ":focus-visible" || matches(selector)) as never);
     fireEvent.keyDown(viewport, { code: "Space" });
     expect(viewport.dataset.pan).toBe("ready");
     fireEvent.keyUp(viewport, { code: "Space" });
