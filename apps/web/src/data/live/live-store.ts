@@ -418,6 +418,8 @@ export function createLiveClient(options: LiveClientOptions = {}): LiveClient {
     undoStep: async (step) => (await request({ type: "undo", mode: "step", step })).step,
     redoStep: async (step) => (await request({ type: "redo", mode: "step", step })).step,
     setRenderer: (mode) => {
+      // The same mode again (an editor that mounts again) says nothing new: reconnections already repeat it.
+      if (renderer === mode) return;
       renderer = mode;
       reportRenderer();
     },

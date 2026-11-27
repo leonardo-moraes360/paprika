@@ -1,10 +1,13 @@
 import { act, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { alwaysMountedRegionIds, editorRegionIds } from "@/editor/editor";
 import { docMessage, nodeDelta, renderEditorRig, serveDocument } from "@/test/live-harness";
 
 const NODES = 5000;
 
+beforeAll(() => {
+  Object.defineProperty(document, "elementFromPoint", { configurable: true, value: () => null });
+});
 afterEach(() => vi.useRealTimers());
 
 /** Time is the test's from here on: only timers and `Date` are faked, and only after `findBy*` (which polls on real ones) is done. */
@@ -61,6 +64,24 @@ describe("editor commits with a document of 5 000 nodes", () => {
     for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(0);
     await elapse(150);
     for (const id of editorRegionIds) expect(view.log.commits(id), id).toBe(id === "properties" ? 1 : 0);
+    view.unmount();
+  });
+
+  it("changing the renderer commits only the stage (its zoom bar): never the layers, the properties or the pages, and no ops", async () => {
+    const view = await openEditor();
+    window.localStorage.removeItem("paprika.renderer");
+    const helloBefore = view.socket.sentOf("hello").length;
+    const { default: userEvent } = await import("@testing-library/user-event");
+    vi.useRealTimers();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Renderer: DOM" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "WASM" }));
+    expect(await screen.findByRole("button", { name: "Renderer: WASM" })).toBeInTheDocument();
+    expect(view.socket.sentOf("hello")).toHaveLength(helloBefore + 1);
+    expect(view.socket.sentOf("ops")).toEqual([]);
+    for (const id of ["layers", "properties", "pages"]) expect(view.log.commits(id), id).toBe(0);
+    expect(view.log.commits("stage")).toBeGreaterThan(0);
+    window.localStorage.removeItem("paprika.renderer");
     view.unmount();
   });
 
