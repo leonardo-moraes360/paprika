@@ -1437,8 +1437,7 @@ describe("E2E: canvas + agente via MCP", () => {
     }
   });
 
-  // PAP-E2E: o editor não passa storageKey ao EditorLayout, então a largura dos painéis não persiste ao recarregar (o antigo guardava em localStorage)
-  it.fails("painéis laterais: a largura persiste ao recarregar", async () => {
+  it("painéis laterais: a largura persiste ao recarregar", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     p.setDefaultTimeout(8_000);
     await pinLocale(p, "pt-BR");

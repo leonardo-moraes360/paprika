@@ -5,8 +5,8 @@ import { chromium, type Browser, type Page } from "playwright";
 import { repoRoot, startServer, type ExternalServer } from "../harness.js";
 import { pinLocale } from "./locale.js";
 
-const webRoot = join(repoRoot, "web-legacy/dist");
-const wasmBuilt = existsSync(join(repoRoot, "web-legacy/src/wasm/paprika_render.js"));
+const webRoot = join(repoRoot, "apps/web/dist/client");
+const wasmBuilt = existsSync(join(repoRoot, "apps/web/src/wasm/paprika_render.js"));
 const NODE = '[data-paprika-id="plano"]';
 
 type Gesture = { from: { x: number; y: number }; by: { x: number; y: number } };
@@ -22,12 +22,12 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
     for (const deliver of link.queue.splice(0)) deliver();
   };
 
-  const open = async (renderer: "dom" | "wasm") => {
+  const open = async (renderer: "dom" | "cpu") => {
     const { active } = (await (await fetch(`${server.url}/api/workspaces`)).json()) as { active: string };
     await page.goto(`${server.url}/w/${encodeURIComponent(active)}?renderer=${renderer}`);
     await page.waitForSelector(NODE);
-    if (renderer === "wasm") {
-      await page.waitForFunction(() => ["cpu", "webgpu"].includes(document.querySelector<HTMLElement>('[data-testid="renderer-toggle"]')?.dataset.backend ?? ""));
+    if (renderer === "cpu") {
+      await page.waitForFunction(() => ["cpu", "webgpu"].includes(document.querySelector<HTMLElement>('[data-testid="wasm-layer"]')?.dataset.backend ?? ""));
     }
     await page.waitForTimeout(300);
   };
@@ -99,8 +99,9 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
   it("soltar um redimensionamento não volta ao tamanho antigo antes do eco do servidor", async () => {
     const b = await shown();
     await page.mouse.click(b.x + 6, b.y + 6);
-    const handle = (await page.getByTestId("selection").locator('[data-resize="se"]').boundingBox())!;
-    await dropWithoutFlash({ from: { x: handle.x + handle.width / 2, y: handle.y + handle.height / 2 }, by: { x: 46, y: 26 } }, "width");
+    // o canto nw: depois do arraste do teste anterior o canto se do card fica sob o botão do painel de propriedades
+    const handle = (await page.locator('[data-handle="nw"]').boundingBox())!;
+    await dropWithoutFlash({ from: { x: handle.x + handle.width / 2, y: handle.y + handle.height / 2 }, by: { x: -46, y: -26 } }, "width");
   });
 
   it("se o servidor nunca recebe a mudança, o canvas volta ao que o servidor tem", async () => {
@@ -139,20 +140,20 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
     const before = await stored();
     const ratio = before.width / before.height;
     const nw = { x: before.x, y: before.y };
-    const se = page.getByTestId("selection").locator('[data-resize="se"]');
+    const se = page.locator('[data-handle="se"]');
     const handle = (await se.boundingBox())!;
     const hx = handle.x + handle.width / 2;
     const hy = handle.y + handle.height / 2;
     await se.hover();
     await page.mouse.down();
-    await page.evaluate(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift", code: "ShiftLeft", shiftKey: true, bubbles: true })));
+    await page.keyboard.down("Shift");
     await page.mouse.move(hx + 80, hy + 10, { steps: 8 });
     const hint = page.getByTestId("resize-lock-hint");
     expect(await hint.count()).toBe(1);
     expect(await hint.getAttribute("data-lock")).toBe("ratio");
     expect(await hint.textContent()).toContain("Proporção");
     await page.mouse.up();
-    await page.evaluate(() => window.dispatchEvent(new KeyboardEvent("keyup", { key: "Shift", code: "ShiftLeft", shiftKey: false, bubbles: true })));
+    await page.keyboard.up("Shift");
     await expect.poll(async () => (await stored()).width).not.toBe(before.width);
     const after = await stored();
     expect(Math.min(Math.abs(after.width - Math.round(after.height * ratio)), Math.abs(after.height - Math.round(after.width / ratio)))).toBeLessThanOrEqual(1);
@@ -167,26 +168,22 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
     await page.mouse.click(b.x + 6, b.y + 6);
     const before = await stored();
     const nw = { x: before.x, y: before.y };
-    const se = page.getByTestId("selection").locator('[data-resize="se"]');
+    const se = page.locator('[data-handle="se"]');
     const handle = (await se.boundingBox())!;
     const hx = handle.x + handle.width / 2;
     const hy = handle.y + handle.height / 2;
     await se.hover();
     await page.mouse.down();
-    await page.evaluate(() => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Shift", code: "ShiftLeft", shiftKey: true, altKey: true, bubbles: true }));
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Alt", code: "AltLeft", shiftKey: true, altKey: true, bubbles: true }));
-    });
+    await page.keyboard.down("Shift");
+    await page.keyboard.down("Alt");
     await page.mouse.move(hx + 60, hy + 20, { steps: 8 });
     const hint = page.getByTestId("resize-lock-hint");
     expect(await hint.count()).toBe(1);
     expect(await hint.getAttribute("data-lock")).toBe("square");
     expect(await hint.textContent()).toContain("1:1");
     await page.mouse.up();
-    await page.evaluate(() => {
-      window.dispatchEvent(new KeyboardEvent("keyup", { key: "Alt", code: "AltLeft", shiftKey: false, altKey: false, bubbles: true }));
-      window.dispatchEvent(new KeyboardEvent("keyup", { key: "Shift", code: "ShiftLeft", shiftKey: false, altKey: false, bubbles: true }));
-    });
+    await page.keyboard.up("Alt");
+    await page.keyboard.up("Shift");
     await expect.poll(async () => Math.abs((await stored()).width - (await stored()).height)).toBeLessThanOrEqual(1);
     const after = await stored();
     expect(after.x).toBeCloseTo(nw.x, 0);
@@ -204,12 +201,13 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
       await p.reload();
       await p.waitForSelector(NODE);
 
-      const toolbar = () => p.getByRole("navigation", { name: "Ferramentas" });
-      const grip = () => p.getByRole("button", { name: "Arrastar barra de ferramentas" });
-      const mainBox = async () => (await p.locator("main").boundingBox())!;
+      const toolbar = () => p.getByRole("toolbar", { name: "Ferramentas" });
+      const dockOf = () => p.locator("[data-dock]").getAttribute("data-dock");
+      const grip = () => p.getByRole("button", { name: "Mover a barra" });
+      const mainBox = async () => (await p.getByRole("region", { name: "Canvas", exact: true }).boundingBox())!;
 
       const expectDock = async (dock: "top" | "left" | "right" | "bottom") => {
-        await expect.poll(() => toolbar().getAttribute("data-toolbar-dock")).toBe(dock);
+        await expect.poll(dockOf).toBe(dock);
         const bar = (await toolbar().boundingBox())!;
         const main = await mainBox();
         if (dock === "top" || dock === "bottom") {
@@ -253,13 +251,14 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
       await dragGripTo(main.x + main.width / 2, main.y + 8);
       await expectDock("top");
 
-      await p.getByRole("button", { name: "Menu da barra de ferramentas" }).click();
+      await toolbar().getByRole("button", { name: "Mais ações" }).click();
       await p.getByRole("menuitemradio", { name: "Esquerda" }).click();
       await expectDock("left");
 
-      await p.evaluate(() => {
-        localStorage.setItem("paprika.panel.left.collapsed", "1");
-      });
+      // o painel de camadas recolhido (e lembrado ao recarregar) deixa o botão de mostrar na borda, onde a barra à esquerda não pode ficar por cima
+      await p.getByRole("separator", { name: "Redimensionar painel de camadas" }).focus();
+      await p.keyboard.press("Enter");
+      await expect.poll(() => p.evaluate(() => localStorage.getItem("paprika.ui-sdk-resizable:editor"))).toMatch(/\[0,/);
       await p.reload();
       await p.waitForSelector(NODE);
       await expectDock("left");
@@ -275,16 +274,18 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
     }
   });
 
-  it("arrastar um painel lateral além do mínimo o recolhe num botão flutuante que devolve a última largura", async () => {
+  it("arrastar um painel lateral além do mínimo o recolhe num botão na borda que devolve a última largura", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await pinLocale(p, "pt-BR");
     try {
       const { active } = (await (await fetch(`${server.url}/api/workspaces`)).json()) as { active: string };
       await p.goto(`${server.url}/w/${encodeURIComponent(active)}`);
       await p.waitForSelector(NODE);
+      const leftPanel = 'aside[aria-label="Painel de camadas"]';
+      const rightPanel = 'aside[aria-label="Painel de propriedades"]';
       const width = (sel: string) => p.locator(sel).evaluate((el) => Math.round(el.getBoundingClientRect().width));
-      const left = p.getByRole("separator", { name: "Largura do painel de camadas" });
-      const right = p.getByRole("separator", { name: "Largura do painel de propriedades" });
+      const left = p.getByRole("separator", { name: "Redimensionar painel de camadas" });
+      const right = p.getByRole("separator", { name: "Redimensionar painel de propriedades" });
       const showLeft = p.getByRole("button", { name: "Mostrar painel de camadas" });
       const showRight = p.getByRole("button", { name: "Mostrar painel de propriedades" });
       const viewport = (await p.getByTestId("viewport").boundingBox())!;
@@ -298,53 +299,77 @@ describe.skipIf(!existsSync(webRoot))("E2E: arraste sem piscar", () => {
         await p.mouse.up();
       };
 
+      expect(await width(leftPanel)).toBe(248);
       await dragBy(left, 60);
-      expect(await width("aside.left")).toBe(300);
+      await expect.poll(() => width(leftPanel)).toBe(308);
       await dragBy(left, -400);
-      expect(await left.count()).toBe(0);
-      expect(await p.locator("aside.left").isVisible()).toBe(false);
-      const corner = (await showLeft.boundingBox())!;
-      const canvas = (await p.locator("main").boundingBox())!;
-      expect(Math.abs(corner.x - (canvas.x + 12))).toBeLessThan(2);
-      expect(Math.abs(corner.y - (canvas.y + 12))).toBeLessThan(2);
-      expect((await p.getByTestId("viewport").boundingBox())!.width).toBeGreaterThan(viewport.width);
-      expect(await p.evaluate(() => localStorage.getItem("paprika.panel.left.collapsed"))).toBe("1");
+      await expect.poll(() => showLeft.count()).toBe(1);
+      expect(await p.locator(leftPanel).isVisible()).toBe(false);
+      await expect.poll(async () => (await p.getByTestId("viewport").boundingBox())!.width).toBeGreaterThan(viewport.width);
+      await expect.poll(() => p.evaluate(() => localStorage.getItem("paprika.ui-sdk-resizable:editor"))).toMatch(/\[0,/);
 
-      await p.reload();
-      await p.waitForSelector(NODE);
-      expect(await showLeft.count()).toBe(1);
       await showLeft.click();
-      expect(await showLeft.count()).toBe(0);
-      expect(await width("aside.left")).toBe(300);
-      expect(await p.evaluate(() => localStorage.getItem("paprika.panel.left.collapsed"))).toBeNull();
-      await dragBy(left, -110);
-      expect(await width("aside.left")).toBe(200);
+      await expect.poll(() => showLeft.count()).toBe(0);
+      await expect.poll(() => width(leftPanel)).toBe(308);
+      await dragBy(left, -60);
+      await expect.poll(() => width(leftPanel)).toBe(248);
       expect(await showLeft.count()).toBe(0);
 
       await dragBy(right, 400);
-      expect(await showRight.count()).toBe(1);
-      const rightCorner = (await showRight.boundingBox())!;
-      const main = (await p.locator("main").boundingBox())!;
-      expect(Math.abs(rightCorner.x + rightCorner.width - (main.x + main.width - 12))).toBeLessThan(2);
-      const toolbar = (await p.getByRole("navigation", { name: "Ferramentas" }).boundingBox())!;
-      expect(rightCorner.x).toBeGreaterThan(toolbar.x + toolbar.width);
+      await expect.poll(() => showRight.count()).toBe(1);
+      expect(await p.locator(rightPanel).isVisible()).toBe(false);
+      const toolbar = (await p.getByRole("toolbar", { name: "Ferramentas" }).boundingBox())!;
+      const rightButton = (await showRight.boundingBox())!;
+      expect(rightButton.x).toBeGreaterThan(toolbar.x + toolbar.width);
       await showRight.click();
-      expect(await width("aside.right")).toBe(280);
+      await expect.poll(() => width(rightPanel)).toBe(320);
 
+      // pelo teclado: Enter no separador recolhe e o foco fica nele (o antigo o levava ao botão de mostrar); outro Enter devolve a largura
       await left.focus();
-      await p.keyboard.press("Home");
-      await p.keyboard.press("ArrowLeft");
-      expect(await left.count()).toBe(0);
-      expect(await showLeft.evaluate((el) => el === document.activeElement)).toBe(true);
       await p.keyboard.press("Enter");
-      expect(await width("aside.left")).toBe(200);
+      await expect.poll(() => showLeft.count()).toBe(1);
+      expect(await left.evaluate((el) => el === document.activeElement)).toBe(true);
+      await p.keyboard.press("Enter");
+      await expect.poll(() => width(leftPanel)).toBe(248);
     } finally {
       await p.close();
     }
   });
 
-  for (const renderer of ["dom", "wasm"] as const) {
-    it.skipIf(renderer === "wasm" && !wasmBuilt)(`renderizador ${renderer}: a imagem solta é a mesma do fim do arraste`, async () => {
+  // PAP-E2E: depois de recarregar, o botão de mostrar devolve a largura padrão (248), não a última que o painel tinha (o antigo guardava a última)
+  it.fails("um painel recolhido, depois de recarregar, volta à última largura ao mostrar", async () => {
+    const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await pinLocale(p, "pt-BR");
+    try {
+      const { active } = (await (await fetch(`${server.url}/api/workspaces`)).json()) as { active: string };
+      await p.goto(`${server.url}/w/${encodeURIComponent(active)}`);
+      await p.waitForSelector(NODE);
+      const leftPanel = 'aside[aria-label="Painel de camadas"]';
+      const width = () => p.locator(leftPanel).evaluate((el) => Math.round(el.getBoundingClientRect().width));
+      const left = p.getByRole("separator", { name: "Redimensionar painel de camadas" });
+      const b = (await left.boundingBox())!;
+      for (const dx of [60, -400]) {
+        const at = (await left.boundingBox()) ?? b;
+        await p.mouse.move(at.x + at.width / 2, at.y + 200);
+        await p.mouse.down();
+        await p.mouse.move(at.x + at.width / 2 + dx / 2, at.y + 200);
+        await p.mouse.move(at.x + at.width / 2 + dx, at.y + 200);
+        await p.mouse.up();
+        if (dx === 60) await expect.poll(width).toBe(308);
+      }
+      const show = p.getByRole("button", { name: "Mostrar painel de camadas" });
+      await expect.poll(() => show.count()).toBe(1);
+      await p.reload();
+      await p.waitForSelector(NODE);
+      await show.click();
+      await expect.poll(width).toBe(308);
+    } finally {
+      await p.close();
+    }
+  });
+
+  for (const renderer of ["dom", "cpu"] as const) {
+    it.skipIf(renderer === "cpu" && !wasmBuilt)(`renderizador ${renderer}: a imagem solta é a mesma do fim do arraste`, async () => {
       await open(renderer);
       const b = await shown();
       const viewport = page.getByTestId("viewport");
@@ -492,7 +517,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: drag and drop reparent e arquivos (P
     const before = Object.keys((await server.doc()).nodes).length;
     const at = await page.evaluate(async (pngB64) => {
       const frame = document.querySelector('[data-paprika-id="login"]')!.getBoundingClientRect();
-      const zoom = new DOMMatrix(getComputedStyle(document.querySelector(".world")!).transform).a || 1;
+      const zoom = new DOMMatrix(getComputedStyle(document.querySelector("[data-canvas-world]")!).transform).a || 1;
       const dt = new DataTransfer();
       dt.items.add(new File([Uint8Array.from(atob(pngB64), (c) => c.charCodeAt(0))], "pixel.png", { type: "image/png" }));
       const target = document.querySelector('[data-testid="viewport"]')!;
