@@ -19,6 +19,10 @@ const BinaryName = "paprika-sync"
 
 var ErrNoSidecar = errors.New("sidecar not found: build crates/sync (cargo build --release) and put paprika-sync next to paprika, or set PAPRIKA_SYNC")
 
+var ErrNoSidecarInImage = errors.New("the slim image has no team mode (no paprika-sync sidecar): use the default image for serve --team")
+
+const imageWebRoot = "/app/web"
+
 func FindBinary() (string, error) {
 	if p := os.Getenv("PAPRIKA_SYNC"); p != "" {
 		if _, err := os.Stat(p); err != nil {
@@ -34,6 +38,9 @@ func FindBinary() (string, error) {
 	}
 	if p, err := exec.LookPath(BinaryName); err == nil {
 		return p, nil
+	}
+	if os.Getenv("PAPRIKA_WEB_ROOT") == imageWebRoot {
+		return "", ErrNoSidecarInImage
 	}
 	return "", ErrNoSidecar
 }
