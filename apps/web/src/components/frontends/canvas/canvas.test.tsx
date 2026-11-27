@@ -1,4 +1,4 @@
-import { canvasBounds, type Document } from "@paprika/core";
+import { applyOps, canvasBounds, createDocument, type Document, type Op } from "@paprika/core";
 import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { everyKindDocument, stubLayout, testDefaults } from "@/test/canvas-fixtures";
@@ -69,6 +69,8 @@ describe("rendering of every kind of node", () => {
     const spans = [...title.children];
     expect(spans.map((s) => s.tagName)).toEqual(["SPAN", "SPAN", "SPAN", "A", "SPAN"].slice(0, spans.length));
     expect(title.querySelector("a")).toHaveAttribute("href", "https://example.com");
+    // The app resets an anchor to `color: inherit`; the link takes the browser's own colour back, as in the export (a colour of the run itself is inline and wins).
+    expect(title.querySelector("a")).toHaveClass("[color:revert]");
     expect(title.querySelector("span[style*='font-weight']")?.textContent).toBe("brave");
     expect(node(world, "plain")?.textContent).toBe("Just text");
     expect(node(world, "plain")?.children).toHaveLength(0);
@@ -123,6 +125,19 @@ describe("the camera", () => {
     expect(v.zoom).toBeCloseTo(1, 5);
     expect(v.x).toBeCloseTo((1000 - b.width) / 2 - b.x, 3);
     expect(v.y).toBeCloseTo((800 - b.height) / 2 - b.y, 3);
+  });
+
+  it("opens a page with nothing on it at 100 %, in a room too narrow for the stand-in box to fit (870 px wide, as with the editor's panels)", () => {
+    restore();
+    restore = stubLayout({ width: 870, height: 640 });
+    const empty = applyOps(createDocument("Empty", "doc-2"), [{ op: "add_page", id: "p", name: "Page" } as unknown as Op]).doc;
+    const { world, viewport, feed } = mount(empty, { pageId: "p" });
+    expect(viewport).toBeTruthy();
+    expect(transform(world)).toEqual({ x: (870 - 800) / 2, y: (640 - 600) / 2, zoom: 1 });
+    // a page with a frame still fits it
+    act(() => feed.update({ doc: everyKindDocument(), pageId: "page", fitRequest: 1 }));
+    frames();
+    expect(transform(world)?.zoom).toBeLessThanOrEqual(1);
   });
 
   it("writes the transform on the world element and the camera on the overlay layer, with no React render", () => {
@@ -303,7 +318,7 @@ describe("selection and hover", () => {
     act(() => feed.update({ selection: ["home"] }));
     const box = overlays.querySelector<HTMLElement>("[data-selection-box='home']") as HTMLElement;
     expect(box.style).toMatchObject({ display: "block", left: "100px", top: "80px", width: "400px", height: "300px" });
-    expect(box.style.borderWidth).toBe("calc(1.5px / var(--view-zoom))");
+    expect(box.style.boxShadow).toBe("inset 0 0 0 calc(1.5px / var(--view-zoom, 1)) var(--color-select-brand)");
     expect(overlays.querySelector("[data-selection-group]")).toHaveStyle({ display: "none" });
     act(() => feed.update({ selection: ["home", "box"] }));
     expect(overlays.querySelector("[data-selection-group]")).toHaveStyle({ display: "block", left: "100px", width: "660px" });

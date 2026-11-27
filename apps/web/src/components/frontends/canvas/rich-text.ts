@@ -1,5 +1,12 @@
 import { textPieces, type TextRun } from "@paprika/core";
 
+/**
+ * A link inside a text has the browser's own link colour, as it has in the export and the screenshot (`nodeStyle` gives it an underline
+ * and no colour). The app's Preflight resets an anchor to `color: inherit`; `revert` takes the user agent's rule back (visited and active included).
+ * A colour the run sets itself is inline and wins.
+ */
+export const LINK_CLASS = "[color:revert]";
+
 /** A run carries a mark (weight, colour, size, italic or link): one that has none is no run at all. */
 export function runStyled(run: TextRun): boolean {
   return run.fontWeight !== undefined || run.color !== undefined || run.fontSize !== undefined || run.italic === true || !!run.href;
@@ -122,6 +129,7 @@ export function paintEditable(root: HTMLElement, text: string, runs: readonly Te
     }
     if (piece.run.href) {
       el.setAttribute("href", piece.run.href);
+      el.className = LINK_CLASS;
       el.style.textDecoration = "underline";
     }
     el.textContent = piece.text;
