@@ -133,7 +133,13 @@ export const networkRules: Rule[] = [
  * A path under `/api` written in a string (an image `src`, an `<a href>`, a `new Image()` that loads it) is a request made
  * outside `data/`, whatever the element. It does not apply to tests, which name the URLs their fake server answers.
  */
-const apiPath: Rule = { id: "api path", view: "text", pattern: /(["'`])\/api(?![\w-])/ };
+const apiPath: Rule = {
+  id: "api path",
+  view: "text",
+  // The string starts with the path (`"/api/x"`), or with an origin or an interpolation before it (`"http://host/api"`, `${base}/api/x`). The socket's `/ws` and the MCP endpoint `/mcp` are the other
+  // routes the server answers: `/fonts` is left out because a stylesheet link to it (`routes/__root.tsx`) is a static asset, not a request the app makes.
+  pattern: /(["'`])(?:[^"'`\n]*?(?:\}|:\/\/[^/"'`\s]*))?\/(?:api|ws|mcp)(?![\w-])/i,
+};
 
 const hexColor: Rule = {
   id: "hex color",
@@ -482,10 +488,16 @@ export function posixRelative(from: string, to: string) {
 export const appLayers = ["data", "adapters", "editor", "overview", "routes", "perf"] as const;
 export type AppLayer = (typeof appLayers)[number];
 
-const networkFreeDirs = ["adapters", "editor", "overview", "routes", "perf", "i18n", "lib"];
+/**
+ * Where the network rules do NOT apply: `data/` is the layer that talks to the server, `test/` is the shared test harness (its fake socket and
+ * server) and `components/` has its own test (`components/architecture.test.ts`). Everything else under `src/` is checked, so a folder that is
+ * added later (`hooks/`, `services/`) is covered without anyone remembering to list it.
+ */
+const networkAllowedTop = new Set(["data", "test", "components"]);
+export const isNetworkFree = (display: string) => !networkAllowedTop.has(display.split("/")[0] as string);
 
 export const moduleScopeCreators =
-  /(?<![\w$.])(?:createStore\s*[(<]|createLiveClient\s*\(|createPerfLog\s*\(|createQueryClient\s*\(|new\s+(?:Store|QueryClient|LiveSocket|WebSocket|Worker|SharedWorker|EventSource|XMLHttpRequest)\b)/g;
+  /(?<![\w$.])(?:createStore\s*[(<]|createLiveClient\s*\(|createPerfLog\s*\(|createQueryClient\s*\(|setInterval\s*\(|(?:window\s*\.\s*|document\s*\.\s*|globalThis\s*\.\s*)?addEventListener\s*\(|new\s+(?:Store|QueryClient|LiveSocket|WebSocket|Worker|SharedWorker|EventSource|XMLHttpRequest|AbortController|BroadcastChannel|MutationObserver|ResizeObserver|IntersectionObserver)\b)/g;
 
 export function appLayerOf(path: string): AppLayer | null {
   const top = path.split("/")[0] as string;
@@ -510,6 +522,9 @@ export function typedSpecifiers(scanned: Scanned): TypedSpecifier[] {
 
 /** Rule id of the adapter check for a `let` or `var` at the top level (an exception names it, with the finding that removes it). */
 export const mutableState = { id: "mutable module state (let)" };
+export const mutableCollectionRule = { id: "Map or Set at module scope" };
+/** An EMPTY `Map` or `Set` is a cache waiting to be filled; one made from its contents (`new Set(["a", "b"])`) is a constant lookup table and is fine. */
+const mutableCollection = /(?<![\w$.])new\s+(?:Map|Set)\s*(?:<[^()]*?>)?\s*\(\s*\)/g;
 
 const adapterPackages = [/^@paprika\/core$/];
 const adapterTypeOnlyPaths = [/^data\/live\/protocol$/, /^data\/queries\/[\w-]+$/, /^components\/frontends\/[\w-]+(?:\/[\w.-]+)?$/];
@@ -522,6 +537,8 @@ export function checkAdapterFile(env: Environment, file: string, source: string,
     if (createsStoreAtModuleScope(scanned)) out.push(`${display}: store created at module scope`);
     if (/(?<![\w$.])(?:use[A-Z]\w*|use|createContext)\s*[(<]/.test(scanned.code)) out.push(`${display}: React hook or context in an adapter`);
     if (!(exceptions[display] ?? []).includes(mutableState.id) && mutableModuleState(scanned)) out.push(`${display}: ${mutableState.id}`);
+    // A `Map` or `Set` made at import time is a cache that outlives a call and makes the result depend on the previous one. A `WeakMap` keyed by the input object is the one memo allowed (its entries go with the input).
+    if (!(exceptions[display] ?? []).includes(mutableCollectionRule.id) && createsAtModuleScope(scanned, mutableCollection)) out.push(`${display}: ${mutableCollectionRule.id}`);
   }
   out.push(...applyRules(scanned, [storageAccess]).map((id) => `${display}: ${id}`));
   const seen = new Set<string>();
@@ -558,10 +575,9 @@ export function checkAdapterFile(env: Environment, file: string, source: string,
 /** Network rule for the layers that must go through `data/`, and the import-time creation rule for the layers that hold state. */
 export function checkAppFile(env: Environment, file: string, source: string, exceptions: TestException = {}): string[] {
   const display = posixRelative(env.srcDir, file);
-  const top = display.split("/")[0] as string;
   const scanned = scan(source);
   const out: string[] = [];
-  if (networkFreeDirs.includes(top) || display === "router.tsx") out.push(...networkViolations(scanned, display, exceptions).map((id) => `${display}: ${id}`));
+  if (isNetworkFree(display)) out.push(...networkViolations(scanned, display, exceptions).map((id) => `${display}: ${id}`));
   if (appLayerOf(display) !== null && !isTest(file) && createsAtModuleScope(scanned, moduleScopeCreators)) out.push(`${display}: store, socket or client created at module scope`);
   return out;
 }
