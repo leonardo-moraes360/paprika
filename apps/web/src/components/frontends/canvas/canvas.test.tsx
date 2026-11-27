@@ -210,6 +210,15 @@ describe("the camera", () => {
     expect(viewport.dataset.pan).toBeUndefined();
   });
 
+  it("Space pans with the focus on the viewport itself, even when it matches :focus-visible after a click", () => {
+    const { viewport } = mount();
+    const matches = viewport.matches.bind(viewport);
+    viewport.matches = (selector: string) => selector === ":focus-visible" || matches(selector);
+    fireEvent.keyDown(viewport, { code: "Space" });
+    expect(viewport.dataset.pan).toBe("ready");
+    fireEvent.keyUp(viewport, { code: "Space" });
+  });
+
   it("Space typed into a text field does not pan", () => {
     const { viewport } = mount();
     const input = document.body.appendChild(document.createElement("input"));

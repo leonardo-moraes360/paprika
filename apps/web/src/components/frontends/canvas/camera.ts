@@ -18,7 +18,7 @@ export type CameraController = {
 const typing = (target: EventTarget | null) =>
   target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable);
 
-/** A key press that goes to a focused control the person reached with the keyboard (Space there is a click, not a pan). */
+/** A key press that goes to a focused control the person reached with the keyboard (Space there is a click, not a pan; the viewport itself is no control, and a click on it leaves it :focus-visible). */
 const keyboardFocus = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement) || target === document.body) return false;
   try {
@@ -121,7 +121,7 @@ export function useCamera(rt: CanvasRuntime, viewportRef: RefObject<HTMLElement 
   useEffect(() => {
     const isSpace = (e: KeyboardEvent) => e.code === "Space";
     const down = (e: KeyboardEvent) => {
-      if (!isSpace(e) || typing(e.target) || keyboardFocus(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (!isSpace(e) || typing(e.target) || (e.target !== viewportRef.current && keyboardFocus(e.target)) || e.ctrlKey || e.metaKey || e.altKey) return;
       e.preventDefault();
       if (rt.input.space) return;
       rt.input.space = true;
