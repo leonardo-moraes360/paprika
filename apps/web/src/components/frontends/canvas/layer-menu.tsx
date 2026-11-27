@@ -99,7 +99,7 @@ export function useLayerMenu(rt: CanvasRuntime, props: RefObject<CanvasProps>): 
               })}
               {payload.center || payload.convert ? <MenuSeparator /> : null}
               {payload.center ? (
-                <MenuCheckboxItem value="center" checked={!payload.center.centered} onCheckedChange={onCenter} aria-keyshortcuts={CENTER_KEY} data-testid="center-content">
+                <MenuCheckboxItem value="center" checked={!payload.center.centered} onCheckedChange={onCenter} closeOnSelect aria-keyshortcuts={CENTER_KEY} data-testid="center-content">
                   <span className="flex items-center justify-between gap-3">
                     <span className="min-w-0 truncate">{t("frontends.canvas.select.menu.center")}</span>
                     <span aria-hidden="true" className="flex shrink-0 gap-1">

@@ -1,5 +1,5 @@
 import { applyOps, type Document, type Op } from "@paprika/core";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -448,6 +448,8 @@ describe("the layers menu", () => {
     await user().click(within(menu).getByRole("menuitemcheckbox", { name: /Center content/ }));
     expect(onCenterContent).toHaveBeenCalledTimes(1);
     expect(onCenterContent).toHaveBeenCalledWith(["home"]);
+    // a command, not a setting: the menu closes, so the editor's keys (Ctrl+Z) reach the page again
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
   });
 
   it("does nothing over empty space or with another tool", () => {
