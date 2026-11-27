@@ -9,7 +9,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { startServer, type ExternalServer } from "../harness.js";
 import { pinLocale } from "./locale.js";
 import { repoRoot as root, webDist as webRoot } from "./seededCanvas.js";
-import { chooseRenderer, hasWasmAsset, openCanvas, rendererMenu, timedChoose, HIDE_FLOATING, isTeamProbe, viewportShot, workspaceCanvasUrl, WORLD, type Renderer } from "./support-e2.js";
+import { chooseRenderer, hasWasmAsset, openCanvas, rendererMenu, timedChoose, HIDE_FLOATING, viewportShot, workspaceCanvasUrl, WORLD, type Renderer } from "./support-e2.js";
 
 const wasmBuilt = existsSync(webRoot) && hasWasmAsset();
 const shots = process.env.PAPRIKA_E2E_SHOTS;
@@ -583,7 +583,7 @@ function useFixtureServer(example: string, opts: { consoleErrors?: boolean } = {
     ctx.page.on("pageerror", (e) => ctx.errors.push(e.message));
     if (opts.consoleErrors)
       ctx.page.on("console", (m) => {
-        if (m.type() === "error" && !isTeamProbe(m)) ctx.errors.push(m.text());
+        if (m.type() === "error") ctx.errors.push(m.text());
       });
   }, 60_000);
   afterAll(async () => {

@@ -1,6 +1,6 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import type { ConsoleMessage, Page } from "playwright";
+import type { Page } from "playwright";
 import { webDist } from "./seededCanvas.js";
 
 /** The world element of the canvas: the nodes live under it. */
@@ -92,4 +92,3 @@ export const viewportShot = (page: Page) => page.getByTestId("viewport").screens
  * The console error of `GET /api/team` answering 404: a server without `--team` has no such route, the app asks anyway, reads the
  * refusal as "no team" and the browser logs it. It is the one expected console error of a page opened on a local server.
  */
-export const isTeamProbe = (msg: ConsoleMessage) => msg.type() === "error" && msg.location().url.endsWith("/api/team") && /404/.test(msg.text());

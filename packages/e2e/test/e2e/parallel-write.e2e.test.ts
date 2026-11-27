@@ -9,7 +9,6 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { pinLocale } from "./locale.js";
 import { startServer, type ExternalServer } from "../harness.js";
 import { webDist as webRoot } from "./seededCanvas.js";
-import { isTeamProbe } from "./support-e2.js";
 const sessions = 6;
 const writesEach = 8;
 
@@ -28,7 +27,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: muitos agentes escrevendo ao mesmo t
     page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     page.on("pageerror", (err) => pageErrors.push(err.message));
     page.on("console", (msg: ConsoleMessage) => {
-      if (msg.type() === "error" && !isTeamProbe(msg)) consoleErrors.push(msg.text());
+      if (msg.type() === "error") consoleErrors.push(msg.text());
     });
     await pinLocale(page, "pt-BR");
     const { active } = (await (await fetch(`${external.url}/api/workspaces`)).json()) as { active: string };
