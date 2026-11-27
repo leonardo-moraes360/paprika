@@ -52,6 +52,10 @@ export type CanvasProps = {
   onApply?: (ops: Op[], label: string) => Promise<boolean>;
   onToolDone?: () => void;
   onError?: (message: string) => void;
+  /** The layers menu asked to turn these layers (a rectangle or an ellipse) into a path. */
+  onConvertToPath?: (ids: readonly string[]) => void;
+  /** The layers menu asked to centre the content of these layers. */
+  onCenterContent?: (ids: readonly string[]) => void;
   className?: string;
 };
 
@@ -84,3 +88,10 @@ export type CanvasOverlay = {
   /** Rendered once in the overlay layer, in WORLD coordinates (the layer carries the camera). Read the runtime with `useCanvasRuntime()`. */
   Component: ComponentType;
 };
+
+/**
+ * What a double click does. Asked in the order of `gestures/double-click.ts`; the first that returns `true` handled it and the
+ * rest never see it. A batch that opens an editor (text, a path, a connector label) puts its handler BEFORE the generic one
+ * that selects the node under the pointer.
+ */
+export type DoubleClickHandler = (rt: CanvasRuntime, event: MouseEvent) => boolean;

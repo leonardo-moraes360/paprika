@@ -42,6 +42,8 @@ export type CanvasRuntime = {
   apply: (ops: Op[], label: string) => Promise<boolean>;
   toolDone: () => void;
   error: (message: string) => void;
+  /** A string of this frontend (`frontends.canvas.<path>`) in the language of the app: history labels, aria-labels. */
+  text: (path: string, options?: Record<string, unknown>) => string;
 };
 
 export type RuntimeParts = {
@@ -59,6 +61,7 @@ export type RuntimeParts = {
     apply?: (ops: Op[], label: string) => Promise<boolean>;
     toolDone?: () => void;
     error?: (message: string) => void;
+    text?: (path: string, options?: Record<string, unknown>) => string;
   };
 };
 
@@ -112,6 +115,7 @@ export function createRuntime(parts: RuntimeParts): CanvasRuntime {
     },
     toolDone: () => callbacks().toolDone?.(),
     error: (message) => callbacks().error?.(message),
+    text: (path, options) => callbacks().text?.(path, options) ?? path,
   };
 }
 

@@ -16,6 +16,7 @@ import { overviewEn } from "./frontends/overview";
 import { importDialogEn } from "./frontends/importDialog";
 import { exportDialogEn } from "./frontends/exportDialog";
 import { canvasErrorEn } from "./frontends/canvasError";
+import { canvasSelectEn } from "./frontends/canvasSelect";
 
 export const en = {
   app: appEn,
@@ -90,6 +91,7 @@ export const en = {
     importDialog: importDialogEn,
     exportDialog: exportDialogEn,
     canvasError: canvasErrorEn,
+    canvas: { select: canvasSelectEn },
     overview: overviewEn,
   },
 } as const;

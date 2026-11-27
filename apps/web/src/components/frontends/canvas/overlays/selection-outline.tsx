@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { unionBox } from "../geometry";
 import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
@@ -21,7 +21,7 @@ export function SelectionOutline() {
   const nodes = useRef(new Map<string, HTMLElement>());
   const group = useRef<HTMLDivElement>(null);
 
-  useLayoutEffect(() => {
+  const place = useCallback(() => {
     const boxes: NodeBox[] = [];
     for (const id of selection) {
       const box = rt.measure(id);
@@ -30,7 +30,10 @@ export function SelectionOutline() {
     }
     const all = unionBox(boxes);
     placeBox(group.current, all && boxes.length > 1 ? { ...all, rotation: 0 } : null);
-  }, [rt, selection, preview, docVersion]);
+  }, [rt, selection]);
+  useLayoutEffect(place, [place, preview, docVersion]);
+  // The viewport is attached after its children's first layout pass: a selection that is there from the start is measured once more.
+  useEffect(place, [place]);
 
   if (selection.length === 0) return null;
   return (

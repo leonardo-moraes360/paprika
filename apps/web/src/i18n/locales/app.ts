@@ -20,6 +20,11 @@ export const appEn = {
     openFailed: "Could not open the workspace.",
     coverConvertFailed: "The image could not be converted.",
   },
+  canvas: {
+    l1: {
+      labels: { front: "bring to front", forward: "bring forward", back: "send to back", backward: "send backward" },
+    },
+  },
   shell: {
     rightTabs: { label: "Right panel", properties: "Properties", team: "Team" },
     mcpOn: "MCP at /mcp",
@@ -209,6 +214,11 @@ export const appPtBR: typeof appEn = {
     loadFailed: "Não foi possível carregar os workspaces.",
     openFailed: "Não foi possível abrir o workspace.",
     coverConvertFailed: "Não foi possível converter a imagem.",
+  },
+  canvas: {
+    l1: {
+      labels: { front: "trazer para frente", forward: "avançar", back: "enviar para fundo", backward: "recuar" },
+    },
   },
   shell: {
     rightTabs: { label: "Painel direito", properties: "Propriedades", team: "Time" },

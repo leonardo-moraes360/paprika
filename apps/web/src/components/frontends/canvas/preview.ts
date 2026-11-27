@@ -15,6 +15,8 @@ export type PreviewController = {
   commit: (ids: readonly string[], result: Promise<boolean>) => void;
   /** Called with every document the canvas gets. */
   reconcile: (doc: Document) => void;
+  /** The canvas is (again) on screen: a commit answers again. StrictMode runs a mount's cleanup and setup once more, which would leave a disposed controller deaf to the server's answer. */
+  attach: () => void;
   dispose: () => void;
 };
 
@@ -80,6 +82,9 @@ export function createPreviewController(actions: Pick<CanvasActions, "setPreview
       reconcile(read().doc);
     },
     reconcile,
+    attach: () => {
+      disposed = false;
+    },
     dispose: () => {
       disposed = true;
       held = [];

@@ -1,6 +1,9 @@
 import type { CanvasOverlay } from "../types";
 import { FrameLabels } from "./frame-labels";
+import { DropMarker } from "./drop-marker";
+import { SelectionHandlesOverlay } from "./handles";
 import { HoverOutline } from "./hover-outline";
+import { MarqueeBox } from "./marquee-box";
 import { SelectionOutline } from "./selection-outline";
 
 /**
@@ -12,4 +15,7 @@ export const overlays: readonly CanvasOverlay[] = [
   { id: "frame-labels", Component: FrameLabels },
   { id: "hover-outline", Component: HoverOutline },
   { id: "selection-outline", Component: SelectionOutline },
+  { id: "drop-marker", Component: DropMarker },
+  { id: "marquee-box", Component: MarqueeBox },
+  { id: "selection-handles", Component: SelectionHandlesOverlay },
 ];
