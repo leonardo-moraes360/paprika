@@ -33,7 +33,7 @@ export const MAX_ENTRIES = 5000;
  * makes the outer one report the inner one's commits. When all of an outer commit's time is the inner regions' (what is
  * left is the bookkeeping of components that bailed out), the commit is the inner region's alone and is not the outer's.
  */
-export const NESTED_ONLY_MS = 0.05;
+export const NESTED_ONLY_MS = 0.25;
 
 export function createPerfLog(): PerfLog {
   let regions = new Map<string, RegionStats>();
