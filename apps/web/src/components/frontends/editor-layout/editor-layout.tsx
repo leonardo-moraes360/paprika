@@ -11,6 +11,7 @@ import {
   type ResizableLayoutCommitDetails,
 } from "@/components/ui/resizable";
 import { Tooltip } from "@/components/ui/tooltip";
+import { readPersistedJson, writePersistedJson } from "@/lib/persist";
 import { cn } from "@/lib/utils";
 import { persistedLayoutStorage } from "./storage";
 import {
@@ -24,6 +25,9 @@ import {
 
 const sides = ["left", "right"] as const;
 const panelIndex = { left: 0, right: 2 } as const;
+
+const isOpenWidths = (value: unknown): value is Partial<Record<EditorLayoutSide, number>> =>
+  typeof value === "object" && value !== null && Object.values(value).every((width) => typeof width === "number" && Number.isFinite(width));
 
 const clamp = (value: number, size: EditorLayoutPanelSize) => Math.round(Math.min(size.max, Math.max(size.min, value)));
 
@@ -55,10 +59,19 @@ export function EditorLayout({
   const focusHandle = useRef<EditorLayoutSide | null>(null);
   const [rtl, setRtl] = useState(false);
   const [syncTick, setSyncTick] = useState(0);
+  const openKey = storageKey && !value ? `ui-sdk-resizable:${storageKey}:open` : undefined;
+  const [remembered] = useState(() => (openKey ? readPersistedJson(openKey, isOpenWidths) : null) ?? {});
   const lastOpen = useRef({
     left: clamp(value?.left ?? defaultValue?.left ?? leftSize.initial, leftSize),
     right: clamp(value?.right ?? defaultValue?.right ?? rightSize.initial, rightSize),
   });
+
+  const rememberOpen = (layout: number[]) => {
+    const before = { ...lastOpen.current };
+    measure(layout);
+    const { left: l, right: r } = lastOpen.current;
+    if (openKey && (before.left !== l || before.right !== r)) writePersistedJson(openKey, { left: l, right: r });
+  };
 
   const text: Record<EditorLayoutSide, EditorLayoutPanelLabels> = {
     left: {
@@ -110,6 +123,7 @@ export function EditorLayout({
   const onLayoutCommit = (layout: number[], details: ResizableLayoutCommitDetails) => {
     watchCollapse();
     if (details.reason === "imperative") return;
+    rememberOpen(layout);
     onValueCommit?.(measure(layout));
     if (value) setSyncTick((tick) => tick + 1);
   };
@@ -162,7 +176,8 @@ export function EditorLayout({
     }
   }, [value?.left, value?.right, value?.leftCollapsed, value?.rightCollapsed, syncTick]);
 
-  const initialSize = (side: EditorLayoutSide) => `${clamp(defaultValue?.[side] ?? limits[side].initial, limits[side])}px` as const;
+  const initialSize = (side: EditorLayoutSide) =>
+    `${clamp(remembered[side] ?? defaultValue?.[side] ?? limits[side].initial, limits[side])}px` as const;
 
   return (
     <div ref={root} className={cn("relative size-full min-w-0", className)}>

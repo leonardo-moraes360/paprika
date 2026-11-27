@@ -158,6 +158,24 @@ describe("EditorLayout", () => {
     expect(panel("left")).toHaveAttribute("inert");
   });
 
+  it("brings a collapsed panel back at its last width after a reload", async () => {
+    const user = userEvent.setup();
+    const { unmount } = await setup({ storageKey: "editor" });
+    const initial = Number(sep(0).getAttribute("aria-valuenow"));
+    sep(0).focus();
+    for (let i = 0; i < 20; i++) await user.keyboard("{ArrowRight}");
+    const widened = Number(sep(0).getAttribute("aria-valuenow"));
+    expect(widened).toBeGreaterThan(initial);
+    await user.keyboard("{Enter}");
+    expect(leftHandle()).toHaveAttribute("aria-expanded", "false");
+    unmount();
+    await setup({ storageKey: "editor" });
+    expect(leftHandle()).toHaveAttribute("aria-expanded", "false");
+    await user.click(leftHandle());
+    expect(leftHandle()).toHaveAttribute("aria-expanded", "true");
+    expect(Number(sep(0).getAttribute("aria-valuenow"))).toBeCloseTo(widened, 0);
+  });
+
   it("works when storage is blocked", async () => {
     const blocked = vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
       throw new Error("denied");
