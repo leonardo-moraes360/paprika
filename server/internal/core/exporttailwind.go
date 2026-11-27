@@ -330,7 +330,7 @@ func ExportTailwind(doc *Document, rootID string, cssVariables bool) (string, er
 	if cssVariables {
 		tokens = "export const tokensCss = " + jsonv.Quote(TokenStylesheet(doc)) + ";\n\n"
 	}
-	return tokens + "export function " + exportName(node) + "() {\n  return (\n" + jsxNode(doc, node, true, "    ", cssVariables, tailwindClassNameAttr) + "\n  );\n}\n", nil
+	return tokens + "export function " + exportName(node) + "() {\n  return (\n" + jsxNode(doc, node, true, "    ", cssVariables, tailwindClassNameAttr, 0) + "\n  );\n}\n", nil
 }
 
 type CSSModuleExport struct {
@@ -384,7 +384,7 @@ func ExportCSSModules(doc *Document, rootID string, cssVariables bool) (CSSModul
 	}
 	name := exportName(node)
 	sheet := &cssModuleSheet{used: map[string]bool{}, shared: map[string]string{}}
-	body := jsxNode(doc, node, true, "    ", cssVariables, sheet.emit)
+	body := jsxNode(doc, node, true, "    ", cssVariables, sheet.emit, 0)
 	tokens := ""
 	if cssVariables {
 		tokens = TokenStylesheet(doc) + "\n"
