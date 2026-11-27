@@ -380,6 +380,25 @@ describe("LayersPanel", () => {
     expect(screen.getByRole("treeitem", { name: "Layer 1" })).toHaveFocus();
   });
 
+  it("does not move the list when the layer is picked in the tree itself, even one cut at the bottom edge", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(280);
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(280);
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(600 * 30);
+    const scrollTo = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: scrollTo });
+    const many = (selected?: string): LayerRowData[] => Array.from({ length: 600 }, (_, index) => ({ ...base, id: `n${index}`, name: `Layer ${index}`, kind: "rect" as const, selected: `n${index}` === selected }));
+    const onSelect = vi.fn();
+    const handlers = { onRename: vi.fn(), onMove: vi.fn(), onToggleVisible: vi.fn(), onToggleLocked: vi.fn() };
+    const { rerender } = render(<LayersPanel rows={many()} onSelect={onSelect} {...handlers} />);
+    scrollTo.mockClear();
+    await user.click(screen.getByRole("treeitem", { name: "Layer 9" }));
+    expect(onSelect).toHaveBeenCalled();
+    rerender(<LayersPanel rows={many("n9")} onSelect={onSelect} {...handlers} />);
+    expect(scrollTo).not.toHaveBeenCalled();
+    Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
+  });
+
   it("scrolls a layer selected elsewhere into view in a long list, and leaves a visible one alone", () => {
     vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(280);
     vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(280);
