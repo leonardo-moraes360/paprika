@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { ErrorBanner } from "@/components/ui/error-banner";
+import { NoticeCard } from "@/components/ui/notice-card";
 import { ExportCode } from "@/components/ui/export-code";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { copyText } from "@/lib/copy-text";
@@ -207,9 +207,13 @@ export function ExportDialog({
         imagePanel
       )}
       {failure ? (
-        <ErrorBanner action={mode === "code" && code.status === "error" ? <Button size="sm" variant="secondary" onClick={() => { setFailure(null); setAttempt((n) => n + 1); }}>{t("frontends.exportDialog.code.retry")}</Button> : undefined}>
-          {failure.kind === "copy" ? t("frontends.exportDialog.failures.copy") : t(`frontends.exportDialog.failures.${failure.kind}`, { reason: failure.reason })}
-        </ErrorBanner>
+        <NoticeCard
+          variant="band"
+          status="danger"
+          role="alert"
+          title={failure.kind === "copy" ? t("frontends.exportDialog.failures.copy") : t(`frontends.exportDialog.failures.${failure.kind}`, { reason: failure.reason })}
+          actions={mode === "code" && code.status === "error" ? <Button size="sm" variant="secondary" onClick={() => { setFailure(null); setAttempt((n) => n + 1); }}>{t("frontends.exportDialog.code.retry")}</Button> : undefined}
+        />
       ) : null}
       {copied ? (
         <p role="status" className="sr-only">

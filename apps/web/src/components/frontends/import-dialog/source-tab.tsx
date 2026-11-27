@@ -2,7 +2,7 @@ import { Link } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ErrorBanner } from "@/components/ui/error-banner";
+import { NoticeCard } from "@/components/ui/notice-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tag } from "@/components/ui/tag";
 import type { ImportSource } from "./types";
@@ -24,17 +24,19 @@ export function SourceTab({ source, selected, onToggle, onRetry }: SourceTabProp
       </div>
       <p className="px-2.5 text-xs font-bold tracking-[0.8px] text-muted uppercase">{t("frontends.importDialog.source.group")}</p>
       {source?.error ? (
-        <ErrorBanner
-          action={
+        <NoticeCard
+          variant="band"
+          status="danger"
+          role="alert"
+          title={source.error}
+          actions={
             onRetry ? (
               <Button size="sm" variant="secondary" onClick={onRetry}>
                 {t("frontends.importDialog.source.retry")}
               </Button>
             ) : undefined
           }
-        >
-          {source.error}
-        </ErrorBanner>
+        />
       ) : source?.loading || !source ? (
         <div role="status" aria-label={t("frontends.importDialog.source.loading")} className="flex flex-col gap-2">
           <Skeleton className="h-8" />

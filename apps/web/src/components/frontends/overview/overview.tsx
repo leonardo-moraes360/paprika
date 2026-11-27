@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyIllustration } from "@/components/ui/empty-illustration";
 import { EmptyState } from "@/components/ui/empty-state";
 import { errorMessageOr } from "@/lib/use-async-action";
-import { ErrorBanner } from "@/components/ui/error-banner";
+import { NoticeCard } from "@/components/ui/notice-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { useNow } from "@/lib/use-now";
@@ -228,19 +228,21 @@ function OverviewView({
           </div>
         </div>
         {error !== null ? (
-          <ErrorBanner
-            action={
+          <NoticeCard
+            variant="band"
+            status="danger"
+            role="alert"
+            title={t("frontends.overview.states.listFail", { reason: error })}
+            actions={
               onRetry ? (
                 <Button size="sm" variant="secondary" onClick={onRetry}>
                   {t("frontends.overview.states.retry")}
                 </Button>
               ) : undefined
             }
-          >
-            {t("frontends.overview.states.listFail", { reason: error })}
-          </ErrorBanner>
+          />
         ) : null}
-        {failure ? <ErrorBanner>{failure}</ErrorBanner> : null}
+        {failure ? <NoticeCard variant="band" status="danger" role="alert" title={failure} /> : null}
         {loading ? (
           <div role="status" aria-label={t("frontends.overview.states.loadingList")} className={gridClasses}>
             {[0, 1, 2].map((index) => (

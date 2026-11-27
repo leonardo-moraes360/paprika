@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { errorMessageOr } from "@/lib/use-async-action";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { ErrorBanner } from "@/components/ui/error-banner";
+import { NoticeCard } from "@/components/ui/notice-card";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { formatFileSize } from "@ui-sdk/react/file-input";
 import { FilesTab, type FileEntry } from "./files-tab";
@@ -191,7 +191,7 @@ export function ImportDialog({
           </TabsPanel>
         ))}
       </Tabs>
-      {failure ? <ErrorBanner>{failure}</ErrorBanner> : null}
+      {failure ? <NoticeCard variant="band" status="danger" role="alert" title={failure} /> : null}
     </Dialog>
   );
 }

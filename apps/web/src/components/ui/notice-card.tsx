@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { TriangleAlert, X } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { IconButton } from "./icon-button";
@@ -10,6 +10,8 @@ const bands = {
   success: "border-green-ink bg-green-soft text-green-soft-ink",
   info: "border-select bg-select-soft text-select-soft-ink",
 };
+
+const forcedColors = "forced-colors:border-[CanvasText] forced-colors:bg-[Canvas] forced-colors:text-[CanvasText]";
 
 export type NoticeCardProps = Omit<ComponentProps<"div">, "title"> & {
   title: ReactNode;
@@ -23,6 +25,21 @@ export type NoticeCardProps = Omit<ComponentProps<"div">, "title"> & {
 
 export function NoticeCard({ className, title, variant = "card", status = "info", leading, closeLabel, onClose, actions, children, ...props }: NoticeCardProps) {
   const band = variant === "band";
+  // A band with no body is the one-line strip of the design (list or action failed): icon, message and the action on the same row.
+  if (band && !children) {
+    return (
+      <div className={cn("flex w-full items-center gap-2.5 rounded-lg border px-3.5 py-3 text-sm font-semibold", bands[status], forcedColors, className)} {...props}>
+        {leading ?? <TriangleAlert aria-hidden="true" className="size-4 shrink-0" />}
+        <div className="min-w-0 flex-1">{title}</div>
+        {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+        {onClose && closeLabel ? (
+          <IconButton size="xs" aria-label={closeLabel} onClick={onClose}>
+            <X aria-hidden="true" />
+          </IconButton>
+        ) : null}
+      </div>
+    );
+  }
   return (
     <div
       className={cn(
