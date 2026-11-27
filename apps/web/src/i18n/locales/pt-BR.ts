@@ -1,3 +1,4 @@
+import { appPtBR } from "./app";
 import { activityPtBR } from "./frontends/activity";
 import { workspaceNoticePtBR } from "./frontends/workspaceNotice";
 import { historyPanelPtBR } from "./frontends/historyPanel";
@@ -17,6 +18,7 @@ import { exportDialogPtBR } from "./frontends/exportDialog";
 import { canvasErrorPtBR } from "./frontends/canvasError";
 
 export const ptBR: Translation = {
+  app: appPtBR,
   home: {
     title: "Paprika",
     tagline: "Uma ferramenta de design em que seus agentes de IA desenham.",

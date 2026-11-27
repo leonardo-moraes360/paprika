@@ -1,3 +1,4 @@
+import { appEn } from "./app";
 import { zoomBarEn } from "./frontends/zoomBar";
 import { toolbarEn } from "./frontends/toolbar";
 import { layersPanelEn } from "./frontends/layersPanel";
@@ -17,6 +18,7 @@ import { exportDialogEn } from "./frontends/exportDialog";
 import { canvasErrorEn } from "./frontends/canvasError";
 
 export const en = {
+  app: appEn,
   home: {
     title: "Paprika",
     tagline: "A design tool your AI agents can draw on.",

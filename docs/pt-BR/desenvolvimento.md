@@ -29,7 +29,7 @@ packages/core     modelo (zod), applyOps atômico, History, nodeStyle, render/ex
 server/        o servidor (Go + SQLite): MCP (stdio e HTTP), WebSocket, API HTTP, screenshot, CLI
 packages/e2e      suítes black-box contra o binário do servidor: API MCP/HTTP/WS e E2E do canvas (Playwright); fixtures/ guarda os documentos de exemplo (demo gerada via MCP por scripts/seed-demo.mjs)
 web-legacy       canvas React + Vite, o app que o servidor serve (`src/i18n/`: strings en + pt-BR, detecção/troca de idioma)
-apps/web          app novo em construção (TanStack Start); ainda não servido nem coberto por E2E
+apps/web          app novo em construção (TanStack Start): rotas `/` e `/w/$workspaceId` sobre a camada de dados ao vivo (`src/data/`); ainda não servido nem coberto por E2E
 apps/site         landing page (desenhada no Paprika) + site de docs, publicados em paprika.js.org
 ```
 

@@ -153,11 +153,16 @@ export function applyRules(scanned: Scanned, rules: Rule[]) {
   return rules.filter((rule) => rule.pattern.test(scanned[rule.view])).map((rule) => rule.id);
 }
 
-export function createsStoreAtModuleScope({ code }: Scanned) {
+export function createsStoreAtModuleScope(scanned: Scanned) {
+  return createsAtModuleScope(scanned, /(?<![\w$.])(?:createStore\s*[(<]|new\s+Store\b)/g);
+}
+
+/** True when `pattern` matches in code that runs at import time (outside any function, arrow or braces of a block). */
+export function createsAtModuleScope({ code }: Scanned, pattern: RegExp) {
   let depth = 0;
   let statementStart = 0;
   const hits = new Set<number>();
-  for (const match of code.matchAll(/(?<![\w$.])(?:createStore\s*[(<]|new\s+Store\b)/g)) hits.add(match.index);
+  for (const match of code.matchAll(pattern)) hits.add(match.index);
   for (let i = 0; i < code.length; i += 1) {
     const char = code[i];
     if (char === "{") depth += 1;
@@ -351,4 +356,123 @@ export function checkStructure(frontendsDir: string): string[] {
 
 export function posixRelative(from: string, to: string) {
   return posix.normalize(relative(from, to).split(sep).join("/"));
+}
+
+/**
+ * Layers of the app outside `components/`. `data/` is the only one that talks to the network. The rest:
+ * - `adapters/` is pure (no React, no stores, no network): `@paprika/core`, sibling adapters, pure `lib/*`, and TYPES
+ *   (`import type`) of `data/live/protocol`, `data/queries/*` and the frontends.
+ * - `editor/`, `overview/`, `routes/`, `perf/`, `lib/`, `i18n/` and `router.tsx` never touch the network (they go through `data/`).
+ * - nothing in `data/`, `adapters/`, `editor/`, `overview/`, `routes/`, `perf/` makes a store, a socket or a client at import time.
+ */
+export const appLayers = ["data", "adapters", "editor", "overview", "routes", "perf"] as const;
+export type AppLayer = (typeof appLayers)[number];
+
+const networkFreeDirs = ["adapters", "editor", "overview", "routes", "perf", "i18n", "lib"];
+
+export const moduleScopeCreators =
+  /(?<![\w$.])(?:createStore\s*[(<]|createLiveClient\s*\(|createPerfLog\s*\(|createQueryClient\s*\(|new\s+(?:Store|QueryClient|LiveSocket|WebSocket|Worker|SharedWorker|EventSource|XMLHttpRequest)\b)/g;
+
+export function appLayerOf(path: string): AppLayer | null {
+  const top = path.split("/")[0] as string;
+  return (appLayers as readonly string[]).includes(top) ? (top as AppLayer) : null;
+}
+
+type TypedSpecifier = Specifier & { typeOnly: boolean };
+
+/** Like `specifiers`, and tells `import type` / `export type ... from` (a whole-statement type import) from a value import. */
+export function typedSpecifiers(scanned: Scanned): TypedSpecifier[] {
+  const { text, code } = scanned;
+  const out: TypedSpecifier[] = [];
+  for (const match of text.matchAll(/\b(?:import|export)\b([^;'"`]*?)\bfrom\s*(["'`])([^"'`]*)\2/g)) {
+    const word = /^\w+/.exec(match[0])?.[0] ?? "";
+    if (code.slice(match.index, (match.index as number) + word.length) !== word) continue;
+    out.push({ value: match[3] as string, dynamic: false, typeOnly: /^\s*type\b/.test(match[1] as string) });
+  }
+  const typed = new Set(out.map((entry) => entry.value));
+  for (const entry of specifiers(scanned)) if (!typed.has(entry.value) || entry.dynamic) out.push({ ...entry, typeOnly: false });
+  return out;
+}
+
+const adapterPackages = [/^@paprika\/core$/];
+const adapterTypeOnlyPaths = [/^data\/live\/protocol$/, /^data\/queries\/[\w-]+$/, /^components\/frontends\/[\w-]+(?:\/[\w.-]+)?$/];
+
+export function checkAdapterFile(env: Environment, file: string, source: string, exceptions: TestException = {}): string[] {
+  const scanned = scan(source);
+  const display = posixRelative(env.srcDir, file);
+  const out: string[] = networkViolations(scanned, display, exceptions).map((id) => `${display}: ${id}`);
+  if (!isTest(file)) {
+    if (createsStoreAtModuleScope(scanned)) out.push(`${display}: store created at module scope`);
+    if (/(?<![\w$.])(?:useState|useEffect|useMemo|useRef|useCallback|useSelector|createContext)\s*[(<]/.test(scanned.code)) out.push(`${display}: React hook or context in an adapter`);
+  }
+  const seen = new Set<string>();
+  for (const spec of typedSpecifiers(scanned)) {
+    if (spec.value.startsWith("<non-literal")) {
+      out.push(`${display}: dynamic import with a computed specifier`);
+      continue;
+    }
+    const target = resolveSpecifier(env, file, spec.value);
+    if (target.kind === "package") {
+      const testOk = isTest(file) && (testPackages.some((p) => p.test(target.name)) || /^@\/test\//.test(target.name));
+      if (!adapterPackages.some((pattern) => pattern.test(target.name)) && !testOk) out.push(`${display}: package ${target.name}`);
+      continue;
+    }
+    const path = target.path;
+    if (path.startsWith("adapters/") || (isTest(file) && path.startsWith("test/"))) continue;
+    if (adapterTypeOnlyPaths.some((pattern) => pattern.test(path))) {
+      if (!spec.typeOnly && !isTest(file)) out.push(`${display}: value import from ${spec.value} (use import type)`);
+      continue;
+    }
+    if (path.startsWith("lib/") && allowedLib.has(path.slice(4))) {
+      out.push(...libViolations(env, resolveModule(env, join(env.srcDir, path)), [display, path], seen, exceptions));
+      continue;
+    }
+    out.push(`${display}: import ${spec.value}`);
+  }
+  return out;
+}
+
+/** Network rule for the layers that must go through `data/`, and the import-time creation rule for the layers that hold state. */
+export function checkAppFile(env: Environment, file: string, source: string, exceptions: TestException = {}): string[] {
+  const display = posixRelative(env.srcDir, file);
+  const top = display.split("/")[0] as string;
+  const scanned = scan(source);
+  const out: string[] = [];
+  if (networkFreeDirs.includes(top) || display === "router.tsx") out.push(...networkViolations(scanned, display, exceptions).map((id) => `${display}: ${id}`));
+  if (appLayerOf(display) !== null && !isTest(file) && createsAtModuleScope(scanned, moduleScopeCreators)) out.push(`${display}: store, socket or client created at module scope`);
+  return out;
+}
+
+/** Files of `src/editor/regions` and the component each exports, as `editor.tsx` mounts them (see the plan, batches 2 to 4). */
+export const editorRegions: Record<string, string> = {
+  "header.tsx": "Header",
+  "pages.tsx": "Pages",
+  "layers.tsx": "Layers",
+  "stage.tsx": "Stage",
+  "properties.tsx": "Properties",
+  "activity.tsx": "Activity",
+  "history.tsx": "History",
+  "pins.tsx": "Pins",
+  "agents.tsx": "Agents",
+  "team.tsx": "Team",
+  "notice.tsx": "Notice",
+  "export.tsx": "Export",
+  "import.tsx": "Import",
+};
+
+/** Every region file exists, exports its component, and `editor.tsx` mounts it inside `<RegionProfiler id="...">`. */
+export function checkEditorRegions(files: Record<string, string | null>, editorSource: string): string[] {
+  const out: string[] = [];
+  const editor = scan(editorSource).text;
+  for (const [file, component] of Object.entries(editorRegions)) {
+    const source = files[file];
+    if (source == null) {
+      out.push(`${file}: missing region file`);
+      continue;
+    }
+    if (!new RegExp(`export\\s+(?:function|const)\\s+${component}\\b`).test(scan(source).code)) out.push(`${file}: does not export ${component}`);
+    const id = file.replace(/\.tsx$/, "");
+    if (!new RegExp(`<RegionProfiler\\s+id="${id}"\\s*>\\s*<${component}\\b`).test(editor)) out.push(`editor.tsx: ${component} is not mounted inside <RegionProfiler id="${id}">`);
+  }
+  return out;
 }
