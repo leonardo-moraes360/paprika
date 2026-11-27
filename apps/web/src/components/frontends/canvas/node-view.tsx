@@ -13,6 +13,7 @@ import {
   type Node,
 } from "@paprika/core";
 import { createContext, memo, useCallback, useContext, useLayoutEffect, useSyncExternalStore, type CSSProperties } from "react";
+import { hasContentPatch, linkedPatches, routedConnector, sameLinked, withPatch } from "./preview-node";
 import { useCanvasState } from "./region";
 import type { RenderStore } from "./render-index";
 
@@ -66,11 +67,15 @@ export const NodeView = memo(function NodeViewOf({ id }: { id: string }) {
   const snap = useSyncExternalStore(subscribe, read, read);
   const flags = useCanvasState((s) => (s.selected.has(id) ? SELECTED : 0) | (s.hoveredId === id ? HOVERED : 0) | (s.editingId === id ? EDITING : 0));
   const patch = useCanvasState((s) => s.preview[id]);
+  // A connector follows the patches of the nodes it is attached to (and of the connector itself): it is routed again over them.
+  const linked = useCanvasState((s) => linkedPatches(s.preview, store.doc(), snap.node), sameLinked);
   // Once per committed render (a StrictMode double render is not counted twice).
   useLayoutEffect(() => store.countRender(id));
-  const node = snap.node;
-  if (!node || node.type === "page") return null;
   const doc = store.doc();
+  const held = snap.node;
+  if (!held || held.type === "page") return null;
+  // What the gesture shows over the node: a path's outline, a connector's route, a frame's gap and padding.
+  const node = held.type === "connector" && linked.length > 0 ? routedConnector(doc, held, linked) : hasContentPatch(patch) ? withPatch(held, patch) : held;
   const css = { ...nodeStyle(doc, node) } as CSSProperties;
   if (patch) {
     if (patch.x !== undefined) css.left = patch.x;

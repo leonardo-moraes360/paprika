@@ -32,7 +32,7 @@ export type CanvasActions = {
   setUi: (key: string, value: unknown) => void;
 };
 
-const samePatch = (a: PreviewPatch, b: PreviewPatch) => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height && a.rotation === b.rotation && a.inert === b.inert;
+const samePatch = (a: PreviewPatch, b: PreviewPatch) => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height && a.rotation === b.rotation && a.inert === b.inert && a.d === b.d && a.from === b.from && a.to === b.to && a.control === b.control && a.layout === b.layout;
 const sameIds = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((id, i) => id === b[i]);
 
 /** The transitions of the canvas state (exported so a test can build a store without React). */

@@ -1,4 +1,4 @@
-import type { Document, Op } from "@paprika/core";
+import type { ConnectorEnd, Document, Layout, Op } from "@paprika/core";
 import type { ComponentType } from "react";
 import type { CanvasRuntime } from "./runtime";
 
@@ -52,11 +52,31 @@ export type CanvasProps = {
   onApply?: (ops: Op[], label: string) => Promise<boolean>;
   onToolDone?: () => void;
   onError?: (message: string) => void;
+  /** The paint a new vector gets (a document colour is data, so the owner supplies it): the stroke, and the fill of a closed one. */
+  vectorDefaults?: VectorDefaults;
   className?: string;
 };
 
+export type VectorDefaults = { stroke: string; fill: string };
+
 /** What a gesture may show while it runs: a node moves, grows or turns on screen before any op exists. */
-export type PreviewPatch = { x?: number; y?: number; width?: number; height?: number; rotation?: number; /** Let the pointer through (the node being dragged). */ inert?: boolean };
+export type PreviewPatch = {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  rotation?: number;
+  /** Let the pointer through (the node being dragged). */
+  inert?: boolean;
+  /** A path being edited: its new outline. */
+  d?: string;
+  /** A connector being re-attached or bent. */
+  from?: ConnectorEnd;
+  to?: ConnectorEnd;
+  control?: { x: number; y: number };
+  /** A frame whose gap or padding is being dragged. */
+  layout?: Layout;
+};
 
 /** Per-node state a node reads to paint itself (see `NodeView`). */
 export type NodeFlags = { selected: boolean; hovered: boolean; editing: boolean };

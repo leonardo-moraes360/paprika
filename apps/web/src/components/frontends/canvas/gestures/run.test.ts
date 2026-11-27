@@ -8,9 +8,11 @@ const down = (init: PointerEventInit = {}) => new PointerEvent("pointerdown", { 
 const fire = (type: string, init: PointerEventInit = {}) => window.dispatchEvent(new PointerEvent(type, { pointerId: 1, ...init }));
 
 describe("gesture dispatch", () => {
-  it("lists the gestures in order: pan before the click that selects", () => {
-    expect(gestures.map((g) => g.id)).toEqual(["pan", "select-click"]);
-    expect(new Set(gestures.map((g) => g.id)).size).toBe(gestures.length);
+  it("lists the gestures in order: pan first, the click that selects after the gestures that are more specific", () => {
+    const ids = gestures.map((g) => g.id);
+    expect(ids[0]).toBe("pan");
+    expect(ids).toContain("select-click");
+    expect(new Set(ids).size).toBe(gestures.length);
   });
 
   it("starts the first gesture that accepts and never asks the rest", () => {

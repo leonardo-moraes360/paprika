@@ -1,5 +1,10 @@
 import type { CanvasOverlay } from "../types";
+import { ConnectorHandles, LinkDraft } from "./connector-handles";
 import { FrameLabels } from "./frame-labels";
+import { GradientHandles } from "./gradient-handles";
+import { PathEditOverlay } from "./path-edit";
+import { PenDraftOverlay } from "./pen-draft";
+import { SpacingHandles } from "./spacing-handles";
 import { HoverOutline } from "./hover-outline";
 import { SelectionOutline } from "./selection-outline";
 
@@ -12,4 +17,10 @@ export const overlays: readonly CanvasOverlay[] = [
   { id: "frame-labels", Component: FrameLabels },
   { id: "hover-outline", Component: HoverOutline },
   { id: "selection-outline", Component: SelectionOutline },
+  { id: "pen-draft", Component: PenDraftOverlay },
+  { id: "path-edit", Component: PathEditOverlay },
+  { id: "link-draft", Component: LinkDraft },
+  { id: "connector-handles", Component: ConnectorHandles },
+  { id: "gradient-handles", Component: GradientHandles },
+  { id: "spacing-handles", Component: SpacingHandles },
 ];

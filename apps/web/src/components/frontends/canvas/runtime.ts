@@ -5,7 +5,7 @@ import { elementOf, measureElement, nodeIdOf, toWorld } from "./geometry";
 import type { PreviewController } from "./preview";
 import type { CanvasActions, CanvasState } from "./region";
 import type { RenderStore } from "./render-index";
-import type { CanvasInputState, CanvasTool, NodeBox, Pt } from "./types";
+import type { CanvasInputState, CanvasTool, NodeBox, Pt, VectorDefaults } from "./types";
 import type { ViewStore } from "./view-store";
 
 export type PanMode = "off" | "ready" | "panning";
@@ -42,6 +42,8 @@ export type CanvasRuntime = {
   apply: (ops: Op[], label: string) => Promise<boolean>;
   toolDone: () => void;
   error: (message: string) => void;
+  /** The paint a new vector gets. */
+  vectorDefaults: () => VectorDefaults | undefined;
 };
 
 export type RuntimeParts = {
@@ -59,6 +61,7 @@ export type RuntimeParts = {
     apply?: (ops: Op[], label: string) => Promise<boolean>;
     toolDone?: () => void;
     error?: (message: string) => void;
+    vectorDefaults?: VectorDefaults;
   };
 };
 
@@ -112,6 +115,7 @@ export function createRuntime(parts: RuntimeParts): CanvasRuntime {
     },
     toolDone: () => callbacks().toolDone?.(),
     error: (message) => callbacks().error?.(message),
+    vectorDefaults: () => callbacks().vectorDefaults,
   };
 }
 

@@ -58,7 +58,7 @@ function CanvasBody(props: CanvasProps) {
       pageId: () => pageRef.current,
       callbacks: () => {
         const p = latest.current;
-        return { select: p.onSelect, hover: p.onHover, apply: p.onApply, toolDone: p.onToolDone, error: p.onError };
+        return { select: p.onSelect, hover: p.onHover, apply: p.onApply, toolDone: p.onToolDone, error: p.onError, vectorDefaults: p.vectorDefaults };
       },
     });
     return runtime;
