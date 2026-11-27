@@ -103,13 +103,57 @@ export function bodySizeCSS(bounds: Bounds, fluid: { min: number; max: number } 
   return `width:100%;min-width:${fluid.min}px;max-width:${fluid.max}px;margin-left:auto;margin-right:auto;${height}`;
 }
 
-function richText(doc: Document, node: Extract<Node, { type: "text" }>, vars: boolean, jsx: boolean): string {
+function hasRunLink(node: Extract<Node, { type: "text" }>): boolean {
+  return !!node.runs?.length && textPieces(node.text, node.runs).some((p) => !!p.run?.href);
+}
+
+function selfAnchor(node: Node): boolean {
+  return (node.type === "frame" || node.type === "text") && !!node.href;
+}
+
+// True when some descendant (any depth) is emitted as an <a>: a frame/text with href or a text run with href.
+function anchorInside(doc: Document, node: Node): boolean {
+  if (node.type === "text") return hasRunLink(node);
+  if (node.type !== "frame" && node.type !== "group" && node.type !== "page") return false;
+  return node.children.some((id) => {
+    const c = doc.nodes[id];
+    return !!c && (selfAnchor(c) || anchorInside(doc, c));
+  });
+}
+
+// A block with href that holds another link cannot be an <a> (nested <a> is invalid HTML): it becomes a <div> plus a
+// clickable-card overlay <a> as its first child. `lz` is the z-index of the enclosing overlay (0 when there is none):
+// every link below it is lifted above it so it stays clickable.
+function needsOverlay(doc: Document, node: Node): boolean {
+  return selfAnchor(node) && anchorInside(doc, node);
+}
+
+// Accessible name of the overlay link: the node name, else the text content (text nodes), else the href itself.
+function overlayLabel(node: Node): string {
+  if (node.name) return node.name;
+  if (node.type === "text") {
+    // ASCII-only normalisation keeps the Go mirror byte-identical (no Unicode whitespace or UTF-16 slicing differences).
+    const t = node.text.replace(/[\r\n\t]+/g, " ").replace(/^ +| +$/g, "");
+    if (t) return t;
+  }
+  return (node as { href?: string }).href ?? "";
+}
+
+function overlayCSS(z: number): CSS {
+  return { position: "absolute", inset: "0", zIndex: z };
+}
+
+function richText(doc: Document, node: Extract<Node, { type: "text" }>, vars: boolean, jsx: boolean, lz = 0): string {
   if (!node.runs?.length) return jsx ? jsxText(node.text) : escapeHtml(node.text);
   return textPieces(node.text, node.runs)
     .map((piece) => {
       const body = jsx ? jsxText(piece.text) : escapeHtml(piece.text);
       if (!piece.run) return body;
       const css = textRunCSS(doc, node, piece.run, vars);
+      if (lz > 0 && piece.run.href) {
+        css.position = "relative";
+        css.zIndex = lz + 1;
+      }
       const style = jsx ? ` style=${jsxStyle(css)}` : ` style="${escapeHtml(cssToString(css))}"`;
       if (piece.run.href) {
         const href = jsx ? JSON.stringify(piece.run.href) : `"${escapeHtml(piece.run.href)}"`;
@@ -120,8 +164,25 @@ function richText(doc: Document, node: Extract<Node, { type: "text" }>, vars: bo
     .join("");
 }
 
-function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, emit: StyleEmitter, offset?: { x: number; y: number }): string {
+function overlayOwner(z: number): string {
+  return z > 1 ? `linkOverlay${z}` : "linkOverlay";
+}
+
+function overlayHtml(node: Node, emit: StyleEmitter, z: number): string {
+  const href = (node as { href: string }).href;
+  return `<a href="${escapeHtml(href)}" aria-label="${escapeHtml(overlayLabel(node))}"${emit(overlayCSS(z), overlayOwner(z))}></a>`;
+}
+
+function overlayJsx(node: Node, emit: StyleEmitter, z: number, indent: string): string {
+  const href = (node as { href: string }).href;
+  return `${indent}<a${emit(overlayCSS(z), overlayOwner(z))} href=${JSON.stringify(href)} aria-label=${JSON.stringify(overlayLabel(node))}></a>`;
+}
+
+function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, emit: StyleEmitter, offset?: { x: number; y: number }, lz = 0): string {
   const css: CSS = nodeStyle(doc, node, { asRoot, vars });
+  const overlay = needsOverlay(doc, node);
+  if (lz > 0 && selfAnchor(node) && !overlay) css.zIndex = lz + 1;
+  const kz = overlay ? lz + 1 : lz;
   if (offset && !asRoot && node.type !== "page") {
     css.left = `${node.x - offset.x}px`;
     css.top = `${node.y - offset.y}px`;
@@ -138,16 +199,18 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, e
       const kids = node.children
         .map((c) => doc.nodes[c])
         .filter((c): c is Node => !!c)
-        .map((c) => renderNode(doc, c, false, vars, emit))
+        .map((c) => renderNode(doc, c, false, vars, emit, undefined, kz))
         .join("");
+      if (overlay) return `<div ${attrs}>${overlayHtml(node, emit, kz)}${kids}</div>`;
       const href = node.type === "frame" && node.href ? ` href="${escapeHtml(node.href)}"` : "";
       const tag = href ? "a" : "div";
       return `<${tag} ${attrs}${href}>${kids}</${tag}>`;
     }
     case "text": {
+      if (overlay) return `<div ${attrs}>${overlayHtml(node, emit, kz)}${richText(doc, node, vars, false, kz)}</div>`;
       const tag = node.href ? "a" : "div";
       const href = node.href ? ` href="${escapeHtml(node.href)}"` : "";
-      return `<${tag} ${attrs}${href}>${richText(doc, node, vars, false)}</${tag}>`;
+      return `<${tag} ${attrs}${href}>${richText(doc, node, vars, false, kz)}</${tag}>`;
     }
     case "image": {
       const alt = node.decorative ? "" : node.alt;
@@ -259,8 +322,11 @@ function fluidJsx(node: Node): string {
   return ` data-paprika-width={${node.width}} data-paprika-min-width={${f.min}} data-paprika-max-width={${f.max}}`;
 }
 
-export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: string, vars: boolean, emit: StyleEmitter): string {
+export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: string, vars: boolean, emit: StyleEmitter, lz = 0): string {
   const css = nodeStyle(doc, node, { asRoot, vars });
+  const overlay = needsOverlay(doc, node);
+  if (lz > 0 && selfAnchor(node) && !overlay) css.zIndex = lz + 1;
+  const kz = overlay ? lz + 1 : lz;
   const fluid = useFluid(doc, node, asRoot);
   if (fluid) applyFluid(css, node);
   const style = emit(css, node);
@@ -273,8 +339,12 @@ export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: stri
       const kids = node.children
         .map((c) => doc.nodes[c])
         .filter((c): c is Node => !!c)
-        .map((c) => jsxNode(doc, c, false, indent + "  ", vars, emit))
+        .map((c) => jsxNode(doc, c, false, indent + "  ", vars, emit, kz))
         .join("\n");
+      if (overlay) {
+        const all = `${overlayJsx(node, emit, kz, indent + "  ")}${kids ? `\n${kids}` : ""}`;
+        return `${indent}<div${name}${style}>\n${all}\n${indent}</div>`;
+      }
       const href = node.type === "frame" && node.href ? ` href=${JSON.stringify(node.href)}` : "";
       const tag = href ? "a" : "div";
       return kids
@@ -282,9 +352,10 @@ export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: stri
         : `${indent}<${tag}${name}${href}${style} />`;
     }
     case "text": {
+      if (overlay) return `${indent}<div${name}${style}>\n${overlayJsx(node, emit, kz, indent + "  ")}${richText(doc, node, vars, true, kz)}\n${indent}</div>`;
       const tag = node.href ? "a" : "div";
       const href = node.href ? ` href=${JSON.stringify(node.href)}` : "";
-      return `${indent}<${tag}${name}${href}${style}>${richText(doc, node, vars, true)}</${tag}>`;
+      return `${indent}<${tag}${name}${href}${style}>${richText(doc, node, vars, true, kz)}</${tag}>`;
     }
     case "image": {
       const alt = node.decorative ? "" : node.alt;
