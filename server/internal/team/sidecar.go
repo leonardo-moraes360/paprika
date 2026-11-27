@@ -19,7 +19,7 @@ const BinaryName = "paprika-sync"
 
 var ErrNoSidecar = errors.New("sidecar not found: build crates/sync (cargo build --release) and put paprika-sync next to paprika, or set PAPRIKA_SYNC")
 
-var ErrNoSidecarInImage = errors.New("the slim image has no team mode (no paprika-sync sidecar): use the default image for serve --team")
+var ErrNoSidecarInImage = errors.New("paprika-sync not found next to paprika in the image (/app/paprika-sync is expected in both the default and the slim image): the image is broken or custom, rebuild it from the Dockerfile or set PAPRIKA_SYNC")
 
 const imageWebRoot = "/app/web"
 

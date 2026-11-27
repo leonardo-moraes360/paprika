@@ -20,7 +20,8 @@ func TestFindBinaryMissingSidecar(t *testing.T) {
 	if !errors.Is(err, ErrNoSidecarInImage) {
 		t.Fatalf("in the image, FindBinary() = %v, want ErrNoSidecarInImage", err)
 	}
-	if !strings.Contains(err.Error(), "slim image has no team mode") || strings.Contains(err.Error(), "cargo") {
-		t.Fatalf("message = %q: it must say the slim image has no team mode and not send the user to cargo", err)
+	msg := err.Error()
+	if !strings.Contains(msg, "/app/paprika-sync is expected") || !strings.Contains(msg, "broken or custom") || strings.Contains(msg, "cargo") || strings.Contains(msg, "no team mode") {
+		t.Fatalf("message = %q: it must say the sidecar is expected in the image, not claim a no-team-mode image and not send the user to cargo", err)
 	}
 }

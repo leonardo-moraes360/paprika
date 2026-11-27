@@ -449,7 +449,8 @@ jobs:
           # here, so there is nothing to attest.
           provenance: false
       # Hardened run (read-only root, no capabilities, no-new-privileges), non-root and no-shell checks,
-      # HEALTHCHECK, render_screenshot, restart persistence, team mode, `docker stop`.
+      # HEALTHCHECK, paprika-sync present, render_screenshot, restart persistence, team mode, `docker stop`.
+      # The slim target gets the same run minus render_screenshot (no Chrome).
       - name: Smoke test (runtime target)
         run: .github/scripts/docker-smoke.sh paprika:ci
       # Reuses every stage built above (same builder); only the final distroless layer is new.
@@ -470,7 +471,7 @@ jobs:
           # here, so there is nothing to attest.
           provenance: false
       - name: Smoke test (slim target)
-        run: SCREENSHOT=0 TEAM=0 .github/scripts/docker-smoke.sh paprika:ci-slim
+        run: SCREENSHOT=0 .github/scripts/docker-smoke.sh paprika:ci-slim
       - name: Image sizes
         run: docker image ls paprika --format '| {{.Tag}} | {{.Size}} |' | tee -a "$GITHUB_STEP_SUMMARY"
 
