@@ -1,6 +1,7 @@
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { useMemo } from "react";
 import { useEditorStore, type EditorTool } from "./editor-store";
+import { stackStep } from "@/adapters/canvas-keys";
 import { NUDGE, NUDGE_BIG } from "@/adapters/selection-ops";
 import { useHistoryActions } from "./use-history-actions";
 import { useSelectionActions } from "./use-selection-actions";
@@ -59,6 +60,9 @@ export const shortcutTable = [
   ["Escape", "close history, else close pins, else tool select and parent selected"],
   ["Arrows, Shift+Arrows", "move 1 px, 10 px"],
   ["Shift+I", "toggle pins"],
+  ["Enter", "select the children of the selection (canvas focus)"],
+  ["Tab, Shift+Tab", "select the next, previous sibling (canvas focus)"],
+  ["PageUp, PageDown, Mod+PageUp, Mod+PageDown", "forward, backward, to front, to back"],
   ["V F R O T P S D G C B U A N I", "tools"],
 ] as const;
 
@@ -69,6 +73,11 @@ const TEXT_ENTRY =
   'input:not([type="button"],[type="checkbox"],[type="radio"],[type="submit"],[type="reset"],[type="range"],[type="file"],[type="image"],[type="color"]),textarea,select,[role="textbox"],[role="searchbox"],[role="spinbutton"],[contenteditable=""],[contenteditable="true"],[contenteditable="plaintext-only"]';
 /** Where the keys that edit the selection live: the stage (it carries `data-workspace`), the layers tree and the stage toolbar. */
 const EDIT_SURFACE = '[role="region"][data-workspace],[role="tree"],[role="toolbar"]';
+
+/** Where Enter and Tab are ours: nothing focused, or the canvas itself. On a button, a field or a tree they keep their own meaning. */
+export function onCanvasSurface(target: Element | null): boolean {
+  return target === null || target === document.body || target === document.documentElement || target.closest("[data-canvas-viewport]") !== null;
+}
 
 export function targetOf(event: KeyboardEvent): Element | null {
   return event.target instanceof Element ? event.target : null;
@@ -140,6 +149,14 @@ export function useEditorShortcuts() {
       { hotkey: "Shift+ArrowUp", callback: nudge(0, -NUDGE_BIG) },
       { hotkey: "Shift+ArrowDown", callback: nudge(0, NUDGE_BIG) },
       { hotkey: "Shift+I", callback: act(() => actions.toggleDialog("pins"), "app") },
+      // Enter and Tab take the key only when they have something to do: otherwise the focus moves as it always does.
+      { hotkey: "Enter", callback: (event) => void (!standsAside(event, "edit") && onCanvasSurface(targetOf(event)) && !event.repeat && selection.selectChildren() && event.preventDefault()) },
+      { hotkey: "Tab", callback: (event) => void (!standsAside(event, "edit") && onCanvasSurface(targetOf(event)) && selection.selectSibling(1) && event.preventDefault()) },
+      { hotkey: "Shift+Tab", callback: (event) => void (!standsAside(event, "edit") && onCanvasSurface(targetOf(event)) && selection.selectSibling(-1) && event.preventDefault()) },
+      { hotkey: "PageUp", callback: act(() => void selection.stack(stackStep("PageUp", false)), "arrows") },
+      { hotkey: "PageDown", callback: act(() => void selection.stack(stackStep("PageDown", false)), "arrows") },
+      { hotkey: "Mod+PageUp", callback: act(() => void selection.stack(stackStep("PageUp", true)), "arrows") },
+      { hotkey: "Mod+PageDown", callback: act(() => void selection.stack(stackStep("PageDown", true)), "arrows") },
     ];
     return list;
   }, [editor, selection, history]);

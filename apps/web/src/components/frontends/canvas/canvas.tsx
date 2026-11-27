@@ -1,9 +1,11 @@
-import { useTranslation } from "react-i18next";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useCamera } from "./camera";
+import { runDoubleClick } from "./gestures/double-click";
 import { startGesture } from "./gestures/run";
-import { doubleClicks, gestures } from "./gestures";
+import { gestures } from "./gestures";
 import { gridStyle } from "./geometry";
+import { useLayerMenu } from "./layer-menu";
 import { RenderStoreContext, RootViews } from "./node-view";
 import { overlays } from "./overlays";
 import { createPreviewController } from "./preview";
@@ -37,13 +39,13 @@ export function Canvas(props: CanvasProps) {
 
 function CanvasBody(props: CanvasProps) {
   const { feed, className } = props;
+  const { t } = useTranslation();
   const store = useCanvasStore();
   const viewportRef = useRef<HTMLDivElement>(null);
   const latest = useRef(props);
   latest.current = props;
-  const { t } = useTranslation();
-  const translate = useRef(t);
-  translate.current = t;
+  const textRef = useRef(t);
+  textRef.current = t;
   const pageRef = useRef(feed.get().pageId);
   /** The zoom the owner holds (what it gave us last, or what we told it last). */
   const ownerZoom = useRef(feed.get().zoom);
@@ -62,9 +64,8 @@ function CanvasBody(props: CanvasProps) {
       pageId: () => pageRef.current,
       callbacks: () => {
         const p = latest.current;
-        return { select: p.onSelect, hover: p.onHover, apply: p.onApply, toolDone: p.onToolDone, error: p.onError };
+        return { select: p.onSelect, hover: p.onHover, apply: p.onApply, toolDone: p.onToolDone, error: p.onError, text: (path, options) => (textRef.current as unknown as (key: string, options?: object) => string)(`frontends.canvas.${path}`, options) };
       },
-      t: (key, values) => String((translate.current as unknown as (key: string, values?: Record<string, unknown>) => string)(key, values)),
     });
     return runtime;
   });
@@ -133,15 +134,16 @@ function CanvasBody(props: CanvasProps) {
   }, [rt]);
 
   const stopGesture = useRef<(() => void) | null>(null);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    rt.preview.attach();
+    return () => {
       stopGesture.current?.();
       rt.preview.dispose();
       rt.view.dispose();
-    },
-    [rt],
-  );
+    };
+  }, [rt]);
 
+  const layerMenu = useLayerMenu(rt, latest);
   const hovered = useRef<string | null>(null);
   const grid = gridStyle(rt.view.get());
 
@@ -152,6 +154,7 @@ function CanvasBody(props: CanvasProps) {
           ref={viewportRef}
           tabIndex={-1}
           data-testid="canvas-viewport"
+          data-canvas-viewport=""
           className={cn(
             "absolute inset-0 overflow-hidden bg-canvas contain-layout contain-paint outline-none touch-none",
             "data-[tool=frame]:cursor-crosshair data-[tool=rect]:cursor-crosshair data-[tool=ellipse]:cursor-crosshair data-[tool=text]:cursor-crosshair data-[tool=pen]:cursor-crosshair",
@@ -172,16 +175,16 @@ function CanvasBody(props: CanvasProps) {
             stopGesture.current?.();
             stopGesture.current = startGesture(rt, gestures as readonly Gesture[], event.nativeEvent);
           }}
-          onDoubleClick={(event) => {
-            for (const handler of doubleClicks) if (handler(rt, event.nativeEvent)) break;
-          }}
           onPointerMove={(event) => {
-            if (stopGesture.current || event.buttons !== 0) return;
+            // A button down means a gesture is running (or the press went to something else): hover waits for the release.
+            if (event.buttons !== 0) return;
             const id = rt.nodeAt(event.target);
             if (id === hovered.current) return;
             hovered.current = id;
             rt.hover(id);
           }}
+          onDoubleClick={(event) => void runDoubleClick(rt, event.nativeEvent)}
+          onContextMenu={layerMenu.onContextMenu}
           onPointerLeave={() => {
             if (hovered.current === null) return;
             hovered.current = null;
@@ -203,6 +206,7 @@ function CanvasBody(props: CanvasProps) {
             ))}
           </div>
         </div>
+        {layerMenu.element}
       </CanvasRuntimeContext>
     </RenderStoreContext>
   );

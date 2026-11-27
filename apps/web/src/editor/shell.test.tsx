@@ -326,6 +326,25 @@ describe("keyboard", () => {
     view.unmount();
   });
 
+  it("Tab selects the next sibling and Shift+Tab goes back, when nothing has the focus", async () => {
+    const user = userEvent.setup();
+    const view = await openShell();
+    const selectedNames = () =>
+      within(tree()).getAllByRole("treeitem").filter((el) => el.getAttribute("aria-selected") === "true").map((el) => el.textContent);
+    const name = within(tree()).getAllByRole("treeitem")[1]?.textContent as string;
+    await user.click(within(layer(name)).getByText(name));
+    (document.activeElement as HTMLElement | null)?.blur();
+    const first = selectedNames();
+    await user.keyboard("{Tab}");
+    const next = selectedNames();
+    expect(next).toHaveLength(1);
+    expect(next).not.toEqual(first);
+    (document.activeElement as HTMLElement | null)?.blur();
+    await user.keyboard("{Shift>}{Tab}{/Shift}");
+    expect(selectedNames()).toEqual(first);
+    view.unmount();
+  });
+
   it("Ctrl+H opens the history, Esc closes it; the keys do nothing inside a dialog", async () => {
     const user = userEvent.setup();
     const view = await openShell();

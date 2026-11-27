@@ -86,7 +86,7 @@ function TextSurface({ node }: { node: TextNode }) {
     const el = surface.current;
     const next = el ? readEditable(el) : { text: initial.text, runs: initial.runs ?? null };
     if (!sameText(next.text, next.runs, initial.text, initial.runs)) {
-      void rt.apply([{ op: "update", id: initial.id, props: { text: next.text, runs: next.runs } }], rt.t("app.canvas.creation.labels.editText"));
+      void rt.apply([{ op: "update", id: initial.id, props: { text: next.text, runs: next.runs } }], rt.text("history.editText"));
     }
     rt.store.actions.setEditing(null);
     if (refocus) rt.viewport()?.focus({ preventScroll: true });
@@ -108,7 +108,7 @@ function TextSurface({ node }: { node: TextNode }) {
   const colorOk = color.trim() !== "" && typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("color", color.trim());
   const css = { ...nodeStyle(rt.doc(), initial) } as CSSProperties;
   const style: CSSProperties = { ...css, position: "relative", left: 0, top: 0, width: "100%", height: "auto", minHeight: "1em", transform: "none", visibility: "visible", margin: 0, pointerEvents: "auto" };
-  const text = (key: string) => rt.t(`app.canvas.creation.text.${key}`);
+  const text = (key: string) => rt.text(`text.${key}`);
 
   return (
     <div

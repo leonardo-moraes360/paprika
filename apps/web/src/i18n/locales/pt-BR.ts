@@ -16,6 +16,7 @@ import { overviewPtBR } from "./frontends/overview";
 import { importDialogPtBR } from "./frontends/importDialog";
 import { exportDialogPtBR } from "./frontends/exportDialog";
 import { canvasErrorPtBR } from "./frontends/canvasError";
+import { canvasPtBR } from "./frontends/canvas";
 
 export const ptBR: Translation = {
   app: appPtBR,
@@ -90,6 +91,7 @@ export const ptBR: Translation = {
     importDialog: importDialogPtBR,
     exportDialog: exportDialogPtBR,
     canvasError: canvasErrorPtBR,
+    canvas: canvasPtBR,
     overview: overviewPtBR,
   },
 };

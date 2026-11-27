@@ -18,7 +18,7 @@ export function FrameRename({ id, name }: { id: string; name: string }) {
     if (done.current) return;
     done.current = true;
     const next = value?.trim();
-    if (next && next !== name) void rt.apply([{ op: "update", id, props: { name: next } }], rt.t("app.canvas.creation.labels.renameFrame"));
+    if (next && next !== name) void rt.apply([{ op: "update", id, props: { name: next } }], rt.text("history.renameFrame"));
     rt.store.actions.setEditing(null);
     if (refocus) rt.viewport()?.focus({ preventScroll: true });
   };
@@ -26,7 +26,7 @@ export function FrameRename({ id, name }: { id: string; name: string }) {
     <TextField
       ref={field}
       data-testid="frame-rename"
-      aria-label={rt.t("app.canvas.creation.frameName")}
+      aria-label={rt.text("editors.frameName")}
       defaultValue={name}
       maxLength={200}
       className="h-[18px] w-45 rounded-xs px-1 py-0 text-xs"

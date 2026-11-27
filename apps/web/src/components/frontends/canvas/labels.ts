@@ -33,8 +33,8 @@ export const CLICK_SIZE = 4;
 /** A colour written into the document (the fill of a new node). It is document data, not a colour of this interface, so it is spelled as the document spells it. */
 const docColor = (digits: string) => `#${digits}`;
 
-/** The id of the i18n entry of each tool's default name (`app.canvas.creation.names.<tool>`). */
-export const nameKey = (tool: DraftTool) => `app.canvas.creation.names.${tool}`;
+/** The path of the i18n entry of each tool's default name (`frontends.canvas.names.<tool>`). */
+export const nameKey = (tool: DraftTool) => `names.${tool}`;
 
 /** The number a new node of `tool` gets in its name: how many nodes of its kind the document already has, plus one (as the old canvas did). */
 export function nextNumber(doc: Document, tool: DraftTool): number {

@@ -17,6 +17,7 @@ import {
   type SelectionPlan,
   type SelectionResult,
 } from "@/adapters/selection-ops";
+import { childrenSelection, cycleSibling, stackPlan, type StackStep } from "@/adapters/canvas-keys";
 import { resolvePageId } from "@/adapters/pages";
 import { selectionErrorNote } from "@/adapters/selection-errors";
 import { useLiveClient } from "@/data/live";
@@ -77,6 +78,28 @@ export function useSelectionActions() {
         return run(plan).then((ok) => {
           if (!ok) pendingNudges = undefined;
         });
+      },
+      /** Enter: select the children of the selection. `false` when there are none (the key is then not ours). */
+      selectChildren: (): boolean => {
+        const d = doc();
+        const kids = d ? childrenSelection(d, selection()) : [];
+        if (kids.length === 0) return false;
+        editor.actions.select(kids);
+        return true;
+      },
+      /** Tab and Shift+Tab: the next or previous sibling. `false` when there is none. */
+      selectSibling: (dir: 1 | -1): boolean => {
+        const d = doc();
+        const next = d ? cycleSibling(d, selection(), dir) : null;
+        if (!next) return false;
+        editor.actions.select([next]);
+        return true;
+      },
+      /** PageUp and PageDown: move the selection in the stack. */
+      stack: (step: StackStep) => {
+        const d = doc();
+        const plan = d ? stackPlan(d, selection(), step) : null;
+        return plan ? apply(plan.ops, t(`app.canvas.order.${plan.step}`)) : Promise.resolve(false);
       },
       selectAll: () => {
         const d = doc();

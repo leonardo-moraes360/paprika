@@ -44,9 +44,9 @@ export const create: Gesture = {
         const box = draftBox(tool, a, local(e.clientX, e.clientY));
         clear();
         const id = newId();
-        const name = `${rt.t(nameKey(tool))} ${nextNumber(rt.doc(), tool)}`;
+        const name = `${rt.text(nameKey(tool))} ${nextNumber(rt.doc(), tool)}`;
         const node = creationNode(tool, { id, name, x: box.x, y: box.y, width: box.width, height: box.height });
-        const label = rt.t("app.canvas.creation.label", { name: rt.t(nameKey(tool)).toLowerCase() });
+        const label = rt.text("history.create", { name: rt.text(nameKey(tool)).toLowerCase() });
         rt.toolDone();
         void rt.apply([{ op: "create", node: node as never, parentId } as Op], label).then((ok) => {
           if (!ok) return;

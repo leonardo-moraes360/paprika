@@ -2,7 +2,10 @@ import type { CanvasOverlay } from "../types";
 import { ConnectorLabelEditor } from "./connector-label-editor";
 import { CreateGhost } from "./create-ghost";
 import { FrameLabels } from "./frame-labels";
+import { DropMarker } from "./drop-marker";
+import { SelectionHandlesOverlay } from "./handles";
 import { HoverOutline } from "./hover-outline";
+import { MarqueeBox } from "./marquee-box";
 import { SelectionOutline } from "./selection-outline";
 import { ShapeTextEditor } from "./shape-text-editor";
 import { TextEditor } from "./text-editor";
@@ -16,6 +19,9 @@ export const overlays: readonly CanvasOverlay[] = [
   { id: "frame-labels", Component: FrameLabels },
   { id: "hover-outline", Component: HoverOutline },
   { id: "selection-outline", Component: SelectionOutline },
+  { id: "drop-marker", Component: DropMarker },
+  { id: "marquee-box", Component: MarqueeBox },
+  { id: "selection-handles", Component: SelectionHandlesOverlay },
   { id: "create-ghost", Component: CreateGhost },
   { id: "text-editor", Component: TextEditor },
   { id: "shape-text-editor", Component: ShapeTextEditor },

@@ -49,7 +49,7 @@ function LabelSurface({ node }: { node: ConnectorNode }) {
     done.current = true;
     const value = field.current?.value ?? "";
     if (commit && value.trim() !== (initial.label ?? "")) {
-      void rt.apply([{ op: "update", id: initial.id, props: { label: value.trim() ? value.trim() : null } }], rt.t("app.canvas.creation.labels.editLabel"));
+      void rt.apply([{ op: "update", id: initial.id, props: { label: value.trim() ? value.trim() : null } }], rt.text("history.editLabel"));
     }
     rt.store.actions.setEditing(null);
     if (refocus) rt.viewport()?.focus({ preventScroll: true });
@@ -61,7 +61,7 @@ function LabelSurface({ node }: { node: ConnectorNode }) {
       <TextField
         ref={field}
         data-testid="connector-label-editor"
-        aria-label={rt.t("app.canvas.creation.connectorLabel")}
+        aria-label={rt.text("editors.connectorLabel")}
         defaultValue={initial.label ?? ""}
         className="pointer-events-auto box-border h-full w-full rounded-xs border-select px-1 text-center outline-none"
         // The label keeps the look of the arrow's own label (its colour over its halo): both are the document's.

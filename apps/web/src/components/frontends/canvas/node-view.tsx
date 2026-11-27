@@ -49,6 +49,7 @@ function TextRuns({ doc, node }: { doc: Document; node: TextNode }) {
   );
 }
 
+const sameView = (a: { flags: number; patch: unknown }, b: { flags: number; patch: unknown }) => a.flags === b.flags && a.patch === b.patch;
 const SELECTED = 1;
 const HOVERED = 2;
 const EDITING = 4;
@@ -64,8 +65,12 @@ export const NodeView = memo(function NodeViewOf({ id }: { id: string }) {
   const subscribe = useCallback((listener: () => void) => store.subscribe(id, listener), [store, id]);
   const read = useCallback(() => store.snapshot(id), [store, id]);
   const snap = useSyncExternalStore(subscribe, read, read);
-  const flags = useCanvasState((s) => (s.selected.has(id) ? SELECTED : 0) | (s.hoveredId === id ? HOVERED : 0) | (s.editingId === id ? EDITING : 0));
-  const patch = useCanvasState((s) => s.preview[id]);
+  // One subscription per node, not two: every write to the canvas store asks each subscriber, and a page has thousands of nodes.
+  const { flags, patch } = useCanvasState(
+    (s) => ({ flags: (s.selected.has(id) ? SELECTED : 0) | (s.hoveredId === id ? HOVERED : 0) | (s.editingId === id ? EDITING : 0), patch: s.preview[id] }),
+    sameView,
+  );
+  const attach = useCallback((el: HTMLElement | null) => (el ? store.attach(id, el) : undefined), [store, id]);
   // Once per committed render (a StrictMode double render is not counted twice).
   useLayoutEffect(() => store.countRender(id));
   const node = snap.node;
@@ -82,6 +87,7 @@ export const NodeView = memo(function NodeViewOf({ id }: { id: string }) {
   }
   const editing = (flags & EDITING) !== 0;
   const props = {
+    ref: attach as never,
     "data-paprika-id": node.id,
     "data-paprika-type": node.type,
     "data-selected": flags & SELECTED ? "" : undefined,

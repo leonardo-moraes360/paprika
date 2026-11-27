@@ -32,7 +32,7 @@ const FrameLabel = memo(function FrameLabel({ id }: { id: string }) {
       className="pointer-events-auto absolute cursor-default text-xs leading-4 font-medium whitespace-nowrap text-label select-none"
       // The layer is scaled by the camera: counter-scaling about the label's own corner keeps its size and its gap to the frame on screen.
       style={{ left: at.x, top: at.y, transformOrigin: "0 0", transform: "scale(calc(1 / var(--view-zoom))) translateY(calc(-100% - 4px))" }}
-      title={editing ? undefined : rt.t("app.canvas.creation.renameHint")}
+      title={editing ? undefined : rt.text("editors.renameHint")}
       onDoubleClick={(event) => {
         event.stopPropagation();
         rt.store.actions.setEditing(id);

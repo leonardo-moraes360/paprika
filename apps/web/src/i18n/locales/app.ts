@@ -20,6 +20,9 @@ export const appEn = {
     openFailed: "Could not open the workspace.",
     coverConvertFailed: "The image could not be converted.",
   },
+  canvas: {
+    order: { front: "bring to front", forward: "bring forward", back: "send to back", backward: "send backward" },
+  },
   shell: {
     rightTabs: { label: "Right panel", properties: "Properties", team: "Team" },
     mcpOn: "MCP at /mcp",
@@ -187,40 +190,6 @@ export const appEn = {
     applyFailed: "Could not apply the change",
     ago: { now: "now", seconds: "{{count}}s", minutes: "{{count}} min", hours: "{{count}} h", days: "{{count}} d" },
   },
-  canvas: {
-    // Lote 2 (creation and text): the names a new node gets, the history labels and the texts of the editors drawn over the canvas.
-    creation: {
-      label: "create {{name}}",
-      names: {
-        frame: "Frame",
-        rect: "Rectangle",
-        ellipse: "Ellipse",
-        text: "Text",
-        shape: "Box",
-        diamond: "Decision",
-        triangle: "Triangle",
-        cylinder: "Cylinder",
-        parallelogram: "Parallelogram",
-        cloud: "Cloud",
-        note: "Note",
-      },
-      labels: { editText: "edit text", editLabel: "edit label", renameFrame: "rename frame" },
-      text: {
-        field: "Text",
-        toolbar: "Text format",
-        bold: "Bold",
-        italic: "Italic",
-        size: "Size",
-        color: "Color",
-        link: "Link",
-        applyLink: "Apply link",
-      },
-      shapeText: "Shape text",
-      connectorLabel: "Arrow label",
-      frameName: "Frame name",
-      renameHint: "Double-click to rename",
-    },
-  },
 };
 
 export const appPtBR: typeof appEn = {
@@ -243,6 +212,9 @@ export const appPtBR: typeof appEn = {
     loadFailed: "Não foi possível carregar os workspaces.",
     openFailed: "Não foi possível abrir o workspace.",
     coverConvertFailed: "Não foi possível converter a imagem.",
+  },
+  canvas: {
+    order: { front: "trazer para frente", forward: "avançar", back: "enviar para fundo", backward: "recuar" },
   },
   shell: {
     rightTabs: { label: "Painel direito", properties: "Propriedades", team: "Time" },
@@ -410,38 +382,5 @@ export const appPtBR: typeof appEn = {
     editFallback: "Edição",
     applyFailed: "Não foi possível aplicar a alteração",
     ago: { now: "agora", seconds: "{{count}} s", minutes: "{{count}} min", hours: "{{count}} h", days: "{{count}} d" },
-  },
-  canvas: {
-    creation: {
-      label: "criar {{name}}",
-      names: {
-        frame: "Frame",
-        rect: "Retângulo",
-        ellipse: "Elipse",
-        text: "Texto",
-        shape: "Caixa",
-        diamond: "Decisão",
-        triangle: "Triângulo",
-        cylinder: "Cilindro",
-        parallelogram: "Paralelogramo",
-        cloud: "Nuvem",
-        note: "Nota",
-      },
-      labels: { editText: "editar texto", editLabel: "editar rótulo", renameFrame: "renomear frame" },
-      text: {
-        field: "Texto",
-        toolbar: "Formato do texto",
-        bold: "Negrito",
-        italic: "Itálico",
-        size: "Tamanho",
-        color: "Cor",
-        link: "Link",
-        applyLink: "Aplicar link",
-      },
-      shapeText: "Texto da forma",
-      connectorLabel: "Rótulo da seta",
-      frameName: "Nome do frame",
-      renameHint: "Duplo clique para renomear",
-    },
   },
 };

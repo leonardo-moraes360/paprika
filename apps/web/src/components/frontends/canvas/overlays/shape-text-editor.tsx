@@ -47,7 +47,7 @@ function ShapeSurface({ node }: { node: ShapeNode }) {
     if (done.current) return;
     done.current = true;
     const value = field.current?.value ?? initial.text;
-    if (value !== initial.text) void rt.apply([{ op: "update", id: initial.id, props: { text: value } }], rt.t("app.canvas.creation.labels.editText"));
+    if (value !== initial.text) void rt.apply([{ op: "update", id: initial.id, props: { text: value } }], rt.text("history.editText"));
     rt.store.actions.setEditing(null);
     if (refocus) rt.viewport()?.focus({ preventScroll: true });
   };
@@ -62,7 +62,7 @@ function ShapeSurface({ node }: { node: ShapeNode }) {
         <TextArea
           ref={field}
           data-testid="shape-text-editor"
-          aria-label={rt.t("app.canvas.creation.shapeText")}
+          aria-label={rt.text("editors.shapeText")}
           defaultValue={initial.text}
           rows={Math.max(1, initial.text.split("\n").length)}
           className={`pointer-events-auto min-h-0 border-0 bg-transparent has-[:focus-visible]:border-0 has-[:focus-visible]:outline-0 outline-1 ${editorOutline}`}
