@@ -1185,3 +1185,17 @@ Tarefa: um agente desenhou a landing page nova (inglês e português, desktop e 
 | 247 | Definir a capa de um workspace que não está ativo | `set_workspace_cover` recusa `workspaceId` ("unknown argument … valid arguments: clear, id, image, rootId"); todas as outras ferramentas usam `workspaceId` | Aceitar `workspaceId` como apelido de `id` | P3 |
 | 248 | Rodar a CLI dentro do container Docker | O binário fica em `/app/paprika`, fora do `PATH`, então `docker exec … paprika export` falha com "executable file not found in $PATH" | Pôr o binário no `PATH` da imagem (ou documentar `/app/paprika` no docker.md) | P3 |
 | 249 | Ler a ajuda da CLI na língua principal das docs | `paprika --help` e os erros do servidor estão em português, enquanto as docs e o contrato MCP estão em inglês | Ajuda e erros da CLI em inglês, português quando o locale do usuário pedir | P3 |
+
+## 2026-11-27: prancha "Links no texto" (proposta de regra de link, escuro e claro)
+
+Tarefa: desenhar a proposta de link no texto (cor herdada + sublinhado) num workspace novo com `design/ui-app/pages/links.mjs`, dois frames de 1600 px, num `paprika serve` local novo (porta 5401).
+
+| # | Precisava | O que aconteceu | Proposta | Pri. |
+|---|-----------|-----------------|----------|------|
+| 250 | Screenshot @2x de uma prancha alta | Um frame de 1600 × 2894 voltou com 2322 × 4096 (escala 1,41 em vez de 2) sem aviso da escala aplicada; o mesmo limite do #245 | Informar a escala aplicada no resultado, ou fatiar frames acima do limite | P2 |
+| 251 | Medir a largura de um texto hug para dimensionar um sublinhado desenhado | `get_bounds` devolve `boxes.<id>` por id (não uma lista) e um texto de largura fixa devolve a caixa, não a tinta; o script pôs `width: "hug"` numa cópia e leu a caixa | Documentar o formato de `boxes` na descrição da ferramenta; `get_bounds {ink: true}` para texto | P3 |
+| 252 | Saber o que o renderer faz com um run de texto com `href` | Nenhum texto diz: o run é pintado `#0000EE` e sublinhado pelo renderer, um `color` explícito no run vence e o sublinhado o acompanha. Descoberto desenhando uma sonda | Dizer no guia, com o deslocamento e a espessura do sublinhado que o renderer usa | P3 |
+| 253 | Lint de contraste que depende do ancestral preenchido mais próximo | O `contrast` do `lint_design` estava certo (pegou texto claro que pus numa faixa branca) mas só dá ids; precisei de `get_nodes` por id para saber qual par foi medido | Pôr as duas cores e a razão em cada item (`fg`, `bg`, `ratio`) | P3 |
+| 254 | Rodar de novo um script de desenho no mesmo workspace | `delete_nodes` de ids que podem não existir falha a chamada inteira, então o script trata o erro como `soft` | `delete_nodes {ignoreMissing: true}` | P3 |
+
+- Funcionou bem: `create_nodes {place: "none"}` com coordenadas explícitas numa página, `create_workspace` e `create_page {ensure: true}` sem trocar o workspace ativo, `lint_design` limpo no fim, `render_screenshot` com o Chromium do container (sem `PAPRIKA_CHROMIUM` desta vez), `paprika export --doc <id>` de um workspace só.
