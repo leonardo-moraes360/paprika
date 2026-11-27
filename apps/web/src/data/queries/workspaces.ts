@@ -60,10 +60,23 @@ export function createWorkspaceActions(client: QueryClient) {
     create: (name: string) => run(async () => (await api<{ workspace: ServerWorkspace }>("/api/workspaces", jsonRequest("POST", { name }))).workspace),
     rename: async (id: string, name: string) => {
       await client.cancelQueries({ queryKey: workspacesKey });
+      const before = client.getQueriesData<WorkspaceList>({ queryKey: workspacesKey });
+      const previous = before.map(([, data]) => data?.workspaces.find((w) => w.id === id)?.name).find((value) => value !== undefined);
       client.setQueriesData<WorkspaceList>({ queryKey: workspacesKey }, (data) =>
         data ? { ...data, workspaces: data.workspaces.map((w) => (w.id === id ? { ...w, name } : w)) } : data,
       );
-      return run(async () => (await api<{ workspace: ServerWorkspace }>(one(id), jsonRequest("PATCH", { name }))).workspace);
+      try {
+        return await run(async () => (await api<{ workspace: ServerWorkspace }>(one(id), jsonRequest("PATCH", { name }))).workspace);
+      } catch (error) {
+        // The list is refetched when the request settles, but if that fails too the optimistic name must not stay: put back the old one
+        // (only where the name is still the one this call wrote, so a newer name from someone else is kept).
+        if (previous !== undefined) {
+          client.setQueriesData<WorkspaceList>({ queryKey: workspacesKey }, (data) =>
+            data ? { ...data, workspaces: data.workspaces.map((w) => (w.id === id && w.name === name ? { ...w, name: previous } : w)) } : data,
+          );
+        }
+        throw error;
+      }
     },
     remove: (id: string) => run(() => api<{ deleted: string; active: string }>(one(id), jsonRequest("DELETE"))),
     archive: (id: string) => run(() => api<{ workspace: ServerWorkspace }>(`${one(id)}/archive`, jsonRequest("POST"))),

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LiveProvider } from "@/data/live";
 import { createLiveRig, docMessage, makeDocument, nodeDelta } from "@/test/live-harness";
-import { createRefreshThrottle, refreshIntervalMs, useWorkspacesFollow } from "./workspaces";
+import { createRefreshThrottle, createWorkspaceActions, refreshIntervalMs, useWorkspacesFollow, workspacesQuery, type WorkspaceList } from "./workspaces";
 
 afterEach(() => vi.useRealTimers());
 
@@ -100,5 +100,54 @@ describe("useWorkspacesFollow", () => {
     invalidate.mockClear();
     rig.push({ type: "workspaceOp", op: { at: 1, actor: "user", op: "create", workspaceId: "n", workspaceName: "N", detail: {} } });
     expect(invalidate).not.toHaveBeenCalled();
+  });
+});
+
+describe("rename", () => {
+  const list = (names: Record<string, string>): WorkspaceList => ({
+    active: "a",
+    folders: [],
+    workspaces: Object.entries(names).map(([id, name]) => ({ id, name, nodes: 1, updatedAt: 1, active: id === "a", cover: null, archived: false, folderId: "", preview: [] })),
+  });
+  const nameOf = (queries: QueryClient, id: string) => queries.getQueryData<WorkspaceList>(workspacesQuery().queryKey)?.workspaces.find((w) => w.id === id)?.name;
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("shows the new name at once and puts the old one back when the request fails and the list cannot be fetched either", async () => {
+    const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queries.setQueryData(workspacesQuery().queryKey, list({ a: "Demo", b: "Checkout" }));
+    let fail: () => void = () => {};
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((resolve) => {
+        if (init?.method === "PATCH") fail = () => resolve(new Response(JSON.stringify({ error: "boom" }), { status: 500, headers: { "content-type": "application/json" } }));
+        else resolve(new Response("down", { status: 503 }));
+      })),
+    );
+    const actions = createWorkspaceActions(queries);
+    const done = actions.rename("b", "Payments").catch((e: unknown) => e);
+    await vi.waitFor(() => expect(nameOf(queries, "b")).toBe("Payments"));
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+    fail();
+    expect(await done).toBeInstanceOf(Error);
+    await vi.waitFor(() => expect(nameOf(queries, "b")).toBe("Checkout"));
+    expect(nameOf(queries, "a")).toBe("Demo");
+  });
+
+  it("does not undo a newer name that arrived meanwhile", async () => {
+    const queries = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queries.setQueryData(workspacesQuery().queryKey, list({ b: "Checkout" }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        if (init?.method === "PATCH") {
+          queries.setQueryData(workspacesQuery().queryKey, list({ b: "Renamed by an agent" }));
+          return new Response(JSON.stringify({ error: "boom" }), { status: 500, headers: { "content-type": "application/json" } });
+        }
+        return new Response("down", { status: 503 });
+      }),
+    );
+    await createWorkspaceActions(queries).rename("b", "Payments").catch(() => {});
+    expect(nameOf(queries, "b")).toBe("Renamed by an agent");
   });
 });
