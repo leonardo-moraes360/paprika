@@ -153,13 +153,13 @@ describe("each area selects its jobs", () => {
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
   });
 
-  it("apps/web triggers the TS build, its own unit tests and analysis, with no e2e and no docker", () => {
+  it("apps/web triggers the TS build, its own unit tests, analysis and the image, with no e2e", () => {
     const p = plan(["apps/web/src/routes/index.tsx"]);
     assert.equal(p.ts, true);
     assert.equal(p.build, true);
     assert.equal(p.unit, true);
     assert.deepEqual(JSON.parse(p.unit_matrix), [{ pkg: "@paprika/web", mode: "all" }]);
-    assert.equal(p.docker, false);
+    assert.equal(p.docker, true, "the image ships the new app");
     assert.equal(p.suites, false);
     assert.deepEqual(JSON.parse(p.suites_matrix), []);
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
@@ -177,7 +177,7 @@ describe("each area selects its jobs", () => {
     assert.equal(p.rust, true);
     assert.equal(p.ts, true, "the web build embeds the renderer");
     assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }]);
-    assert.equal(p.unit, false);
+    assert.deepEqual(JSON.parse(p.unit_matrix), [{ pkg: "@paprika/web", mode: "all" }], "apps/web loads the same WASM build");
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript", "rust"]);
   });
 
