@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Op } from "@paprika/core";
 import { dismissToasts } from "@/lib/notify";
+import { fakeWasm } from "@/test/fake-wasm";
 import { deltaMessage, makeDocument, renderEditorRig, serveDocument } from "@/test/live-harness";
 
 const steps = [
@@ -259,6 +260,37 @@ describe("stage", () => {
       expect(view.socket.sentOf("hello").at(-1)).toMatchObject({ renderer: "wasm" });
       expect(window.localStorage.getItem("paprika.renderer")).toBe("wasm");
       expect(opsSent(view)).toEqual([]);
+      view.unmount();
+    });
+
+    it("says GPU when the module got a hardware adapter", async () => {
+      fakeWasm.backend = "webgpu";
+      window.localStorage.setItem("paprika.renderer", "wasm");
+      const view = await openShell();
+      expect(await screen.findByRole("button", { name: "Renderer: WASM · GPU" })).toBeInTheDocument();
+      view.unmount();
+    });
+
+    it("WASM is disabled with the reason when the build has no renderer", async () => {
+      const user = userEvent.setup();
+      fakeWasm.available = false;
+      const view = await openShell();
+      await user.click(screen.getByRole("button", { name: "Renderer: DOM" }));
+      const item = screen.getByRole("menuitemradio", { name: /WASM/ });
+      expect(item).toHaveAttribute("aria-disabled", "true");
+      expect(item.textContent).toMatch(/no WASM renderer/i);
+      view.unmount();
+    });
+
+    it("a renderer that fails to start goes back to DOM, warns through the toast and announces dom again", async () => {
+      const user = userEvent.setup();
+      fakeWasm.failCreate = "no device";
+      const view = await openShell();
+      await user.click(screen.getByRole("button", { name: "Renderer: DOM" }));
+      await user.click(screen.getByRole("menuitemradio", { name: "WASM" }));
+      expect(await screen.findByText(/no device/)).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Renderer: DOM" })).toBeInTheDocument();
+      expect(view.socket.sentOf("hello").at(-1)).toMatchObject({ renderer: "dom" });
       view.unmount();
     });
 

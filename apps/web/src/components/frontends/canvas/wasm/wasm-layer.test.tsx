@@ -147,11 +147,16 @@ describe("loading and the backend", () => {
 
 describe("the handover from the DOM", () => {
   it("a node the layer paints drops fill, border and shadow in the DOM, the others keep theirs, and the world says the layer is active", async () => {
-    const { world } = mount();
+    const doc = applyOps(everyKindDocument(), [
+      { op: "create", parentId: "page", node: { type: "frame", id: "framed", name: "Framed", x: 400, y: 600, width: 80, height: 60, fill: "#336699", stroke: { color: "#ff0000", width: 3 }, shadow: { x: 0, y: 2, blur: 6, spread: 0, color: "rgba(0,0,0,0.3)" } } },
+    ] as unknown as Op[]).doc;
+    const { world } = mount({ doc });
     await elapse();
     expect(world.dataset.wasmActive).toBe("1");
     expect(domPaints(node(world, "btn"))).toBe(false);
     expect(node(world, "btn").style.boxShadow).toBe("");
+    expect(node(world, "framed").style.borderColor).toMatch(/transparent|rgba\(0, 0, 0, 0\)/);
+    expect(node(world, "framed").style.boxShadow).toBe("");
     // A text is never the layer's: it keeps its paint and its colour.
     expect(node(world, "title").style.color).not.toBe("");
     expect(node(world, "arrow")).not.toBeNull();
@@ -174,7 +179,11 @@ describe("the handover from the DOM", () => {
 
   it("the scene is on the canvas BEFORE the DOM stops painting: the first draw comes first", async () => {
     const order: string[] = [];
+    let firstFrame: { domPainted: boolean; active: string | undefined } | undefined;
     const { world } = mount();
+    fakeWasm.onRender = () => {
+      firstFrame ??= { domPainted: domPaints(node(world, "btn")), active: world.dataset.wasmActive };
+    };
     // Watch the world: it turns `active` only after a successful draw.
     const observer = new MutationObserver(() => order.push(`active=${world.dataset.wasmActive}`));
     observer.observe(world, { attributes: true, attributeFilter: ["data-wasm-active"] });
@@ -183,6 +192,8 @@ describe("the handover from the DOM", () => {
     expect(fakeWasm.last!.renders.length).toBeGreaterThan(0);
     expect(fakeWasm.last!.scenes.length).toBeGreaterThan(0);
     expect(world.dataset.wasmActive).toBe("1");
+    // At the first frame the DOM still had its paint and the world was not yet active.
+    expect(firstFrame).toEqual({ domPainted: true, active: undefined });
   });
 
   it("only the painted nodes render again when WASM is switched on: the text, the image and the connector do not", async () => {

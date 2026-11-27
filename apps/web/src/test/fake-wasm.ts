@@ -25,6 +25,8 @@ export const fakeWasm = {
   deviceError: "",
   /** Holds `createRenderer` until `release()` (to see the loading state). */
   hold: false,
+  /** Called at the start of every `render` (to see what the DOM looked like when the frame was drawn). */
+  onRender: null as (() => void) | null,
   loads: 0,
   renderers: [] as FakeRenderer[],
   releaseHeld: null as (() => void) | null,
@@ -38,6 +40,7 @@ export const fakeWasm = {
     this.failRender = null;
     this.deviceError = "";
     this.hold = false;
+    this.onRender = null;
     this.loads = 0;
     this.renderers = [];
     this.releaseHeld = null;
@@ -70,6 +73,7 @@ export const fakeWasm = {
           resize: (w, h) => void renderer.resizes.push([w, h]),
           render: (tx, ty, zoom) => {
             if (fakeWasm.failRender) throw new Error(fakeWasm.failRender);
+            fakeWasm.onRender?.();
             renderer.renders.push([tx, ty, zoom]);
           },
           free: () => {
