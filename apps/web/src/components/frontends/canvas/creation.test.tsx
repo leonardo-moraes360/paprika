@@ -231,6 +231,17 @@ describe("the text editor", () => {
     expect(t.queryByRole("textbox")).toBeNull();
   });
 
+  it("Escape confirms and leaves the selection alone (the old canvas's text editor also cleared it, its shape and label editors did not)", async () => {
+    const t = mount({ selection: ["title"] });
+    const surface = open(t);
+    t.onSelect.mockClear();
+    fireEvent.keyDown(surface, { key: "Escape" });
+    await flush();
+    expect(t.queryByRole("textbox")).toBeNull();
+    expect(t.feed.get().selection).toEqual(["title"]);
+    expect(t.onSelect).not.toHaveBeenCalled();
+  });
+
   it("commits only when something changed", async () => {
     const t = mount();
     const surface = open(t);
