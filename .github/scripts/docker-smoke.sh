@@ -61,8 +61,12 @@ html=$(curl -fsS "$base/") || fail "GET /"
 grep -q '<title>Paprika</title>' <<<"$html" || fail "GET / is not the canvas"
 echo "ok   GET / (canvas)"
 js=$(grep -o '/assets/index-[^"]*\.js' <<<"$html" | head -1)
-[[ -n "$js" ]] || fail "no script in index.html"
-chunk=$(curl -fsS "$base$js" | grep -o 'paprika_render-[A-Za-z0-9_-]*\.js' | head -1)
+[[ -n "$js" ]] || fail "no script in the app shell"
+chunk=""
+for name in "${js#/assets/}" $(curl -fsS "$base$js" | grep -o '[A-Za-z0-9_.-]*\.js' | sort -u); do
+  chunk=$(curl -fsS "$base/assets/$name" 2>/dev/null | grep -o 'paprika_render-[A-Za-z0-9_-]*\.js' | head -1) || true
+  [[ -n "$chunk" ]] && break
+done
 [[ -n "$chunk" ]] || fail "WASM renderer chunk not in the canvas build"
 wasm=$(curl -fsS "$base/assets/$chunk" | grep -o 'paprika_render_bg-[A-Za-z0-9_-]*\.wasm' | head -1)
 [[ -n "$wasm" ]] || fail "WASM file not referenced by $chunk"
