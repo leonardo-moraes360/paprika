@@ -9,6 +9,8 @@ import {
   escapeSelection,
   groupPlan,
   nudgePlan,
+  rememberNudges,
+  type PendingNudges,
   selectAllIds,
   ungroupPlan,
   wrapPlan,
@@ -34,15 +36,18 @@ export function useSelectionActions() {
   return useMemo(() => {
     const doc = () => client.store.state.doc;
     const selection = () => editor.state.selection;
+    // Held arrow key: the ack comes before the delta, so each step starts from where the previous one is going (E3).
+    let pendingNudges: PendingNudges | undefined;
 
-    const run = async (result: SelectionResult) => {
-      if (!result) return;
+    const run = async (result: SelectionResult): Promise<boolean> => {
+      if (!result) return false;
       if ("error" in result) {
         showStatusToast({ status: "danger", title: t("app.shell.actionFailedTitle"), description: result.error });
-        return;
+        return false;
       }
       const ok = await apply(result.ops, t(`app.shell.labels.${result.label}`));
       if (ok && result.select) editor.actions.select(result.select);
+      return ok;
     };
 
     /** The same action on explicit ids (the layers menu acts on the ids it was opened on). */
@@ -61,7 +66,14 @@ export function useSelectionActions() {
       convert: on(convertToPathPlan),
       nudge: (dx: number, dy: number) => {
         const d = doc();
-        return d ? run(nudgePlan(d, selection(), dx, dy)) : Promise.resolve();
+        if (!d) return Promise.resolve();
+        const { version } = client.store.state;
+        const plan = nudgePlan(d, selection(), dx, dy, pendingNudges, version);
+        if (!plan) return Promise.resolve();
+        pendingNudges = rememberNudges(d, plan, version, pendingNudges);
+        return run(plan).then((ok) => {
+          if (!ok) pendingNudges = undefined;
+        });
       },
       selectAll: () => {
         const d = doc();

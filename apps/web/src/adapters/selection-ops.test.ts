@@ -1,6 +1,6 @@
 import type { Document } from "@paprika/core";
 import { describe, expect, it } from "vitest";
-import { centerPlan, convertToPathPlan, deletePlan, duplicatePlan, escapeSelection, groupPlan, nudgePlan, selectAllIds, ungroupPlan, wrapPlan } from "./selection-ops";
+import { centerPlan, convertToPathPlan, deletePlan, duplicatePlan, escapeSelection, groupPlan, nudgePlan, rememberNudges, selectAllIds, ungroupPlan, wrapPlan } from "./selection-ops";
 
 const n = (id: string, type: string, parentId: string, extra: Record<string, unknown> = {}) => ({ id, name: id, type, parentId, visible: true, locked: false, x: 5, y: 6, width: 10, height: 10, rotation: 0, opacity: 1, ...extra });
 const doc = {
@@ -56,6 +56,24 @@ describe("selection ops", () => {
   it("moves by the step, leaving locked layers and connectors", () => {
     expect(nudgePlan(doc, ["r1", "r2"], 10, -1)).toEqual({ ops: [{ op: "update", id: "r1", props: { x: 15, y: 5 } }], label: "nudge" });
     expect(nudgePlan(doc, ["r2"], 1, 0)).toBeNull();
+  });
+
+  it("adds up a held key: the next step starts where the previous went while the document still shows the old place", () => {
+    const first = nudgePlan(doc, ["r1"], 1, 0, undefined, 7);
+    expect(first?.ops).toEqual([{ op: "update", id: "r1", props: { x: 6, y: 6 } }]);
+    const pending = rememberNudges(doc, first!, 7);
+    const second = nudgePlan(doc, ["r1"], 1, 0, pending, 7);
+    expect(second?.ops).toEqual([{ op: "update", id: "r1", props: { x: 7, y: 6 } }]);
+    const third = nudgePlan(doc, ["r1"], 1, 0, rememberNudges(doc, second!, 7, pending), 7);
+    expect(third?.ops).toEqual([{ op: "update", id: "r1", props: { x: 8, y: 6 } }]);
+  });
+
+  it("forgets the pending move once any delta arrives (another version) or the node is elsewhere", () => {
+    const first = nudgePlan(doc, ["r1"], 1, 0, undefined, 7)!;
+    const pending = rememberNudges(doc, first, 7);
+    expect(nudgePlan(doc, ["r1"], 1, 0, pending, 8)?.ops).toEqual([{ op: "update", id: "r1", props: { x: 6, y: 6 } }]);
+    const moved = { ...doc, nodes: { ...doc.nodes, r1: { ...doc.nodes.r1, x: 40 } } } as unknown as Document;
+    expect(nudgePlan(moved, ["r1"], 1, 0, pending, 7)?.ops).toEqual([{ op: "update", id: "r1", props: { x: 41, y: 6 } }]);
   });
 
   it("selects all next to the selection or on the page, and Esc goes up to the parent unless it is the page", () => {

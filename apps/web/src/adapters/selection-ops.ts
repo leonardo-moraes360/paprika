@@ -123,12 +123,43 @@ export function deletePlan(doc: Document, ids: readonly string[]): SelectionResu
   return { ops: nodes.filter((n) => !under(n.id)).map((n): Op => ({ op: "delete", id: n.id })), label: "delete", select: [] };
 }
 
-/** Moves the selected layers by (dx, dy); locked ones and connectors stay. */
-export function nudgePlan(doc: Document, ids: readonly string[], dx: number, dy: number): SelectionPlan | null {
+type Point = { x: number; y: number };
+
+/**
+ * Moves the server has acked but whose delta has not reached the document yet (the ack comes before the delta): per node, where it
+ * stood and where the nudge took it, tagged with the document version they were planned at. A held arrow key plans its next
+ * step on `to` while the document still shows `from` at that same version; as soon as any delta arrives the entry no longer
+ * applies and the document is the truth again.
+ */
+export type PendingNudges = { version: number; moves: ReadonlyMap<string, { from: Point; to: Point }> };
+
+const basePosition = (node: { id: string; x: number; y: number }, pending: PendingNudges | undefined, version: number | undefined): Point => {
+  const move = pending && pending.version === version ? pending.moves.get(node.id) : undefined;
+  return move && move.from.x === node.x && move.from.y === node.y ? move.to : { x: node.x, y: node.y };
+};
+
+/** Moves the selected layers by (dx, dy); locked ones and connectors stay. `pending` and `version` make a held key add up (see `PendingNudges`). */
+export function nudgePlan(doc: Document, ids: readonly string[], dx: number, dy: number, pending?: PendingNudges, version?: number): SelectionPlan | null {
   const ops = sceneNodes(doc, ids)
     .filter((n) => !n.locked && n.type !== "connector")
-    .map((n): Op => ({ op: "update", id: n.id, props: { x: (n as { x: number }).x + dx, y: (n as { y: number }).y + dy } }));
+    .map((n): Op => {
+      const at = basePosition(n as SceneNode & Point, pending, version);
+      return { op: "update", id: n.id, props: { x: at.x + dx, y: at.y + dy } };
+    });
   return ops.length ? { ops, label: "nudge" } : null;
+}
+
+/** The pending moves after planning `plan` at `version`: the ones still valid carry over, the planned ones are added or moved on. */
+export function rememberNudges(doc: Document, plan: SelectionPlan, version: number, previous?: PendingNudges): PendingNudges {
+  const moves = new Map(previous && previous.version === version ? previous.moves : []);
+  for (const op of plan.ops) {
+    if (op.op !== "update") continue;
+    const node = doc.nodes[op.id] as (Node & Partial<Point>) | undefined;
+    const props = op.props as Partial<Point>;
+    if (!node || node.x === undefined || node.y === undefined || props.x === undefined || props.y === undefined) continue;
+    moves.set(op.id, { from: { x: node.x, y: node.y }, to: { x: props.x, y: props.y } });
+  }
+  return { version, moves };
 }
 
 export function centerPlan(doc: Document, ids: readonly string[]): { plan: SelectionPlan | null; centered: boolean } {
