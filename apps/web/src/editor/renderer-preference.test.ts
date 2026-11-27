@@ -23,8 +23,13 @@ describe("parseRenderer", () => {
     expect(parseRenderer("wasm", true, true)).toBe("cpu");
   });
 
-  it("gpu stays gpu without WebGPU: the person is told by the canvas, nothing falls back silently", () => {
+  it("gpu from the URL stays gpu without WebGPU: the canvas tells the person and goes to the CPU", () => {
     expect(parseRenderer("gpu", false)).toBe("gpu");
+  });
+
+  it("a capture is cpu whatever was asked", () => {
+    expect(parseRenderer("gpu", true, true)).toBe("cpu");
+    expect(parseRenderer("cpu", true, true)).toBe("cpu");
   });
 });
 
@@ -37,6 +42,19 @@ describe("readRendererPreference", () => {
     expect(readRendererPreference()).toBe("gpu");
     go("?renderer=dom");
     expect(readRendererPreference()).toBe("dom");
+  });
+
+  it("a saved gpu without WebGPU is read as cpu, and kept as gpu where there is WebGPU", () => {
+    window.localStorage.setItem("paprika.renderer", "gpu");
+    expect(readRendererPreference()).toBe("cpu");
+    Object.defineProperty(navigator, "gpu", { value: {}, configurable: true });
+    try {
+      expect(readRendererPreference()).toBe("gpu");
+      go("?renderer=gpu&capture=n1");
+      expect(readRendererPreference()).toBe("cpu");
+    } finally {
+      delete (navigator as unknown as { gpu?: unknown }).gpu;
+    }
   });
 
   it("the server's ?renderer=wasm&capture=... is cpu", () => {

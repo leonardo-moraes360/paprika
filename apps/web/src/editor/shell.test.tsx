@@ -309,18 +309,51 @@ describe("stage", () => {
       view.unmount();
     });
 
-    it("a saved gpu that cannot start goes back to DOM and says so, without trying again", async () => {
+    it("a saved gpu that cannot start goes back to the CPU, saves it and says so once", async () => {
       setGpu(true);
       fakeWasm.failGpu = "no adapter";
       const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
       window.localStorage.setItem("paprika.renderer", "gpu");
       const view = await openShell();
       expect(await screen.findByText(/could not start WebGPU/)).toBeInTheDocument();
-      expect(screen.getByText(/went back to DOM/)).toBeInTheDocument();
-      expect(await screen.findByRole("button", { name: "Renderer: DOM" })).toBeInTheDocument();
-      expect(fakeWasm.asked).toEqual(["gpu"]);
-      warn.mockRestore();
+      expect(screen.getByText(/went back to WASM · CPU/)).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Renderer: WASM · CPU" })).toBeInTheDocument();
+      expect(fakeWasm.asked).toEqual(["gpu", "cpu"]);
+      expect(window.localStorage.getItem("paprika.renderer")).toBe("cpu");
+      expect(warn).toHaveBeenCalledTimes(1);
       view.unmount();
+      const again = await openShell();
+      expect(await screen.findByRole("button", { name: "Renderer: WASM · CPU" })).toBeInTheDocument();
+      expect(warn).toHaveBeenCalledTimes(1);
+      again.unmount();
+      warn.mockRestore();
+    });
+
+    it("the legacy wasm with navigator.gpu and no adapter ends on the CPU with one warning, and none at the next opening", async () => {
+      setGpu(true);
+      fakeWasm.failGpu = "no adapter";
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      window.localStorage.setItem("paprika.renderer", "wasm");
+      const view = await openShell();
+      expect(await screen.findByRole("button", { name: "Renderer: WASM · CPU" })).toBeInTheDocument();
+      expect(window.localStorage.getItem("paprika.renderer")).toBe("cpu");
+      view.unmount();
+      const again = await openShell();
+      expect(await screen.findByRole("button", { name: "Renderer: WASM · CPU" })).toBeInTheDocument();
+      expect(warn).toHaveBeenCalledTimes(1);
+      again.unmount();
+      warn.mockRestore();
+    });
+
+    it("a saved gpu in a browser without WebGPU opens on the CPU with no warning", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      window.localStorage.setItem("paprika.renderer", "gpu");
+      const view = await openShell();
+      expect(await screen.findByRole("button", { name: "Renderer: WASM · CPU" })).toBeInTheDocument();
+      expect(fakeWasm.asked).toEqual(["cpu"]);
+      expect(warn).not.toHaveBeenCalled();
+      view.unmount();
+      warn.mockRestore();
     });
 
     it("a gpu that fails after the CPU worked goes back to the CPU", async () => {
