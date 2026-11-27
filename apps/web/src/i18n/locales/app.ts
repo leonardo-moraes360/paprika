@@ -11,6 +11,9 @@ export const appEn = {
     failedFallback: "The server did not open it.",
     deleted: "This workspace was deleted.",
     back: "Back to workspaces",
+    connecting: "Connecting to the Paprika server…",
+    invalid: "This workspace is damaged in the database and cannot be opened.",
+    notFound: "This workspace does not exist or was deleted.",
   },
   overview: {
     loadFailed: "Could not load the workspaces.",
@@ -195,6 +198,9 @@ export const appPtBR: typeof appEn = {
     failedFallback: "O servidor não o abriu.",
     deleted: "Este workspace foi excluído.",
     back: "Voltar aos workspaces",
+    connecting: "Conectando ao servidor Paprika…",
+    invalid: "Este workspace está corrompido no banco e não pode ser aberto.",
+    notFound: "Este workspace não existe ou foi excluído.",
   },
   overview: {
     loadFailed: "Não foi possível carregar os workspaces.",

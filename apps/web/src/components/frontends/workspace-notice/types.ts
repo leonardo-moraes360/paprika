@@ -22,6 +22,7 @@ export type WorkspaceNoticeEntry = {
 export type WorkspaceNoticeProps = {
   notice: WorkspaceNoticeEntry | null;
   onDismiss: () => void;
-  onViewWorkspaces: () => void;
+  /** Offers "View workspaces"; left out where the person is already looking at them (the overview). */
+  onViewWorkspaces?: () => void;
   className?: string;
 };

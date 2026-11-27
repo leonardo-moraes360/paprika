@@ -1,5 +1,6 @@
-import { render } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, render } from "@testing-library/react";
+import { Profiler } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as model from "./model";
 import { Overview } from "./overview";
 import type { WorkspaceEntry } from "./types";
@@ -25,5 +26,26 @@ describe("Overview cards", () => {
     // the changed card renders once or twice; the other 199 do not render at all (they were 200 renders each time before the cards were memoized)
     expect(calls.mock.calls.length).toBeLessThanOrEqual(2);
     expect(view.getByText("Renamed")).toBeInTheDocument();
+  });
+
+  describe("the 30 s clock", () => {
+    afterEach(() => vi.useRealTimers());
+
+    it("re-renders no card while the grid is left open and no label turns over (200 cards, 31 s)", () => {
+      vi.useFakeTimers({ now: NOW });
+      let commits = 0;
+      render(
+        <Profiler id="grid" onRender={() => (commits += 1)}>
+          <Overview workspaces={entries} {...handlers} renderPreview={() => null} />
+        </Profiler>,
+      );
+      commits = 0;
+      act(() => void vi.advanceTimersByTime(31_000));
+      // "now" lasts 45 s: the tick compares labels and sets nothing, so there is no commit at all (it used to rebuild the 200 cards).
+      expect(commits).toBe(0);
+      act(() => void vi.advanceTimersByTime(30_000));
+      // 61 s old: every label turned over to "1 minute ago", and only the label leaves re-render (one render each, no grid).
+      expect(commits).toBeGreaterThan(0);
+    });
   });
 });

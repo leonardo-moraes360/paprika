@@ -43,3 +43,21 @@ describe("WorkspaceCard rename", () => {
     expect(onRename).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("WorkspaceCard frame", () => {
+  it("draws the state frame as an overlay above the preview (the preview must not cover the green border of the active card)", () => {
+    const { container } = render(<WorkspaceCard name="Alpha" meta={<b>1 item</b>} preview={<i data-testid="preview" />} active renameLabel="Rename" />);
+    const card = container.firstElementChild as HTMLElement;
+    expect(card).toHaveAttribute("data-active");
+    expect(card.className).toContain("after:z-20");
+    expect(card.className).toContain("data-active:after:shadow-[inset_0_0_0_1px_var(--color-green)]");
+    // no inset ring on the card itself: it would be painted under the preview
+    expect(card.className).not.toMatch(/ring-inset/);
+    expect(screen.getByText("1 item").tagName).toBe("B");
+  });
+
+  it("sets the title at 14 px (text-base)", () => {
+    render(<WorkspaceCard name="Alpha" meta="1 item" preview={null} renameLabel="Rename" />);
+    expect(screen.getByRole("button", { name: "Alpha" })).toHaveClass("text-base", "font-semibold");
+  });
+});

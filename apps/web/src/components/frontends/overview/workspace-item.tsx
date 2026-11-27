@@ -1,6 +1,6 @@
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { Archive, ArchiveRestore, Ellipsis, ImagePlus, ImageOff, Pencil, Trash2, ExternalLink } from "lucide-react";
-import { memo, useCallback, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode, type RefObject } from "react";
+import { Ellipsis } from "lucide-react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { IconButton } from "@/components/ui/icon-button";
 import {
@@ -23,11 +23,38 @@ import type { ProjectEntry, WorkspaceEntry } from "./types";
 const noProject = "__none__";
 const imageTypes = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
+const metaClockMs = 30_000;
+
+/**
+ * "1,204 nodes · 5 minutes ago": a leaf with its own clock. The tick reads the clock but only sets state when the sentence
+ * would change, so a grid left open for hours re-renders no card until a label really turns over (the clock used to live in
+ * `Overview` and rebuilt every card every 30 s). `now` fixes the clock (tests, previews).
+ */
+function CardMeta({ count, at, now }: { count: number; at: number; now?: number }) {
+  const { t, i18n } = useTranslation();
+  // The reading belongs to the `at` it was taken for: a card whose workspace was just edited reads the clock again.
+  const [stamp, setStamp] = useState(() => ({ at, clock: now ?? Date.now() }));
+  const shown = now ?? (stamp.at === at ? stamp.clock : Date.now());
+  const label = (time: number) => t("frontends.overview.card.meta", { count, when: relativeTime(at, i18n.language, t("frontends.overview.card.now"), time) });
+  const latest = useRef({ label, shown, at });
+  latest.current = { label, shown, at };
+  useEffect(() => {
+    if (now !== undefined) return;
+    const id = setInterval(() => {
+      const next = Date.now();
+      const { label: current, shown: before, at: forAt } = latest.current;
+      if (current(next) !== current(before)) setStamp({ at: forAt, clock: next });
+    }, metaClockMs);
+    return () => clearInterval(id);
+  }, [now]);
+  return <>{label(shown)}</>;
+}
+
 export type WorkspaceItemProps = {
   workspace: WorkspaceEntry;
   projects: readonly ProjectEntry[];
   preview?: ReactNode;
-  now: number;
+  now?: number;
   buttons: RefObject<Map<string, HTMLButtonElement>>;
   onOpen: (id: string) => void;
   onRename: (id: string, name: string) => void;
@@ -56,7 +83,7 @@ export const WorkspaceItem = memo(function WorkspaceItem({
   onRemoveCover,
   onMove,
 }: WorkspaceItemProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const actions = OverviewRegion.useRegionActions();
   const renaming = OverviewRegion.useRegion((s) => s.renamingId === workspace.id);
   const item = useRef<HTMLLIElement>(null);
@@ -126,10 +153,7 @@ export const WorkspaceItem = memo(function WorkspaceItem({
     >
       <WorkspaceCard
         name={name}
-        meta={t("frontends.overview.card.meta", {
-          count: workspace.nodes,
-          when: relativeTime(workspace.updatedAt, i18n.language, t("frontends.overview.card.now"), now),
-        })}
+        meta={<CardMeta count={workspace.nodes} at={workspace.updatedAt} now={now} />}
         preview={<CoverPreview cover={workspace.cover} name={name} custom={preview} />}
         active={workspace.active === true}
         activeLabel={t("frontends.overview.card.active")}
@@ -148,18 +172,18 @@ export const WorkspaceItem = memo(function WorkspaceItem({
               <MenuTrigger render={<IconButton size="sm" bordered aria-label={t("frontends.overview.card.more")} className="bg-popover" />}>
                 <Ellipsis aria-hidden="true" />
               </MenuTrigger>
-              <MenuContent align="end">
-                <MenuItem icon={<ExternalLink aria-hidden="true" />} shortcut="Enter" onSelect={() => onOpen(id)}>
+              <MenuContent align="end" className="w-63.75">
+                <MenuItem shortcut="Enter" onSelect={() => onOpen(id)}>
                   {t("frontends.overview.card.open")}
                 </MenuItem>
-                <MenuItem icon={<Pencil aria-hidden="true" />} shortcut="F2" onSelect={startRename}>
+                <MenuItem shortcut="F2" onSelect={startRename}>
                   {t("frontends.overview.card.rename")}
                 </MenuItem>
-                <MenuItem icon={<ImagePlus aria-hidden="true" />} onSelect={() => onPickCover(id)}>
+                <MenuItem onSelect={() => onPickCover(id)}>
                   {workspace.cover ? t("frontends.overview.card.changeCover") : t("frontends.overview.card.addCover")}
                 </MenuItem>
                 {workspace.cover ? (
-                  <MenuItem icon={<ImageOff aria-hidden="true" />} onSelect={() => onRemoveCover(id)}>
+                  <MenuItem onSelect={() => onRemoveCover(id)}>
                     {t("frontends.overview.card.removeCover")}
                   </MenuItem>
                 ) : null}
@@ -183,15 +207,15 @@ export const WorkspaceItem = memo(function WorkspaceItem({
                 ) : null}
                 <MenuSeparator />
                 {archived ? (
-                  <MenuItem icon={<ArchiveRestore aria-hidden="true" />} onSelect={() => onRestore(id)}>
+                  <MenuItem onSelect={() => onRestore(id)}>
                     {t("frontends.overview.card.restore")}
                   </MenuItem>
                 ) : (
-                  <MenuItem icon={<Archive aria-hidden="true" />} disabled={!canArchive} onSelect={() => onArchive(id)}>
+                  <MenuItem disabled={!canArchive} onSelect={() => onArchive(id)}>
                     {t("frontends.overview.card.archive")}
                   </MenuItem>
                 )}
-                <MenuItem icon={<Trash2 aria-hidden="true" />} destructive shortcut="Del" disabled={!canDelete} onSelect={() => onRequestDelete(id)}>
+                <MenuItem destructive shortcut="Del" disabled={!canDelete} onSelect={() => onRequestDelete(id)}>
                   {t("frontends.overview.card.delete")}
                 </MenuItem>
               </MenuContent>

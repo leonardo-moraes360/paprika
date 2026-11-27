@@ -8,6 +8,6 @@ export const OverviewNotice = memo(function OverviewNotice() {
   const notice = useLive((s) => s.workspaceNotice);
   const { dismissWorkspaceNotice } = useLiveActions();
   const entry = useMemo(() => toNoticeEntry(notice), [notice]);
-  // On the overview "view workspaces" means: you are already here.
-  return <WorkspaceNotice notice={entry} onDismiss={dismissWorkspaceNotice} onViewWorkspaces={dismissWorkspaceNotice} />;
+  // No "View workspaces" here: the person is already looking at them.
+  return <WorkspaceNotice notice={entry} onDismiss={dismissWorkspaceNotice} />;
 });

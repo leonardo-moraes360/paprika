@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ServerWorkspace } from "@/data/queries/workspaces";
-import { toProjectEntries, toWorkspaceEntries, toWorkspaceEntry } from "./workspaces";
+import { openFailureOf, toProjectEntries, toWorkspaceEntries, toWorkspaceEntry } from "./workspaces";
 
 const ws = (id: string, extra: Partial<ServerWorkspace> = {}): ServerWorkspace => ({
   id,
@@ -61,5 +61,20 @@ describe("workspaces adapter", () => {
     const [entry] = toWorkspaceEntries([ws("a", { archived: true })]);
     expect(entry?.canDelete).toBe(false);
     expect(entry?.canArchive).toBe(true);
+  });
+});
+
+describe("openFailureOf", () => {
+  it("classifies by HTTP status (404, 422) and by the socket's refusal text", () => {
+    expect(openFailureOf(Object.assign(new Error("x"), { status: 404 }))).toBe("notFound");
+    expect(openFailureOf(Object.assign(new Error("x"), { status: 422 }))).toBe("invalid");
+    expect(openFailureOf(new Error('workspace "a" does not exist. Workspaces: b "B"'))).toBe("notFound");
+    expect(openFailureOf(new Error('workspace "a" is invalid in the database and cannot be opened: []'))).toBe("invalid");
+  });
+
+  it("is null for any other failure", () => {
+    expect(openFailureOf(Object.assign(new Error("boom"), { status: 500 }))).toBeNull();
+    expect(openFailureOf(new Error("offline"))).toBeNull();
+    expect(openFailureOf(undefined)).toBeNull();
   });
 });

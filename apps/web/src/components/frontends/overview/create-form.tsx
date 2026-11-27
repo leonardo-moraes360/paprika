@@ -35,12 +35,12 @@ export function CreateForm({ onSubmit, onCancel }: CreateFormProps) {
         onValueChange={setName}
         maxLength={120}
         autoComplete="off"
-        className="h-9 w-60 max-w-[50vw]"
+        className="h-9 w-90 max-w-[50vw]"
       />
       <Button type="submit" pendingAnnouncement={t("common.working")} data-pending={pending ? "" : undefined} disabled={pending}>
         {t("frontends.overview.create")}
       </Button>
-      <Button type="button" variant="ghost" onClick={onCancel}>
+      <Button type="button" variant="secondary" onClick={onCancel}>
         {t("frontends.overview.cancel")}
       </Button>
     </form>

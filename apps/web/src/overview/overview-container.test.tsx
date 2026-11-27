@@ -74,15 +74,32 @@ describe("/ (overview)", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/workspaces/b/open", expect.objectContaining({ method: "POST" })));
   });
 
-  it("tells the user when the open request is refused, and stays on the editor route", async () => {
+  it("tells the user when the open request is refused (one warning, the app's own sentence, the server's text only in the console)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const user = userEvent.setup();
     mount((url) => {
       if (url.startsWith("/api/workspaces?") || url === "/api/workspaces") return reply({ active: "a", workspaces: [workspace("a", "Demo Paprika"), workspace("b", "Checkout")], folders: [] });
-      return reply({ error: 'workspace "b" does not exist' }, 404);
+      return reply({ error: 'workspace "b" does not exist. Workspaces: a "Demo Paprika", b "Checkout"' }, 404);
     });
     await user.click(await screen.findByRole("button", { name: /Checkout/ }));
-    expect(await screen.findByText("Could not open the workspace.")).toBeInTheDocument();
-    expect(screen.getByText('workspace "b" does not exist')).toBeInTheDocument();
+    expect(await screen.findByText("This workspace does not exist or was deleted.")).toBeInTheDocument();
+    expect(screen.getAllByText("Could not open the workspace")).toHaveLength(1);
+    expect(screen.queryByText(/Workspaces: a/)).not.toBeInTheDocument();
+    expect(warn).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('workspace "b" does not exist'));
+    warn.mockRestore();
+  });
+
+  it("says a workspace that is invalid in the database is damaged, without the validator's JSON (422)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const user = userEvent.setup();
+    mount((url) => {
+      if (url.startsWith("/api/workspaces?") || url === "/api/workspaces") return reply({ active: "a", workspaces: [workspace("a", "Demo Paprika"), workspace("b", "Checkout")], folders: [] });
+      return reply({ error: 'workspace "b" is invalid in the database and cannot be opened: [ { "code": "invalid_union" } ]' }, 422);
+    });
+    await user.click(await screen.findByRole("button", { name: /Checkout/ }));
+    expect(await screen.findByText("This workspace is damaged in the database and cannot be opened.")).toBeInTheDocument();
+    expect(screen.queryByText(/invalid_union/)).not.toBeInTheDocument();
+    warn.mockRestore();
   });
 
   it("shows the error state with a retry when the list fails, and loads it on retry", async () => {

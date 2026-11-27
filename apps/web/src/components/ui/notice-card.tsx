@@ -9,6 +9,8 @@ const bands = {
   danger: "border-red-ink bg-red-soft text-red-soft-ink",
   success: "border-green-ink bg-green-soft text-green-soft-ink",
   info: "border-select bg-select-soft text-select-soft-ink",
+  // The in-progress strip ("Opening workspace…"): no alarm colour, the page background inside a hairline.
+  neutral: "border-line bg-bg text-fg",
 };
 
 const forcedColors = "forced-colors:border-[CanvasText] forced-colors:bg-[Canvas] forced-colors:text-[CanvasText]";
@@ -16,7 +18,7 @@ const forcedColors = "forced-colors:border-[CanvasText] forced-colors:bg-[Canvas
 export type NoticeCardProps = Omit<ComponentProps<"div">, "title"> & {
   title: ReactNode;
   variant?: "card" | "band";
-  status?: Status;
+  status?: Status | "neutral";
   leading?: ReactNode;
   closeLabel?: string;
   onClose?: () => void;
@@ -50,7 +52,7 @@ export function NoticeCard({ className, title, variant = "card", status = "info"
       {...props}
     >
       <div className="flex items-start gap-2">
-        {leading ?? (band ? <StatusIcon status={status} size="md" className="bg-transparent" /> : null)}
+        {leading ?? (band && status !== "neutral" ? <StatusIcon status={status} size="md" className="bg-transparent" /> : null)}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className={cn("text-sm", band ? "font-bold" : "font-normal text-fg")}>{title}</div>
           {children ? <div className={cn("text-sm leading-[1.45]", band ? "text-fg" : "text-muted")}>{children}</div> : null}
