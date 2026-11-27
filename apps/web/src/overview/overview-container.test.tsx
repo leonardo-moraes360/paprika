@@ -8,6 +8,8 @@ import { LiveProvider } from "@/data/live";
 import { createLiveRig, type LiveRig } from "@/test/live-harness";
 import { createQueryClient } from "@/data/query-client";
 import { dismissToasts } from "@/lib/notify";
+import i18n from "@/i18n";
+import { themeStorageKey } from "@/lib/theme";
 import { OverviewContainer } from "./overview-container";
 
 const workspace = (id: string, name: string, extra: Record<string, unknown> = {}) => ({
@@ -113,5 +115,35 @@ describe("/ (overview)", () => {
     failing = false;
     await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByText("Back again")).toBeInTheDocument();
+  });
+
+  it("changes the theme for real and persists it like the editor header", async () => {
+    const user = userEvent.setup();
+    window.localStorage.removeItem(themeStorageKey);
+    document.documentElement.removeAttribute("data-theme");
+    mount((url) => (url.startsWith("/api/workspaces?") ? reply({ active: "a", workspaces: [workspace("a", "Demo Paprika")], folders: [] }) : reply({}, 404)));
+    await screen.findByText("Demo Paprika");
+    expect(screen.getByRole("radio", { name: "System" })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "Dark" }));
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+    expect(window.localStorage.getItem(themeStorageKey)).toBe("dark");
+    expect(screen.getByRole("radio", { name: "Dark" })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "System" }));
+    expect(document.documentElement).not.toHaveAttribute("data-theme");
+    expect(window.localStorage.getItem(themeStorageKey)).toBeNull();
+  });
+
+  it("changes the app language for real and relabels the screen", async () => {
+    const user = userEvent.setup();
+    await i18n.changeLanguage("en");
+    mount((url) => (url.startsWith("/api/workspaces?") ? reply({ active: "a", workspaces: [workspace("a", "Demo Paprika")], folders: [] }) : reply({}, 404)));
+    await screen.findByText("Demo Paprika");
+    await user.click(screen.getByRole("button", { name: "Language: EN" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Português (Brasil)" }));
+    await waitFor(() => expect(i18n.resolvedLanguage).toBe("pt-BR"));
+    expect(await screen.findByRole("button", { name: "Idioma: PT" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Escuro" })).toBeInTheDocument();
+    expect(window.localStorage.getItem("i18nextLng")).toBe("pt-BR");
+    await i18n.changeLanguage("en");
   });
 });

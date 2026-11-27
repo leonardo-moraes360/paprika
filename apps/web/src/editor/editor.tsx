@@ -1,6 +1,7 @@
 import { EditorLayout } from "@/components/frontends/editor-layout";
 import { RegionProfiler } from "@/perf";
 import { EditorProvider, initialEditorState } from "./editor-store";
+import { readRendererPreference } from "./renderer-preference";
 import { EditorBoundary } from "./regions/boundary";
 import { Export } from "./regions/export";
 import { Header } from "./regions/header";
@@ -19,7 +20,7 @@ import { Stage } from "./regions/stage";
  */
 export function Editor() {
   return (
-    <EditorProvider initial={initialEditorState}>
+    <EditorProvider initial={() => initialEditorState({ renderer: readRendererPreference() })}>
       <EditorBoundary>
         <div className="flex h-dvh min-h-0 flex-col bg-bg text-fg">
           <RegionProfiler id="header">

@@ -23,6 +23,7 @@ export const appEn = {
   shell: {
     rightTabs: { label: "Right panel", properties: "Properties", team: "Team" },
     mcpOn: "MCP at /mcp",
+    renderers: { dom: "DOM", wasm: "WASM" },
     actionFailedTitle: "Could not apply the change",
     actionFailed: "The server did not accept it.",
     selectionErrors: {
@@ -212,6 +213,7 @@ export const appPtBR: typeof appEn = {
   shell: {
     rightTabs: { label: "Painel direito", properties: "Propriedades", team: "Time" },
     mcpOn: "MCP em /mcp",
+    renderers: { dom: "DOM", wasm: "WASM" },
     actionFailedTitle: "Não foi possível aplicar a alteração",
     actionFailed: "O servidor não a aceitou.",
     selectionErrors: {

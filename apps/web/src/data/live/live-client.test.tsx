@@ -597,6 +597,16 @@ describe("requests (reqId, ack, error)", () => {
     expect(socket.sentOf("view")).toHaveLength(before + 2);
   });
 
+  it("does not repeat a hello for the mode already reported", async () => {
+    const rig = createLiveRig();
+    const socket = await rig.connect();
+    rig.client.actions.setRenderer("dom");
+    rig.client.actions.setRenderer("dom");
+    expect(socket.sentOf("hello")).toHaveLength(1);
+    rig.client.actions.setRenderer("wasm");
+    expect(socket.sentOf("hello")).toHaveLength(2);
+  });
+
   it("reports the renderer again after a reconnection", async () => {
     const rig = createLiveRig();
     const first = await rig.connect();

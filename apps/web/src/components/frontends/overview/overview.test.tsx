@@ -473,6 +473,54 @@ describe("Overview", () => {
     });
   });
 
+  describe("theme and language in the sidebar footer", () => {
+    it("renders nothing for them without the props", () => {
+      setup();
+      expect(screen.queryByRole("radiogroup", { name: "Theme" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Language/ })).not.toBeInTheDocument();
+    });
+
+    it("lives in the sidebar, marks the current theme and language and emits the choices without touching the page", async () => {
+      const user = userEvent.setup();
+      const onThemeChange = vi.fn();
+      const onLanguageChange = vi.fn();
+      const change = vi.spyOn(i18n, "changeLanguage");
+      setup({ theme: "light", onThemeChange, language: "en", onLanguageChange });
+      const sidebar = within(screen.getByRole("complementary", { name: "Workspace menu" }));
+      expect(sidebar.getByRole("radio", { name: "Light" })).toBeChecked();
+      await user.click(sidebar.getByRole("radio", { name: "Dark" }));
+      expect(onThemeChange).toHaveBeenCalledWith("dark");
+      expect(document.documentElement).not.toHaveAttribute("data-theme");
+      const trigger = sidebar.getByRole("button", { name: "Language: EN" });
+      expect(trigger).toHaveTextContent("EN");
+      await user.click(trigger);
+      expect(screen.getByRole("menuitemradio", { name: "English" })).toBeChecked();
+      await user.click(screen.getByRole("menuitemradio", { name: "Português (Brasil)" }));
+      expect(onLanguageChange).toHaveBeenCalledWith("pt-BR");
+      expect(change).not.toHaveBeenCalled();
+      change.mockRestore();
+    });
+
+    it("moves between the language options with the keyboard and closes on Escape returning focus to the trigger", async () => {
+      const user = userEvent.setup();
+      const onLanguageChange = vi.fn();
+      setup({ theme: "system", onThemeChange: vi.fn(), language: "pt-BR", onLanguageChange });
+      const trigger = screen.getByRole("button", { name: "Language: PT" });
+      trigger.focus();
+      await user.keyboard("{Enter}");
+      expect(screen.getByRole("menuitemradio", { name: "Português (Brasil)" })).toBeChecked();
+      await user.keyboard("{Escape}");
+      expect(trigger).toHaveFocus();
+      expect(onLanguageChange).not.toHaveBeenCalled();
+    });
+
+    it("shows only the pair that has its callback", () => {
+      setup({ theme: "dark", onThemeChange: vi.fn(), language: "en" });
+      expect(screen.getByRole("radio", { name: "Dark" })).toBeChecked();
+      expect(screen.queryByRole("button", { name: /^Language/ })).not.toBeInTheDocument();
+    });
+  });
+
   it("translates to pt-BR", async () => {
     await i18n.changeLanguage("pt-BR");
     try {

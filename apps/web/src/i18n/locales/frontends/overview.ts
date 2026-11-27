@@ -31,6 +31,7 @@ export const overviewEn = {
     soon: "soon",
     importFiles: "Import…",
     profile: "Open profile menu",
+    languageCurrent: "Language: {{code}}",
   },
   card: {
     more: "More actions",
@@ -116,6 +117,7 @@ export const overviewPtBR = {
     soon: "em breve",
     importFiles: "Importar…",
     profile: "Abrir menu do perfil",
+    languageCurrent: "Idioma: {{code}}",
   },
   card: {
     more: "Mais ações",

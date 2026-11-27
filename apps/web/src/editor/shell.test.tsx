@@ -228,7 +228,7 @@ describe("layers", () => {
 });
 
 describe("stage", () => {
-  it("has the toolbar with the old app's tools, the zoom bar, and no renderer menu", async () => {
+  it("has the toolbar with the old app's tools and the zoom bar", async () => {
     const user = userEvent.setup();
     const view = await openShell();
     expect(screen.getByRole("toolbar", { name: "Tools" })).toBeInTheDocument();
@@ -238,9 +238,36 @@ describe("stage", () => {
     expect(screen.getByText("100%")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Zoom in" }));
     expect(screen.getByText("125%")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Renderer/ })).not.toBeInTheDocument();
-    expect(view.socket.sentOf("hello")).toEqual([]);
     view.unmount();
+  });
+
+  describe("renderer menu", () => {
+    beforeEach(() => window.localStorage.removeItem("paprika.renderer"));
+    afterEach(() => window.localStorage.removeItem("paprika.renderer"));
+
+    it("starts on DOM, announces it with a hello, and a choice is kept, sent to the server and saved under the old app's key", async () => {
+      const user = userEvent.setup();
+      const view = await openShell();
+      expect(view.socket.sentOf("hello")).toEqual([expect.objectContaining({ type: "hello", renderer: "dom" })]);
+      const trigger = screen.getByRole("button", { name: "Renderer: DOM" });
+      expect(window.localStorage.getItem("paprika.renderer")).toBeNull();
+      await user.click(trigger);
+      expect(screen.getByRole("menuitemradio", { name: "DOM" })).toBeChecked();
+      await user.click(screen.getByRole("menuitemradio", { name: "WASM" }));
+      expect(screen.getByRole("button", { name: "Renderer: WASM" })).toBeInTheDocument();
+      expect(view.socket.sentOf("hello").at(-1)).toMatchObject({ renderer: "wasm" });
+      expect(window.localStorage.getItem("paprika.renderer")).toBe("wasm");
+      expect(opsSent(view)).toEqual([]);
+      view.unmount();
+    });
+
+    it("reopens on the saved choice and announces it with a hello", async () => {
+      window.localStorage.setItem("paprika.renderer", "wasm");
+      const view = await openShell();
+      expect(screen.getByRole("button", { name: "Renderer: WASM" })).toBeInTheDocument();
+      expect(view.socket.sentOf("hello")).toEqual([expect.objectContaining({ renderer: "wasm" })]);
+      view.unmount();
+    });
   });
 });
 

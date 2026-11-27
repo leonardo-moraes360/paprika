@@ -1,10 +1,11 @@
 import { ArrowUpRight, Circle, Cloud, Cylinder, Diamond, Frame, MapPin, MousePointer2, PenTool, Shapes, Square, StickyNote, Triangle, Type } from "lucide-react";
-import { memo, useCallback, useMemo, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Toolbar, type ToolbarTool } from "@/components/frontends/toolbar";
-import { ZoomBar } from "@/components/frontends/zoom-bar";
-import { useLive } from "@/data/live";
-import { editorTools, MAX_ZOOM, MIN_ZOOM, useEditor, useEditorActions, type EditorTool } from "../editor-store";
+import { ZoomBar, type ZoomRenderer } from "@/components/frontends/zoom-bar";
+import { useLive, useLiveActions } from "@/data/live";
+import { writeRendererPreference } from "../renderer-preference";
+import { editorTools, MAX_ZOOM, MIN_ZOOM, useEditor, useEditorActions, type EditorRenderer, type EditorTool } from "../editor-store";
 import { toolHotkeys, useEditorShortcuts } from "../shortcuts";
 import { useHistoryActions } from "../use-history-actions";
 
@@ -75,11 +76,45 @@ const StageToolbar = memo(function StageToolbar() {
   );
 });
 
-/** Zoom lives in the editor store for the canvas to read. No renderer menu: the `hello` of the renderer is not sent without a canvas. */
+const isRenderer = (id: string): id is EditorRenderer => id === "dom" || id === "wasm";
+
+/**
+ * Zoom lives in the editor store for the canvas to read. The renderer menu has the two modes of the old app (DOM and
+ * WASM): the choice goes to the store, to `paprika.renderer` (the old app's key) and, as a `hello`, to the server,
+ * which shows it to the agents (`get_context`) and uses it for `render_screenshot`. There is no canvas yet, so the
+ * menu only keeps and announces the choice (the backend, GPU or CPU, is the canvas' to report).
+ */
 const StageZoom = memo(function StageZoom() {
+  const { t } = useTranslation();
   const zoom = useEditor((s) => s.zoom);
+  const renderer = useEditor((s) => s.renderer);
   const editor = useEditorActions();
-  return <ZoomBar zoom={zoom} minZoom={MIN_ZOOM} maxZoom={MAX_ZOOM} onZoomOut={editor.zoomOut} onZoomIn={editor.zoomIn} onFit={editor.fit} className="absolute bottom-3 end-3 z-10" />;
+  const live = useLiveActions();
+  const renderers = useMemo<ZoomRenderer[]>(() => [{ id: "dom", label: t("app.shell.renderers.dom") }, { id: "wasm", label: t("app.shell.renderers.wasm") }], [t]);
+  // The `hello` goes on mount (as the old app did on every open) and on every change; the client repeats it after a reconnection.
+  useEffect(() => live.setRenderer(renderer), [live, renderer]);
+  const onRendererChange = useCallback(
+    (id: string) => {
+      if (!isRenderer(id)) return;
+      writeRendererPreference(id);
+      editor.setRenderer(id);
+    },
+    [editor],
+  );
+  return (
+    <ZoomBar
+      zoom={zoom}
+      minZoom={MIN_ZOOM}
+      maxZoom={MAX_ZOOM}
+      onZoomOut={editor.zoomOut}
+      onZoomIn={editor.zoomIn}
+      onFit={editor.fit}
+      renderers={renderers}
+      renderer={renderer}
+      onRendererChange={onRendererChange}
+      className="absolute bottom-3 end-3 z-10"
+    />
+  );
 });
 
 /**

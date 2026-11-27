@@ -6,6 +6,7 @@ import { toProjectEntries, toWorkspaceEntries } from "@/adapters/workspaces";
 import { errorText } from "@/data/api";
 import { useLiveClient } from "@/data/live";
 import { openWorkspace, useWorkspaceActions, useWorkspaces, useWorkspacesFollow, type PreviewShape } from "@/data/queries/workspaces";
+import { useThemePreference } from "@/lib/use-theme-preference";
 import { RegionProfiler } from "@/perf";
 import { coverBody } from "./cover-image";
 import { previewFor } from "./workspace-preview";
@@ -18,7 +19,8 @@ import { OverviewNotice } from "./overview-notice";
  * server through `useWorkspacesFollow`, which renders nothing, so a stream of deltas does not touch the grid.
  */
 export function OverviewContainer() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const [theme, setTheme] = useThemePreference();
   const navigate = useNavigate();
   const query = useWorkspaces();
   const actions = useWorkspaceActions();
@@ -66,6 +68,7 @@ export function OverviewContainer() {
     [actions, t],
   );
   const onMoveToProject = useCallback((id: string, projectId: string | null) => actions.move(id, projectId), [actions]);
+  const onLanguageChange = useCallback((language: string) => void i18n.changeLanguage(language), [i18n]);
   const onSubmitProject = useCallback((name: string) => actions.createFolder(name), [actions]);
 
   return (
@@ -87,6 +90,10 @@ export function OverviewContainer() {
           onChangeCover={onChangeCover}
           onMoveToProject={onMoveToProject}
           onSubmitProject={onSubmitProject}
+          language={i18n.resolvedLanguage ?? "en"}
+          onLanguageChange={onLanguageChange}
+          theme={theme}
+          onThemeChange={setTheme}
         />
       </RegionProfiler>
       <RegionProfiler id="overview-notice">
