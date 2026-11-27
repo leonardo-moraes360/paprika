@@ -24,7 +24,7 @@ export function SearchField({ shortcut, clearLabel, className, inputClassName, b
           <X aria-hidden="true" />
         </InputClear>
       ) : null}
-      {shortcut ? <Kbd aria-hidden="true">{shortcut}</Kbd> : null}
+      {shortcut ? <Kbd aria-hidden="true">{typeof shortcut === "string" ? shortcut.replace(/(.)\+(?=.)/g, "$1 ") : shortcut}</Kbd> : null}
     </InputGroup>
   );
 }

@@ -1,4 +1,4 @@
-import { Circle, Cloud, Crosshair, Cylinder, Diamond, Frame, MousePointer2, MoveUpRight, PenTool, RectangleHorizontal, Shapes, Square, StickyNote, Triangle, Type } from "lucide-react";
+import { ArrowUpRight, Circle, Cloud, Cylinder, Diamond, Frame, MapPin, MousePointer2, PenTool, Shapes, Square, StickyNote, Triangle, Type } from "lucide-react";
 import { memo, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Toolbar, type ToolbarTool } from "@/components/frontends/toolbar";
@@ -21,7 +21,7 @@ function useTools(): ToolbarTool[] {
     return [
       one("select", t("app.shell.tools.select"), <MousePointer2 />),
       one("frame", t("app.shell.tools.frame"), <Frame />),
-      one("rect", t("app.shell.tools.rect"), <RectangleHorizontal />),
+      one("rect", t("app.shell.tools.rect"), <Square />),
       one("ellipse", t("app.shell.tools.ellipse"), <Circle />),
       one("text", t("app.shell.tools.text"), <Type />),
       one("pen", t("app.shell.tools.pen"), <PenTool />),
@@ -39,8 +39,8 @@ function useTools(): ToolbarTool[] {
           option("note", t("app.shell.tools.note"), <StickyNote />),
         ],
       },
-      one("connector", t("app.shell.tools.connector"), <MoveUpRight />),
-      one("pin", t("app.shell.tools.pin"), <Crosshair />, { separatorBefore: true }),
+      one("connector", t("app.shell.tools.connector"), <ArrowUpRight />),
+      one("pin", t("app.shell.tools.pin"), <MapPin />, { separatorBefore: true }),
     ];
   }, [t]);
 }
@@ -92,7 +92,7 @@ export function Stage() {
   const stage = useRef<HTMLDivElement>(null);
   useEditorShortcuts();
   return (
-    <div className="relative h-full min-h-0 flex-1 bg-bg">
+    <div className="relative h-full min-h-0 flex-1 bg-canvas">
       <div ref={stage} tabIndex={0} role="region" aria-label={t("app.stage")} data-workspace={id} className="absolute inset-0 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-select" />
       <StageToolbar />
       <StageZoom />

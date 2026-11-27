@@ -1,4 +1,4 @@
-import { Layers, SlidersHorizontal } from "lucide-react";
+import { Layers, Settings2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { PanelHandle } from "@/components/ui/panel-handle";
@@ -199,7 +199,7 @@ export function EditorLayout({
           labels={text.right}
           collapsed={collapsed.right}
           controls={ids.right}
-          icon={<SlidersHorizontal />}
+          icon={<Settings2 />}
           buttonRef={handles.right}
           onToggle={() => toggle("right")}
         />

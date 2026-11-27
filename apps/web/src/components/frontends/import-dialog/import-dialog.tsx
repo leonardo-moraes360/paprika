@@ -162,7 +162,7 @@ export function ImportDialog({
       }
     >
       <Tabs value={tab} onValueChange={changeTab}>
-        <TabsList aria-label={t("frontends.importDialog.tabList")}>
+        <TabsList aria-label={t("frontends.importDialog.tabList")} className={tabs.length < 2 ? "sr-only" : undefined}>
           {tabs.map((value) => (
             <TabsTab key={value} value={value}>
               {t(`frontends.importDialog.tabs.${value}`)}
