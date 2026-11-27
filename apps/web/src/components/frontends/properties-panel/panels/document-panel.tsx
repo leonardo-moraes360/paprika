@@ -1,4 +1,5 @@
 import type { Document, LintIssue, Op } from "@paprika/core";
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import { CommitTextField } from "../fields/commit-text-field";
 import { ActivitySection } from "../sections/activity-section";
@@ -6,6 +7,11 @@ import { ModesSection } from "../sections/modes-section";
 import { ReviewSection } from "../sections/review-section";
 import { TokensSection } from "../sections/tokens-section";
 import type { ActivityEntry } from "../types";
+
+// A new activity entry re-renders the panel (it lists them), not the sections whose own props are unchanged.
+const MemoTokensSection = memo(TokensSection);
+const MemoModesSection = memo(ModesSection);
+const MemoReviewSection = memo(ReviewSection);
 
 export type DocumentPanelProps = {
   doc: Document;
@@ -30,9 +36,9 @@ export function DocumentPanel({ doc, lint, activity, activityMarker, onApply, on
           onCommit={(name) => onApply([{ op: "rename_document", name: name.trim() }], t("frontends.propertiesPanel.ops.renameDocument"))}
         />
       </div>
-      <TokensSection doc={doc} onApply={onApply} />
-      <ModesSection doc={doc} onApply={onApply} />
-      <ReviewSection lint={lint} onSelect={onSelect} />
+      <MemoTokensSection doc={doc} onApply={onApply} />
+      <MemoModesSection doc={doc} onApply={onApply} />
+      <MemoReviewSection lint={lint} onSelect={onSelect} />
       <ActivitySection activity={activity} marker={activityMarker} />
     </div>
   );
