@@ -10,6 +10,10 @@ export const repoRoot = resolve(import.meta.dirname, "../../..");
 export const serverBin = resolve(process.env.PAPRIKA_SERVER_BIN || join(repoRoot, "server/bin/paprika"));
 if (!existsSync(serverBin)) throw new Error(`servidor Go não encontrado em ${serverBin}: rode \`pnpm go:build\``);
 
+// As suítes ainda dirigem o app antigo; o servidor serve o novo por padrão, então a raiz antiga é fixada aqui.
+const legacyWebRoot = join(repoRoot, "web-legacy/dist");
+const defaultWebRoot = existsSync(join(legacyWebRoot, "index.html")) ? legacyWebRoot : undefined;
+
 export interface ExternalServer {
   url: string;
   dir: string;
@@ -28,7 +32,7 @@ export async function startServer(opts: { seed?: string; webRoot?: string } = {}
     await copyFile(opts.seed, file);
     execFileSync(serverBin, ["import", file, "--db", db], { stdio: "pipe" });
   }
-  const args = ["serve", "--db", db, "--port", "0", ...(opts.webRoot ? ["--web", opts.webRoot] : [])];
+  const args = ["serve", "--db", db, "--port", "0", ...((opts.webRoot ?? defaultWebRoot) ? ["--web", (opts.webRoot ?? defaultWebRoot)!] : [])];
   const proc = spawn(serverBin, args, { stdio: ["ignore", "pipe", "pipe"] });
   let log = "";
   const url = await new Promise<string>((ok, fail) => {
