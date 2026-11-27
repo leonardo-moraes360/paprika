@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { EmptyState } from "@/components/ui/empty-state";
+import { NoticeCard } from "@/components/ui/notice-card";
 import { Spinner } from "@/components/ui/spinner";
 import { useLive } from "@/data/live";
 import { Editor } from "./editor";
@@ -18,16 +18,19 @@ function DocumentTitle() {
   return null;
 }
 
-/** State while the workspace is being opened (no design yet: closest component of the guide, reported to the owner). */
+/** State while the workspace is being opened: the in-line strip of the design (`03-estados`, "Abrindo um workspace"), the same band the overview uses for its failures, in the neutral tone. */
 export function OpeningWorkspace() {
   const { t } = useTranslation();
   const connected = useLive((s) => s.connected);
   return (
-    <main className="grid min-h-dvh place-items-center bg-bg p-4">
-      <EmptyState
-        illustration={<Spinner label={t("app.open.title")} className="size-6" />}
-        title={t("app.open.title")}
-        description={connected ? t("app.open.description") : t("app.offline")}
+    <main className="min-h-dvh bg-bg px-10 py-7">
+      <NoticeCard
+        variant="band"
+        status="neutral"
+        leading={<Spinner label={t("app.open.title")} className="size-4.5 border-[2.5px]" />}
+        title={`${t("app.open.title")}…`}
+        className="py-2.5 [&>div:first-of-type]:font-bold"
+        actions={<span className="text-base font-normal text-muted">{connected ? t("app.open.description") : t("app.open.connecting")}</span>}
       />
     </main>
   );

@@ -23,7 +23,7 @@ describe("/w/$workspaceId", () => {
     expect(screen.getByRole("status", { name: "Opening workspace" })).toBeInTheDocument();
     expect(screen.getByText("Loading the document from the server.")).toBeInTheDocument();
     act(() => view.socket.drop());
-    expect(screen.getByText("Offline. Reconnecting…")).toBeInTheDocument();
+    expect(screen.getByText("Connecting to the Paprika server…")).toBeInTheDocument();
     view.unmount();
   });
 
@@ -56,12 +56,35 @@ describe("/w/$workspaceId", () => {
   it("goes back to the overview with a message when the server refuses the view", async () => {
     const view = await renderEditorRig({ workspaceId: "ghost" });
     act(() =>
-      view.socket.receive({ type: "error", reqId: view.socket.lastReqId("view") as string, message: 'workspace "ghost" does not exist' }),
+      view.socket.receive({ type: "error", reqId: view.socket.lastReqId("view") as string, message: 'workspace "ghost" does not exist. Workspaces: a "A", b "B"' }),
     );
     expect(await screen.findByTestId("overview-route")).toBeInTheDocument();
     expect(view.router.state.location.pathname).toBe("/");
     expect(await screen.findByText("Could not open the workspace")).toBeInTheDocument();
-    expect(screen.getByText('workspace "ghost" does not exist')).toBeInTheDocument();
+    expect(screen.getByText("This workspace does not exist or was deleted.")).toBeInTheDocument();
+    expect(screen.queryByText(/Workspaces: a/)).not.toBeInTheDocument();
+    view.unmount();
+  });
+
+  it("a view refused as invalid in the database says so in the app's words, not with the validator's JSON", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const view = await renderEditorRig({ workspaceId: "bad" });
+    act(() =>
+      view.socket.receive({ type: "error", reqId: view.socket.lastReqId("view") as string, message: 'workspace "bad" is invalid in the database and cannot be opened: [ { "code": "invalid_union" } ]' }),
+    );
+    expect(await screen.findByText("This workspace is damaged in the database and cannot be opened.")).toBeInTheDocument();
+    expect(screen.queryByText(/invalid_union/)).not.toBeInTheDocument();
+    warn.mockRestore();
+    view.unmount();
+  });
+
+  it("an agent's deletion of the workspace in view raises no toast of its own (the workspace notice says it)", async () => {
+    const view = await renderEditorRig({ workspaceId: "w-1" });
+    serveDocument(view.rig, makeDocument(10, { id: "w-1" }));
+    await screen.findByRole("banner");
+    view.rig.push({ type: "workspaceOp", op: { at: 1, actor: "agent-1", op: "delete", workspaceId: "w-1", workspaceName: "X", detail: {} } });
+    expect(await screen.findByTestId("overview-route")).toBeInTheDocument();
+    expect(screen.queryByText("This workspace was deleted.")).not.toBeInTheDocument();
     view.unmount();
   });
 
