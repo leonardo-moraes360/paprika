@@ -73,7 +73,7 @@ export function dragGradient(handle: GradientHandle, base: Gradient, x: number, 
   switch (handle.kind) {
     case "stop": {
       const next = structuredClone(base);
-      let offset = base.stops[handle.index]?.offset ?? 0;
+      let offset: number;
       if (base.type === "linear") {
         const a = gradientEnds(base.angle, w, h);
         const vx = a.x2 - a.x1;

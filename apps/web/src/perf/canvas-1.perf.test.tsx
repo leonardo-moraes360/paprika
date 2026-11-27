@@ -54,7 +54,6 @@ const ids = (view: View) => Object.keys(view.rig.client.store.state.doc!.nodes);
 const down = (el: Element, init: PointerEventInit = {}, pointerId = 1) => fireEvent.pointerDown(el, { button: 0, pointerId, ...init });
 const move = (init: PointerEventInit, pointerId = 1) => fireEvent.pointerMove(window, { pointerId, buttons: 1, ...init });
 const up = (init: PointerEventInit = {}, pointerId = 1) => fireEvent.pointerUp(window, { pointerId, ...init });
-const stats = (view: View) => Object.fromEntries(regions.map((id) => [id, view.log.commits(id)]));
 const silent = (view: View, except: string[] = []) => {
   for (const region of quiet.filter((r) => !except.includes(r))) expect(view.log.commits(region), region).toBe(0);
 };

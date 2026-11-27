@@ -76,7 +76,6 @@ export type LiveSocketOptions = {
 
 type Pending = { resolve: (ack: AckMessage) => void; reject: (error: Error) => void };
 
-const defaultUrl = () => `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
 const defaultFactory: SocketFactory = (url) => new WebSocket(url) as unknown as SocketLike;
 
 /** Transport only: connection, reconnection with backoff, and `reqId` bookkeeping. It knows nothing about the document. */

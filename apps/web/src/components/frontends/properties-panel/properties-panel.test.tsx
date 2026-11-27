@@ -32,7 +32,6 @@ function buildDocument(): Document {
   return applyOps(base, ops).doc;
 }
 
-const nodeOf = (doc: Document, id: string): Node => doc.nodes[id] as Node;
 
 function withGroup(doc: Document): Document {
   const next = applyOps(doc, [{ op: "group", ids: ["r2", "r3"], id: "g1" }]).doc;
@@ -55,10 +54,6 @@ function setup({ id = null, doc: docProp, open, ...rest }: Setup = {}) {
 }
 
 const box = (name: string) => screen.getByRole("textbox", { name });
-const openSection = async (user: ReturnType<typeof userEvent.setup>, name: string) => {
-  const header = screen.getByRole("button", { name });
-  if (header.getAttribute("aria-expanded") === "false") await user.click(header);
-};
 const choose = async (user: ReturnType<typeof userEvent.setup>, field: string, option: string) => {
   await user.click(screen.getByRole("combobox", { name: field }));
   await user.click(await screen.findByRole("option", { name: option }));

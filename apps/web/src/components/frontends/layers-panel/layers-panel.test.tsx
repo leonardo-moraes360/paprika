@@ -52,7 +52,6 @@ afterEach(async () => {
 
 describe("LayersPanel", () => {
   describe("a click on the only selected layer", () => {
-    const uiSdkWarnings = (spy: { mock: { calls: unknown[][] } }) => spy.mock.calls.filter((call) => String(call[0]).includes("[ui-sdk]"));
 
     /** The library checks a second after the click that the value moved. The test takes that timer (it never fires by itself) and hands it back to run. */
     const clickHome = async () => {

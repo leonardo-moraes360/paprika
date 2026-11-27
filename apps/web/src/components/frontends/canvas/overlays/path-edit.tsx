@@ -1,4 +1,4 @@
-import { insertAnchor, nearestOnPath, pathAttrs, removeAnchor, serializePath, subpathsToPath, toggleSmooth, type PathNode, type Subpath } from "@paprika/core";
+import { pathAttrs, removeAnchor, serializePath, subpathsToPath, type PathNode, type Subpath } from "@paprika/core";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { commitPath, PATH_LABELS, subsFor } from "../gestures/path-edit";
@@ -6,7 +6,7 @@ import { withPatch } from "../preview-node";
 import { useOverlayValue } from "../overlay-bus";
 import { useCanvasState } from "../region";
 import { useCanvasRuntime } from "../runtime";
-import { pathHit, screenMatrix, subpathsOf, toSvgPoint, viewBoxScale } from "../vector/path-edit";
+import { subpathsOf, viewBoxScale } from "../vector/path-edit";
 import { typing } from "../vector/page";
 import { readUi, UI_PATH_EDIT, writeUi, type PathEditUi } from "../vector/ui";
 import { placeBox } from "./place";

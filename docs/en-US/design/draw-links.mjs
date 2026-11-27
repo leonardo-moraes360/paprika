@@ -332,7 +332,6 @@ function build(T, ox) {
       pn.kids.push(text(x, 100, W, s.name, T.fg, 15, { weight: 600, on: T.panel }));
       const kids = [];
       kids.push(text(16, 14, 265, "Endereço do link", T.muted, 12, { weight: 600, lh: 1.3, on: T.popover }));
-      const filled = i !== 0;
       const val = i === 0 ? "https://… ou /caminho" : i === 2 ? "paprika ponto dev" : "https://paprika.dev/docs";
       const col = i === 0 ? T.muted : T.fg;
       if (i === 0) chk(T.muted, T.fieldBg, AA, "placeholder");

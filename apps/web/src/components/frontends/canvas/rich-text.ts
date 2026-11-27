@@ -166,7 +166,7 @@ export function selectOffsets(root: HTMLElement, start: number, end: number) {
       startNode = current;
       startOff = start - seen;
     }
-    if (!endNode && seen + len >= end) {
+    if (seen + len >= end) {
       endNode = current;
       endOff = end - seen;
       break;

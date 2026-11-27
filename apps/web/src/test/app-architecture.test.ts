@@ -12,7 +12,6 @@ import {
   isNetworkFree,
   moduleScopeCreators,
   mutableCollectionRule,
-  mutableState,
   scan,
   sourceFiles,
   typedSpecifiers,

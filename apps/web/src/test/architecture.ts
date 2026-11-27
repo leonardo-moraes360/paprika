@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, posix, relative, resolve, sep } from "node:path";
 
 export type Scanned = { code: string; text: string };
@@ -300,7 +300,13 @@ export type Environment = {
 export function diskEnvironment(srcDir: string): Environment {
   return {
     srcDir,
-    read: (absolutePath) => (existsSync(absolutePath) && statSync(absolutePath).isFile() ? readFileSync(absolutePath, "utf8") : null),
+    read: (absolutePath) => {
+      try {
+        return readFileSync(absolutePath, "utf8");
+      } catch {
+        return null;
+      }
+    },
   };
 }
 

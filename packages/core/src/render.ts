@@ -128,12 +128,20 @@ function needsOverlay(doc: Document, node: Node): boolean {
   return selfAnchor(node) && anchorInside(doc, node);
 }
 
+function trimSpaces(s: string): string {
+  let a = 0;
+  let b = s.length;
+  while (a < b && s[a] === " ") a++;
+  while (b > a && s[b - 1] === " ") b--;
+  return s.slice(a, b);
+}
+
 // Accessible name of the overlay link: the node name, else the text content (text nodes), else the href itself.
 function overlayLabel(node: Node): string {
   if (node.name) return node.name;
   if (node.type === "text") {
     // ASCII-only normalisation keeps the Go mirror byte-identical (no Unicode whitespace or UTF-16 slicing differences).
-    const t = node.text.replace(/[\r\n\t]+/g, " ").replace(/^ +| +$/g, "");
+    const t = trimSpaces(node.text.replace(/[\r\n\t]+/g, " "));
     if (t) return t;
   }
   return (node as { href?: string }).href ?? "";

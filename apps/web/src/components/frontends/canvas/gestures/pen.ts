@@ -1,7 +1,7 @@
 import type { CanvasRuntime, Gesture, Pt } from "../types";
 import { pageOf } from "../vector/page";
 import { closesPath, dragAnchor, penAnchor, penOps, type PenDraft } from "../vector/pen";
-import { readUi, UI_PEN, writeUi } from "../vector/ui";
+import { readUi, writeUi } from "../vector/ui";
 
 /** The history label of a finished path (an i18n key the owner turns into text). */
 export const PEN_LABEL = "history.draw";

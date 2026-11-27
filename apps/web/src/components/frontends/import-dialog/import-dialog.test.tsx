@@ -68,7 +68,6 @@ describe("ImportDialog", () => {
   });
 
   it("shows the reading state with progress until the read ends and blocks the action", async () => {
-    const user = userEvent.setup();
     let finish: () => void = () => {};
     const original = FileReader.prototype.readAsText;
     vi.spyOn(FileReader.prototype, "readAsText").mockImplementation(function (this: FileReader, blob: Blob) {
@@ -125,7 +124,6 @@ describe("ImportDialog", () => {
   });
 
   it("marks a file that cannot be read and keeps it out of the delivery", async () => {
-    const user = userEvent.setup();
     vi.spyOn(FileReader.prototype, "readAsText").mockImplementation(function (this: FileReader) {
       queueMicrotask(() => this.dispatchEvent(new ProgressEvent("error")));
     });
