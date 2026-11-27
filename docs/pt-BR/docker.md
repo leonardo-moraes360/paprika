@@ -1,6 +1,6 @@
 # Docker
 
-O `Dockerfile` na raiz monta numa imagem só tudo de que o Paprika precisa: o servidor Go (MCP por HTTP e stdio, API HTTP/WS, SQLite), o canvas (`web-legacy`, com Tailwind) e o renderizador Rust/WASM (`crates/render`). Nada mais precisa estar instalado no host.
+O `Dockerfile` na raiz monta numa imagem só tudo de que o Paprika precisa: o servidor Go (MCP por HTTP e stdio, API HTTP/WS, SQLite), o app web (`apps/web`, com Tailwind) e o renderizador Rust/WASM (`crates/render`). Nada mais precisa estar instalado no host.
 
 English: [docs/en-US/docker.md](../en-US/docker.md).
 
@@ -83,7 +83,7 @@ Os dois rodam como uid/gid 65532, então um volume pode passar de um para o outr
 Multi-stage, com cache mounts do BuildKit para cargo, pnpm e Go:
 
 1. **wasm** (`rust:1.100-slim-trixie`): `cargo build --release --target wasm32-unknown-unknown` + `wasm-bindgen` (binário da release, com checksum fixado, mesma versão e checksum de `.github/actions/setup-rust-wasm`). O estágio falha se `WASM_BINDGEN_VERSION` divergir do pin `=` em `crates/render/Cargo.toml`.
-2. **web** (`node:22-bookworm-slim`, pnpm do `packageManager`): instala só `@paprika/web-legacy` e as dependências do workspace, compila `packages/core` e roda `vite build` com o WASM do estágio 1 (o build confere que um `.wasm` foi parar em `dist/`).
+2. **web** (`node:22-bookworm-slim`, pnpm do `packageManager`): instala só `@paprika/web` e as dependências do workspace, compila `packages/core` e roda `vite build` com o WASM do estágio 1 copiado para `apps/web/src/wasm` (o build confere que `dist/client/_shell.html` e um `.wasm` existem); a imagem serve `apps/web/dist/client` como `/app/web`.
 3. **server** (`golang:1.26-trixie`): binário estático (`CGO_ENABLED=0 -tags nodynamic`; `modernc.org/sqlite` é Go puro; webp/avif ficam no WASM para o purego não puxar libc).
    **sync** (`rust:1.100-slim-trixie` + `musl-tools`): o sidecar de sincronização de time `paprika-sync` (`crates/sync`), binário musl estático para rodar também no distroless ([sincronizacao-time.md](sincronizacao-time.md)).
 4. **chrome**: o headless shell do Chrome for Testing, o mesmo build (159.0.8154.6) que o Playwright 1.65.1 usa em `packages/e2e`, com checksum fixado.
@@ -99,7 +99,7 @@ Ao subir versões, mantenha juntos:
 
 ## CI
 
-O job `docker` de `.github/workflows/ci.yml` faz o build do alvo padrão e roda `.github/scripts/docker-smoke.sh` contra ele: canvas e asset WASM servidos, `Host` estranho recusado, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` em `/mcp`, e o banco sobrevivendo a um restart do container no mesmo volume. Roda quando o PR mexe no `Dockerfile`, `.dockerignore`, `compose.yaml` ou em algo que entra na imagem (`server/`, `web-legacy/`, `crates/render/`, `crates/sync/`, `packages/core/`), e nas execuções completas. Veja [ci.md](ci.md).
+O job `docker` de `.github/workflows/ci.yml` faz o build do alvo padrão e roda `.github/scripts/docker-smoke.sh` contra ele: canvas e asset WASM servidos, `Host` estranho recusado, MCP `initialize` + `tools/list` + `create_nodes` + `render_screenshot` em `/mcp`, e o banco sobrevivendo a um restart do container no mesmo volume. Roda quando o PR mexe no `Dockerfile`, `.dockerignore`, `compose.yaml` ou em algo que entra na imagem (`server/`, `apps/web/`, `web-legacy/`, `crates/render/`, `crates/sync/`, `packages/core/`), e nas execuções completas. Veja [ci.md](ci.md).
 
 Para rodar a mesma checagem localmente:
 
