@@ -284,11 +284,16 @@ describe("stage", () => {
 
     it("a renderer that fails to start goes back to DOM, warns through the toast and announces dom again", async () => {
       const user = userEvent.setup();
-      fakeWasm.failCreate = "no device";
+      fakeWasm.failCreate = "Failed to fetch dynamically imported module: http://localhost/wasm.js";
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
       const view = await openShell();
       await user.click(screen.getByRole("button", { name: "Renderer: DOM" }));
       await user.click(screen.getByRole("menuitemradio", { name: "WASM" }));
-      expect(await screen.findByText(/no device/)).toBeInTheDocument();
+      // The person reads a sentence; the exception goes to the console.
+      expect(await screen.findByText("The canvas went back to the standard renderer, which draws the same page.")).toBeInTheDocument();
+      expect(screen.queryByText(/dynamically imported module/)).toBeNull();
+      expect(warn).toHaveBeenCalledWith("[paprika] WASM renderer stopped:", "Failed to fetch dynamically imported module: http://localhost/wasm.js");
+      warn.mockRestore();
       expect(await screen.findByRole("button", { name: "Renderer: DOM" })).toBeInTheDocument();
       expect(view.socket.sentOf("hello").at(-1)).toMatchObject({ renderer: "dom" });
       view.unmount();

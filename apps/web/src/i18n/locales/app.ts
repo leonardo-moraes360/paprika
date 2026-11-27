@@ -22,7 +22,7 @@ export const appEn = {
   },
   canvas: {
     order: { front: "bring to front", forward: "bring forward", back: "send to back", backward: "send backward" },
-    renderer: { failedTitle: "The WASM renderer stopped", failed: "The canvas went back to the DOM renderer. {{reason}}" },
+    renderer: { failedTitle: "The WASM renderer stopped", failed: "The canvas went back to the standard renderer, which draws the same page." },
     collab: {
       working: "working",
       pinBadge: "Pin {{number}}",
@@ -263,7 +263,7 @@ export const appPtBR: typeof appEn = {
   },
   canvas: {
     order: { front: "trazer para frente", forward: "avançar", back: "enviar para fundo", backward: "recuar" },
-    renderer: { failedTitle: "O renderizador WASM parou", failed: "O canvas voltou para o renderizador DOM. {{reason}}" },
+    renderer: { failedTitle: "O renderizador WASM parou", failed: "O canvas voltou para o renderizador padrão, que desenha a mesma página." },
     collab: {
       working: "trabalhando",
       pinBadge: "Apontamento {{number}}",

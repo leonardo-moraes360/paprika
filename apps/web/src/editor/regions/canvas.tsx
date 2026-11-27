@@ -48,7 +48,9 @@ export function CanvasRegion() {
   const onRendererError = useCallback(
     (message: string) => {
       editor.actions.setRenderer("dom");
-      showStatusToast({ status: "danger", title: t("app.canvas.renderer.failedTitle"), description: t("app.canvas.renderer.failed", { reason: message }) });
+      // The exception ("Failed to fetch dynamically imported module: ...") is for the console; the person gets a sentence.
+      console.warn("[paprika] WASM renderer stopped:", message);
+      showStatusToast({ status: "danger", title: t("app.canvas.renderer.failedTitle"), description: t("app.canvas.renderer.failed") });
     },
     [editor, t],
   );
