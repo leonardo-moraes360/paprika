@@ -111,9 +111,10 @@ describe("the preview controller", () => {
     expect(store.state.preview.plain).toBeUndefined();
   });
 
-  it("a refusal puts the preview back even after the controller was disposed once (StrictMode runs the cleanup of an effect once)", async () => {
+  it("a refusal puts the preview back after a dispose and an attach (StrictMode runs the cleanup of an effect once, then the setup again)", async () => {
     const { store, ctl } = setup();
     ctl.dispose();
+    ctl.attach();
     ctl.set({ plain: { x: 40 } });
     expect(store.state.preview.plain).toEqual({ x: 40 });
     const answer = deferred();
@@ -122,5 +123,17 @@ describe("the preview controller", () => {
     await answer.promise;
     await Promise.resolve();
     expect(store.state.preview.plain).toBeUndefined();
+  });
+
+  it("a controller that was disposed and not attached again answers nothing (the canvas is gone)", async () => {
+    const { store, ctl } = setup();
+    ctl.dispose();
+    ctl.set({ plain: { x: 40 } });
+    const answer = deferred();
+    ctl.commit(["plain"], answer.promise);
+    answer.resolve(false);
+    await answer.promise;
+    await Promise.resolve();
+    expect(store.state.preview.plain).toEqual({ x: 40 });
   });
 });

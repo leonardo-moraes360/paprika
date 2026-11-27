@@ -1,6 +1,7 @@
 import { applyOps, type Document, type Op } from "@paprika/core";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { everyKindDocument, stubLayout } from "@/test/canvas-fixtures";
 import { Canvas, createCanvasFeed } from "./index";
@@ -180,6 +181,25 @@ describe("move", () => {
   it("puts the node back when the server did not take the ops", async () => {
     const { world, onApply } = mount(everyKindDocument(), {}, () => Promise.resolve(false));
     const btn = node(world, "btn");
+    const at = centre(btn);
+    down(btn, { clientX: at.x, clientY: at.y });
+    move({ clientX: at.x + 40, clientY: at.y });
+    up();
+    expect(btn.style.left).toBe("140px");
+    await flush();
+    expect(onApply).toHaveBeenCalledTimes(1);
+    expect(btn.style.left).toBe("100px");
+  });
+
+  it("under StrictMode (the cleanup of the mount runs once and the setup again) a refused move still puts the node back", async () => {
+    const feed = createCanvasFeed({ doc: everyKindDocument(), pageId: "page" });
+    const onApply = vi.fn(() => Promise.resolve(false));
+    const view = render(
+      <StrictMode>
+        <Canvas feed={feed} onSelect={(ids) => feed.update({ selection: ids })} onApply={onApply} />
+      </StrictMode>,
+    );
+    const btn = node(view.getByTestId("canvas-world"), "btn");
     const at = centre(btn);
     down(btn, { clientX: at.x, clientY: at.y });
     move({ clientX: at.x + 40, clientY: at.y });

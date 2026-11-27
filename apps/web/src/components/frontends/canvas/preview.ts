@@ -58,8 +58,6 @@ export function createPreviewController(actions: Pick<CanvasActions, "setPreview
 
   return {
     set: (patches) => {
-      // A canvas that is shown again after a simulated unmount (StrictMode runs the cleanup once) is alive: a gesture proves it.
-      disposed = false;
       const ids = Object.keys(patches);
       for (const entry of held) for (const id of ids) entry.ids.delete(id);
       held = held.filter((entry) => entry.ids.size > 0);
@@ -72,7 +70,6 @@ export function createPreviewController(actions: Pick<CanvasActions, "setPreview
       } else release(ids);
     },
     commit: (ids, result) => {
-      disposed = false;
       const entry: Held = { ids: new Set(ids), base: read().doc, acked: false };
       held.push(entry);
       const answer = (ok: boolean) => {
