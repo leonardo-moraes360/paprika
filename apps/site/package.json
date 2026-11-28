@@ -16,7 +16,7 @@
   },
   "devDependencies": {
     "astro": "7.4.13",
-    "marked": "^18.2.1",
+    "marked": "^18.3.0",
     "pagefind": "1.6.0",
     "shiki": "4.6.0"
   }
