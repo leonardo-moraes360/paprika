@@ -3,7 +3,7 @@ module github.com/leonardo-moraes360/paprika/server
 go 1.26.0
 
 require (
-	github.com/chromedp/cdproto v0.160.8
+	github.com/chromedp/cdproto v0.160.9
 	github.com/chromedp/chromedp v0.24.0
 	github.com/coder/websocket v1.8.15
 	github.com/gen2brain/avif v0.6.0
