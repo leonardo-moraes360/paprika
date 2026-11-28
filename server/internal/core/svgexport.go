@@ -759,6 +759,7 @@ func richLineInner(doc *Document, n *Node, line string, abs int) string {
 		}
 		if href, ok := p.Run.Get("href"); ok {
 			attrs.WriteString(` text-decoration="underline"`)
+			attrs.WriteString(` style="text-decoration-thickness:` + strings.ReplaceAll(LinkUnderlineThickness, ", ", ",") + `;text-underline-offset:` + LinkUnderlineOffset + `;text-decoration-skip-ink:auto"`)
 			inner := "<tspan" + attrs.String() + ">" + EscapeHTML(p.Text) + "</tspan>"
 			b.WriteString(`<a href="` + EscapeHTML(jsString(href)) + `">` + inner + `</a>`)
 			continue

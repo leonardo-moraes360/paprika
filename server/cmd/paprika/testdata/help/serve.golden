@@ -15,4 +15,4 @@ Opções:
       --team-dir string    Pasta da chave, do arquivo de time e do log de operações; sem ela, <db>.team/
       --team-name string   Seu nome para o time; o padrão vem de $USER (default "tester")
       --team-no-relay      Sem relays públicos nem busca de endereço (só rede local; testes)
-      --web string         Build do canvas (web-legacy/dist); sem ele, $PAPRIKA_WEB_ROOT ou detectado
+      --web string         Pasta do app web (entrada _shell.html ou index.html); sem ele, $PAPRIKA_WEB_ROOT ou detectado (apps/web/dist/client)

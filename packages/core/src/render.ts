@@ -1,3 +1,4 @@
+import { variantHidden } from "./component.js";
 import { firstPage, frameFluid, isRootFrame, pageRoots, resolveAsset, type Document, type Node } from "./schema.js";
 import {
   SHAPE_SVG_CSS,
@@ -103,16 +104,122 @@ export function bodySizeCSS(bounds: Bounds, fluid: { min: number; max: number } 
   return `width:100%;min-width:${fluid.min}px;max-width:${fluid.max}px;margin-left:auto;margin-right:auto;${height}`;
 }
 
-function richText(doc: Document, node: Extract<Node, { type: "text" }>, vars: boolean, jsx: boolean): string {
+export interface LinkCtx {
+  z: number;
+  pe: boolean;
+  inA: boolean;
+  ha: boolean;
+}
+
+export const LINK_ROOT: LinkCtx = { z: 0, pe: false, inA: false, ha: false };
+
+const JSX_ENTITY = /\\|&[#A-Za-z0-9]+;/;
+
+export function jsxAttrValue(s: string): string {
+  const j = JSON.stringify(s);
+  return JSX_ENTITY.test(j) ? `{${j}}` : j;
+}
+
+function isHidden(doc: Document, node: Node): boolean {
+  return node.type === "page" ? false : !node.visible || variantHidden(doc, node);
+}
+
+const CONTEXT_KEYS = ["opacity", "transform", "filter", "backdropFilter", "mixBlendMode", "isolation", "clipPath", "mask", "perspective"];
+
+function createsContext(css: CSS): boolean {
+  return CONTEXT_KEYS.some((k) => k in css);
+}
+
+function hasRunLink(node: Extract<Node, { type: "text" }>): boolean {
+  return !!node.runs?.length && textPieces(node.text, node.runs).some((p) => !!p.run?.href);
+}
+
+function selfAnchor(node: Node): boolean {
+  return (node.type === "frame" || node.type === "text") && !!node.href;
+}
+
+// True when some descendant (any depth) is emitted as an <a>: a frame/text with href or a text run with href.
+function anchorInside(doc: Document, node: Node): boolean {
+  if (node.type === "text") return hasRunLink(node);
+  if (node.type !== "frame" && node.type !== "group" && node.type !== "page") return false;
+  return node.children.some((id) => {
+    const c = doc.nodes[id];
+    return !!c && !isHidden(doc, c) && (selfAnchor(c) || anchorInside(doc, c));
+  });
+}
+
+// A block with href that holds another link cannot be an <a> (nested <a> is invalid HTML): it becomes a <div> plus a
+// clickable-card overlay <a> as its first child. `lk.z` is the z-index of the enclosing overlay (0 when there is none):
+// every link below it is lifted above it so it stays clickable.
+function needsOverlay(doc: Document, node: Node): boolean {
+  return selfAnchor(node) && anchorInside(doc, node);
+}
+
+function trimSpaces(s: string): string {
+  let a = 0;
+  let b = s.length;
+  while (a < b && s[a] === " ") a++;
+  while (b > a && s[b - 1] === " ") b--;
+  return s.slice(a, b);
+}
+
+// Accessible name of the overlay link: the node name, else the text content (text nodes), else the href itself.
+function overlayLabel(node: Node): string {
+  if (node.name) return node.name;
+  if (node.type === "text") {
+    // ASCII-only normalisation keeps the Go mirror byte-identical (no Unicode whitespace or UTF-16 slicing differences).
+    const t = trimSpaces(node.text.replace(/[\r\n\t]+/g, " "));
+    if (t) return t;
+  }
+  return (node as { href?: string }).href ?? "";
+}
+
+function overlayCSS(z: number, pe: boolean): CSS {
+  const css: CSS = { position: "absolute", inset: "0", zIndex: z, outlineOffset: "-2px" };
+  if (pe) css.pointerEvents = "auto";
+  return css;
+}
+
+interface NodeLinks {
+  sup: boolean;
+  overlay: boolean;
+  plain: boolean;
+  kids: LinkCtx;
+}
+
+// Decides how `node` takes part in the link layering and records it in `css`. `sup`: its links are dropped (hidden inside
+// an <a>). `lifted`: an ancestor of a link that creates a stacking context would trap the link below the card overlay, so it
+// is raised above the overlay and made click-through, and the links below it opt back in.
+function layerLinks(doc: Document, node: Node, css: CSS, lk: LinkCtx): NodeLinks {
+  const sup = lk.ha || (lk.inA && isHidden(doc, node));
+  const overlay = !sup && needsOverlay(doc, node);
+  const plain = !sup && selfAnchor(node) && !overlay;
+  const lifted = lk.z > 0 && !lk.pe && !sup && !plain && anchorInside(doc, node) && createsContext(css);
+  if (lk.z > 0 && plain) css.zIndex = lk.z + 1;
+  if (lifted) {
+    css.zIndex = lk.z + 1;
+    css.pointerEvents = "none";
+  }
+  if (lk.pe && plain) css.pointerEvents = "auto";
+  return { sup, overlay, plain, kids: { z: overlay ? lk.z + 1 : lk.z, pe: lk.pe || lifted, inA: lk.inA || plain, ha: sup } };
+}
+
+function richText(doc: Document, node: Extract<Node, { type: "text" }>, vars: boolean, jsx: boolean, lk: LinkCtx = LINK_ROOT): string {
   if (!node.runs?.length) return jsx ? jsxText(node.text) : escapeHtml(node.text);
   return textPieces(node.text, node.runs)
     .map((piece) => {
       const body = jsx ? jsxText(piece.text) : escapeHtml(piece.text);
       if (!piece.run) return body;
       const css = textRunCSS(doc, node, piece.run, vars);
+      const linked = !!piece.run.href && !lk.ha;
+      if (lk.z > 0 && linked) {
+        css.position = "relative";
+        css.zIndex = lk.z + 1;
+      }
+      if (lk.pe && linked) css.pointerEvents = "auto";
       const style = jsx ? ` style=${jsxStyle(css)}` : ` style="${escapeHtml(cssToString(css))}"`;
-      if (piece.run.href) {
-        const href = jsx ? JSON.stringify(piece.run.href) : `"${escapeHtml(piece.run.href)}"`;
+      if (linked) {
+        const href = jsx ? jsxAttrValue(piece.run.href!) : `"${escapeHtml(piece.run.href!)}"`;
         return `<a href=${href}${style}>${body}</a>`;
       }
       return `<span${style}>${body}</span>`;
@@ -120,8 +227,24 @@ function richText(doc: Document, node: Extract<Node, { type: "text" }>, vars: bo
     .join("");
 }
 
-function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, emit: StyleEmitter, offset?: { x: number; y: number }): string {
+function overlayOwner(z: number, pe: boolean): string {
+  return `linkOverlay${pe ? "Auto" : ""}${z > 1 ? z : ""}`;
+}
+
+function overlayHtml(node: Node, emit: StyleEmitter, z: number, pe: boolean): string {
+  const href = (node as { href: string }).href;
+  return `<a href="${escapeHtml(href)}" aria-label="${escapeHtml(overlayLabel(node))}"${emit(overlayCSS(z, pe), overlayOwner(z, pe))}></a>`;
+}
+
+function overlayJsx(node: Node, emit: StyleEmitter, z: number, pe: boolean, indent: string): string {
+  const href = (node as { href: string }).href;
+  return `${indent}<a${emit(overlayCSS(z, pe), overlayOwner(z, pe))} href=${jsxAttrValue(href)} aria-label=${jsxAttrValue(overlayLabel(node))}></a>`;
+}
+
+function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, emit: StyleEmitter, offset?: { x: number; y: number }, lk: LinkCtx = LINK_ROOT): string {
   const css: CSS = nodeStyle(doc, node, { asRoot, vars });
+  const { overlay, plain, kids: kk } = layerLinks(doc, node, css, lk);
+  const kz = kk.z;
   if (offset && !asRoot && node.type !== "page") {
     css.left = `${node.x - offset.x}px`;
     css.top = `${node.y - offset.y}px`;
@@ -138,16 +261,18 @@ function renderNode(doc: Document, node: Node, asRoot: boolean, vars: boolean, e
       const kids = node.children
         .map((c) => doc.nodes[c])
         .filter((c): c is Node => !!c)
-        .map((c) => renderNode(doc, c, false, vars, emit))
+        .map((c) => renderNode(doc, c, false, vars, emit, undefined, kk))
         .join("");
-      const href = node.type === "frame" && node.href ? ` href="${escapeHtml(node.href)}"` : "";
+      if (overlay) return `<div ${attrs}>${overlayHtml(node, emit, kz, kk.pe)}${kids}</div>`;
+      const href = plain && node.type === "frame" ? ` href="${escapeHtml(node.href ?? "")}"` : "";
       const tag = href ? "a" : "div";
       return `<${tag} ${attrs}${href}>${kids}</${tag}>`;
     }
     case "text": {
-      const tag = node.href ? "a" : "div";
-      const href = node.href ? ` href="${escapeHtml(node.href)}"` : "";
-      return `<${tag} ${attrs}${href}>${richText(doc, node, vars, false)}</${tag}>`;
+      if (overlay) return `<div ${attrs}>${overlayHtml(node, emit, kz, kk.pe)}${richText(doc, node, vars, false, kk)}</div>`;
+      const tag = plain ? "a" : "div";
+      const href = plain ? ` href="${escapeHtml(node.href ?? "")}"` : "";
+      return `<${tag} ${attrs}${href}>${richText(doc, node, vars, false, kk)}</${tag}>`;
     }
     case "image": {
       const alt = node.decorative ? "" : node.alt;
@@ -245,7 +370,7 @@ function jsxStyle(css: CSS): string {
 export function jsxAttrs(o: Record<string, string | number | undefined>): string {
   return Object.entries(o)
     .filter(([, v]) => v !== undefined)
-    .map(([k, v]) => ` ${k}=${typeof v === "number" ? `{${v}}` : JSON.stringify(v)}`)
+    .map(([k, v]) => ` ${k}=${typeof v === "number" ? `{${v}}` : jsxAttrValue(String(v))}`)
     .join("");
 }
 
@@ -259,13 +384,15 @@ function fluidJsx(node: Node): string {
   return ` data-paprika-width={${node.width}} data-paprika-min-width={${f.min}} data-paprika-max-width={${f.max}}`;
 }
 
-export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: string, vars: boolean, emit: StyleEmitter): string {
+export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: string, vars: boolean, emit: StyleEmitter, lk: LinkCtx = LINK_ROOT): string {
   const css = nodeStyle(doc, node, { asRoot, vars });
+  const { overlay, plain, kids: kk } = layerLinks(doc, node, css, lk);
+  const kz = kk.z;
   const fluid = useFluid(doc, node, asRoot);
   if (fluid) applyFluid(css, node);
   const style = emit(css, node);
   const mode = (node.type === "frame" || node.type === "page") && node.mode ? node.mode : asRoot && vars ? modeOf(doc, node) : undefined;
-  const name = `${node.name ? ` data-name=${JSON.stringify(node.name)}` : ""}${fluid ? fluidJsx(node) : ""}${mode ? ` data-paprika-mode=${JSON.stringify(mode)}` : ""}`;
+  const name = `${node.name ? ` data-name=${jsxAttrValue(node.name)}` : ""}${fluid ? fluidJsx(node) : ""}${mode ? ` data-paprika-mode=${jsxAttrValue(mode)}` : ""}`;
   switch (node.type) {
     case "frame":
     case "group":
@@ -273,30 +400,35 @@ export function jsxNode(doc: Document, node: Node, asRoot: boolean, indent: stri
       const kids = node.children
         .map((c) => doc.nodes[c])
         .filter((c): c is Node => !!c)
-        .map((c) => jsxNode(doc, c, false, indent + "  ", vars, emit))
+        .map((c) => jsxNode(doc, c, false, indent + "  ", vars, emit, kk))
         .join("\n");
-      const href = node.type === "frame" && node.href ? ` href=${JSON.stringify(node.href)}` : "";
+      if (overlay) {
+        const all = `${overlayJsx(node, emit, kz, kk.pe, indent + "  ")}${kids ? `\n${kids}` : ""}`;
+        return `${indent}<div${name}${style}>\n${all}\n${indent}</div>`;
+      }
+      const href = plain && node.type === "frame" ? ` href=${jsxAttrValue(node.href ?? "")}` : "";
       const tag = href ? "a" : "div";
       return kids
         ? `${indent}<${tag}${name}${href}${style}>\n${kids}\n${indent}</${tag}>`
         : `${indent}<${tag}${name}${href}${style} />`;
     }
     case "text": {
-      const tag = node.href ? "a" : "div";
-      const href = node.href ? ` href=${JSON.stringify(node.href)}` : "";
-      return `${indent}<${tag}${name}${href}${style}>${richText(doc, node, vars, true)}</${tag}>`;
+      if (overlay) return `${indent}<div${name}${style}>\n${overlayJsx(node, emit, kz, kk.pe, indent + "  ")}${richText(doc, node, vars, true, kk)}\n${indent}</div>`;
+      const tag = plain ? "a" : "div";
+      const href = plain ? ` href=${jsxAttrValue(node.href ?? "")}` : "";
+      return `${indent}<${tag}${name}${href}${style}>${richText(doc, node, vars, true, kk)}</${tag}>`;
     }
     case "image": {
       const alt = node.decorative ? "" : node.alt;
-      const hidden = node.decorative ? ` alt="" aria-hidden data-paprika-decorative="true"` : ` alt=${JSON.stringify(alt)}`;
-      return `${indent}<img${name}${style} src=${JSON.stringify(resolveAsset(doc, node.src))}${hidden} />`;
+      const hidden = node.decorative ? ` alt="" aria-hidden data-paprika-decorative="true"` : ` alt=${jsxAttrValue(alt)}`;
+      return `${indent}<img${name}${style} src=${jsxAttrValue(resolveAsset(doc, node.src))}${hidden} />`;
     }
     case "path": {
       const a = pathAttrs(doc, node, { vars });
       const jsx = (o: Record<string, string | number | undefined>) =>
         Object.entries(o)
           .filter(([, v]) => v !== undefined)
-          .map(([k, v]) => ` ${k}=${typeof v === "number" ? `{${v}}` : JSON.stringify(v)}`)
+          .map(([k, v]) => ` ${k}=${typeof v === "number" ? `{${v}}` : jsxAttrValue(String(v))}`)
           .join("");
       return `${indent}<svg${name}${style}${jsx(a.svg)}>\n${indent}  ${a.svgInner}<path${jsx(a.path)} />\n${indent}</svg>`;
     }

@@ -1,12 +1,13 @@
 # Allowlist: the build context is only what the Dockerfile copies (see docs/en-US/docker.md).
-# Everything else (node_modules, target/, *.db, .git, local designs) stays out of the context.
+# Everything else (node_modules, target/, *.db, .git, local designs, the docs, the other apps) stays
+# out of the context, so editing them never invalidates a layer.
 *
 !package.json
 !pnpm-lock.yaml
 !pnpm-workspace.yaml
 !tsconfig.base.json
 !packages/core/
-!web-legacy/
+!apps/web/
 !crates/render/
 !crates/sync/
 !server/
@@ -15,14 +16,23 @@
 **/node_modules/
 **/dist/
 **/*.tsbuildinfo
-web-legacy/src/wasm/
+apps/web/src/wasm/
 crates/render/target/
 crates/sync/target/
+crates/render/build.mjs
 crates/sync/tests/
 server/bin/
 **/*.db
 **/*.db-wal
 **/*.db-shm
+
+# Tests, scripts and docs that no stage reads.
 packages/core/test/
+apps/web/src/test/
+apps/web/vitest.config.ts
+**/*.test.ts
+**/*.test.tsx
 server/**/*_test.go
 server/**/testdata/
+server/scripts/
+server/README*.md

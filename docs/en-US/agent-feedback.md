@@ -1182,3 +1182,17 @@ Task: an agent drew the new landing page (English and Portuguese, desktop and mo
 | 247 | Set the cover of a workspace that is not active | `set_workspace_cover` refuses `workspaceId` ("unknown argument … valid arguments: clear, id, image, rootId"); every other tool calls it `workspaceId` | Accept `workspaceId` as an alias of `id` | P3 |
 | 248 | Run the CLI inside the Docker container | The binary is `/app/paprika`, not on `PATH`, so `docker exec … paprika export` fails with "executable file not found in $PATH" | Put the binary on `PATH` in the image (or document `/app/paprika` in docker.md) | P3 |
 | 249 | Read the CLI help in the docs' main language | `paprika --help` and the server's errors are in Portuguese while the docs and the MCP contract are in English | English CLI help and errors, Portuguese where the user's locale asks for it | P3 |
+
+## 2026-11-27: "Links no texto" board (link rule proposal, dark and light)
+
+Task: draw the link-in-text proposal (inherited colour + underline) in a new workspace with `docs/en-US/design/draw-links.mjs`, two 1600 px frames, on a fresh local `paprika serve` (port 5401).
+
+| # | Needed | What happened | Proposal | Pri. |
+|---|--------|---------------|----------|------|
+| 250 | A @2x screenshot of a tall board | A 1600 × 2894 frame came back as 2322 × 4096 (scale 1.41 instead of 2) with no word about the applied scale; same cap as #245 | Say the applied scale in the result, or tile frames taller than the cap | P2 |
+| 251 | Measure the width of a hug text to size a drawn underline | `get_bounds` returns `boxes.<id>` keyed by id (not a list) and a fixed-width text returns its box, not its ink; the script had to set `width: "hug"` on a copy and read the box | Document the `boxes` shape in the tool description; `get_bounds {ink: true}` for text | P3 |
+| 252 | See what the renderer does with a text run that has `href` | There is no statement of it: the run is painted `#0000EE` and underlined by the renderer, an explicit run `color` wins and the underline follows it. Found by drawing a probe | Say it in the guide, with the underline offset and thickness the renderer uses | P3 |
+| 253 | Lint a contrast that depends on the nearest filled ancestor | `lint_design` `contrast` was right (it caught light text I had put on a white strip) but reports only node ids; I had to `get_nodes` each id to find out which pair it measured | Put the two colours and the ratio in each issue (`fg`, `bg`, `ratio`) | P3 |
+| 254 | Re-run a drawing script on the same workspace | `delete_nodes` of ids that may not exist fails the whole call, so the script needs `soft` handling of the error | `delete_nodes {ignoreMissing: true}` | P3 |
+
+- Fine: `create_nodes {place: "none"}` with explicit coordinates on a page, `create_workspace` and `create_page {ensure: true}` without touching the active workspace, `lint_design` clean at the end, `render_screenshot` with the container's Chromium (no `PAPRIKA_CHROMIUM` needed this time), `paprika export --doc <id>` for one workspace.

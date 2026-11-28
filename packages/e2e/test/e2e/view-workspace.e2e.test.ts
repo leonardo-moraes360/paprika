@@ -8,7 +8,7 @@ import { pinLocale } from "./locale.js";
 import { startServer, type ExternalServer } from "../harness.js";
 
 const root = resolve(import.meta.dirname, "../../../..");
-const webRoot = join(root, "web-legacy/dist");
+const webRoot = join(root, "apps/web/dist/client");
 const POLL = { timeout: 10_000 };
 
 describe.skipIf(!existsSync(webRoot))("E2E: abrir /w/<id> não troca o workspace ativo", () => {
@@ -62,9 +62,9 @@ describe.skipIf(!existsSync(webRoot))("E2E: abrir /w/<id> não troca o workspace
     const pageB = await newPage();
     await pageB.goto(`${external.url}/w/${b}`);
     await pageB.waitForSelector('[data-paprika-id="b-one"]', { timeout: 5_000 });
-    expect(await pageB.getByText("Abrindo workspace…").count()).toBe(0);
+    expect(await pageB.getByText(/Abrindo workspace/).count()).toBe(0);
     expect(await pageB.locator('[data-paprika-id="a-frame"]').count()).toBe(0);
-    expect(await pageB.locator(".doc-name").textContent()).toBe("Workspace B");
+    await expect.poll(() => pageB.getByRole("navigation", { name: "Caminho do documento" }).textContent(), POLL).toContain("Workspace B");
     expect(await active()).toBe(a);
     expect((await external.doc()).id).toBe(a);
     await pageB.close();
@@ -112,7 +112,8 @@ describe.skipIf(!existsSync(webRoot))("E2E: abrir /w/<id> não troca o workspace
     const p = await newPage();
     await p.goto(`${external.url}/w/nao-existe`);
     await expect.poll(() => new URL(p.url()).pathname, POLL).toBe("/");
-    await expect.poll(() => p.getByRole("alert").textContent(), POLL).toContain("nao-existe");
+    // o app novo não repete o id na mensagem: diz que o workspace não existe
+    await expect.poll(() => p.getByRole("alert").textContent(), POLL).toMatch(/Não foi possível abrir o workspace.*não existe/);
     expect(await active()).toBe(a);
     await p.close();
   });

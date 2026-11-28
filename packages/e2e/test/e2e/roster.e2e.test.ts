@@ -33,37 +33,40 @@ describe.skipIf(!existsSync(webDist))("E2E: roster condensado", () => {
     await callTool(outline, "get_document_outline", {});
     await callTool(other, "update_nodes", { updates: [{ id: "login", props: { notes: "roster" } }] });
 
-    const toggle = page.getByTestId("agent-roster-toggle");
+    // The roster is the header's pill ("4 ativos") that opens a popover; each agent session is its own row ("e2e-agent", "e2e-agent 2"...).
+    const toggle = page.getByRole("banner").getByRole("button", { name: /agentes? ativos?/ });
     await expect.poll(() => toggle.innerText()).toMatch(/^4 ativos$/);
-    const items = page.getByTestId("agent-roster").locator("li");
-    await expect.poll(() => items.count()).toBe(4);
     await expect.poll(() => page.getByTestId("agent-frame-state").first().getAttribute("data-activity")).toBe("writing");
 
     const box = async (locator: ReturnType<Page["locator"]>) => (await locator.boundingBox())!;
-    const roster = await box(page.getByTestId("agent-roster"));
+    const header = await box(page.getByRole("banner"));
+    const pill = await box(toggle);
     const viewport = await box(page.getByTestId("viewport"));
-    const toolbar = await box(page.getByRole("navigation", { name: "Ferramentas" }));
-    const layers = await box(page.getByRole("complementary", { name: "Páginas e camadas" }));
-    const props = await box(page.getByRole("complementary", { name: "Propriedades" }));
-    expect(overlaps(roster, toolbar)).toBe(false);
-    expect(overlaps(roster, layers)).toBe(false);
-    expect(overlaps(roster, props)).toBe(false);
-    expect(roster.x).toBeGreaterThanOrEqual(viewport.x - 1);
-    expect(roster.y).toBeGreaterThanOrEqual(viewport.y - 1);
-    expect(roster.x + roster.width).toBeLessThanOrEqual(viewport.x + viewport.width + 1);
-    expect(roster.y + roster.height).toBeLessThanOrEqual(viewport.y + viewport.height + 1);
-    expect(roster.y).toBeGreaterThan(toolbar.y + toolbar.height - 1);
+    const toolbar = await box(page.getByRole("toolbar", { name: "Ferramentas" }));
+    const layers = await box(page.getByRole("complementary", { name: "Painel de camadas" }));
+    const props = await box(page.getByRole("complementary", { name: "Painel de propriedades" }));
+    expect(overlaps(pill, toolbar)).toBe(false);
+    expect(overlaps(pill, layers)).toBe(false);
+    expect(overlaps(pill, props)).toBe(false);
+    expect(overlaps(pill, viewport)).toBe(false);
+    expect(pill.x).toBeGreaterThanOrEqual(header.x - 1);
+    expect(pill.y).toBeGreaterThanOrEqual(header.y - 1);
+    expect(pill.x + pill.width).toBeLessThanOrEqual(header.x + header.width + 1);
+    expect(pill.y + pill.height).toBeLessThanOrEqual(header.y + header.height + 1);
 
     await toggle.click();
-    const client = page.getByTestId("agent-client").filter({ hasText: "e2e-agent ×3" });
-    await expect.poll(() => client.count()).toBeGreaterThan(0);
-    await expect.poll(() => page.locator("[data-activity=writing]").count()).toBeGreaterThan(0);
-    await expect.poll(() => page.locator("[data-activity=reading]").count()).toBeGreaterThan(0);
-    await expect.poll(() => page.getByText("Escrevendo", { exact: true }).count()).toBeGreaterThan(0);
-    await expect.poll(() => page.getByText("Lendo", { exact: true }).count()).toBeGreaterThan(0);
-    await expect.poll(() => page.getByRole("heading", { name: "Ociosos" }).count()).toBe(0);
+    const roster = page.getByRole("dialog", { name: /agentes ativos/ });
+    const items = roster.locator("li");
+    await expect.poll(() => items.count()).toBe(4);
+    await expect.poll(() => items.filter({ hasText: "e2e-agent" }).count()).toBe(3);
+    await expect.poll(() => roster.locator("[data-activity=writing]").count()).toBeGreaterThan(0);
+    await expect.poll(() => roster.locator("[data-activity=reading]").count()).toBeGreaterThan(0);
+    await expect.poll(() => roster.getByText("create_nodes").count()).toBeGreaterThan(0);
+    await expect.poll(() => roster.getByText("get_nodes").count()).toBeGreaterThan(0);
+    await expect.poll(() => roster.getByRole("heading", { name: "Ativos" }).count()).toBe(1);
+    await expect.poll(() => roster.getByRole("heading", { name: "Ociosos" }).count()).toBe(0);
 
-    const focus = page.getByTestId("agent-focus").filter({ hasText: /^outro/ }).first();
+    const focus = roster.getByRole("button", { name: /Ir até outro$/ });
     await expect.poll(() => focus.isEnabled()).toBe(true);
     await focus.click();
     const centerOff = async () => {
@@ -72,29 +75,27 @@ describe.skipIf(!existsSync(webDist))("E2E: roster condensado", () => {
       return Math.max(Math.abs(node.x + node.width / 2 - (vp.x + vp.width / 2)), Math.abs(node.y + node.height / 2 - (vp.y + vp.height / 2)));
     };
     await expect.poll(centerOff).toBeLessThan(2);
+    await page.keyboard.press("Escape");
 
-    await page.evaluate(() => {
-      localStorage.setItem("paprika.toolbar.dock", "right");
-      localStorage.setItem("paprika.panel.right.collapsed", "1");
-    });
+    await page.evaluate(() => localStorage.setItem("paprika.toolbar.dock", "right"));
     await page.reload();
     await page.waitForSelector('[data-paprika-id="login"]');
+    await page.getByRole("button", { name: "Esconder painel de propriedades" }).click();
     await callTool(writer, "get_nodes", { ids: ["login"] });
-    await expect.poll(() => page.getByRole("navigation", { name: "Ferramentas" }).getAttribute("data-toolbar-dock")).toBe("right");
-    await expect.poll(() => page.getByTestId("agent-roster-toggle").innerText()).toMatch(/ativo/);
-    const docked = await box(page.getByRole("navigation", { name: "Ferramentas" }));
-    const again = await box(page.getByTestId("agent-roster"));
+    await expect.poll(() => page.locator("[data-dock]").getAttribute("data-dock")).toBe("right");
+    await expect.poll(() => page.getByRole("banner").getByRole("button", { name: /agentes? ativos?/ }).innerText()).toMatch(/ativo/);
+    const docked = await box(page.getByRole("toolbar", { name: "Ferramentas" }));
+    const again = await box(page.getByRole("banner").getByRole("button", { name: /agentes? ativos?/ }));
     const toggleBox = await box(page.getByRole("button", { name: "Mostrar painel de propriedades" }));
     expect(overlaps(again, docked)).toBe(false);
     expect(overlaps(again, toggleBox)).toBe(false);
-    expect(again.x + again.width).toBeLessThanOrEqual(docked.x + 1);
 
-    await page.getByTestId("add-page").click();
+    await page.getByRole("button", { name: "Nova página" }).click();
     await expect.poll(async () => (await session.external.doc()).rootIds.length).toBe(2);
     const doc = await session.external.doc();
-    const [p1, p2] = doc.rootIds as [string, string];
+    const p2 = doc.rootIds[1] as string;
     await callTool(writer, "create_nodes", { parentId: p2, nodes: [{ type: "frame", id: "roster-p2", name: "Na página 2", width: 120, height: 80, fill: "#ffffff" }] });
-    await page.locator(`[data-page-id="${p1}"]`).click();
-    await expect.poll(() => page.locator(`[data-page-id="${p2}"]`).getByTestId("agent-page-dot").count()).toBe(1);
+    const pageRow = (id: string) => page.getByRole("listitem").filter({ has: page.getByRole("button", { name: (doc.nodes[id] as { name: string }).name, exact: true }) });
+    await expect.poll(() => pageRow(p2).getByRole("img", { name: /agente ativo nesta página/ }).count()).toBe(1);
   }, 60_000);
 });

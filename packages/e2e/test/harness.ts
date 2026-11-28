@@ -28,7 +28,8 @@ export async function startServer(opts: { seed?: string; webRoot?: string } = {}
     await copyFile(opts.seed, file);
     execFileSync(serverBin, ["import", file, "--db", db], { stdio: "pipe" });
   }
-  const args = ["serve", "--db", db, "--port", "0", ...(opts.webRoot ? ["--web", opts.webRoot] : [])];
+  const web = opts.webRoot;
+  const args = ["serve", "--db", db, "--port", "0", ...(web ? ["--web", web] : [])];
   const proc = spawn(serverBin, args, { stdio: ["ignore", "pipe", "pipe"] });
   let log = "";
   const url = await new Promise<string>((ok, fail) => {

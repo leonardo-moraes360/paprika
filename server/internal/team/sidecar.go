@@ -19,6 +19,10 @@ const BinaryName = "paprika-sync"
 
 var ErrNoSidecar = errors.New("sidecar not found: build crates/sync (cargo build --release) and put paprika-sync next to paprika, or set PAPRIKA_SYNC")
 
+var ErrNoSidecarInImage = errors.New("paprika-sync not found next to paprika in the image (/app/paprika-sync is expected in both the default and the slim image): the image is broken or custom, rebuild it from the Dockerfile or set PAPRIKA_SYNC")
+
+const imageWebRoot = "/app/web"
+
 func FindBinary() (string, error) {
 	if p := os.Getenv("PAPRIKA_SYNC"); p != "" {
 		if _, err := os.Stat(p); err != nil {
@@ -34,6 +38,9 @@ func FindBinary() (string, error) {
 	}
 	if p, err := exec.LookPath(BinaryName); err == nil {
 		return p, nil
+	}
+	if os.Getenv("PAPRIKA_WEB_ROOT") == imageWebRoot {
+		return "", ErrNoSidecarInImage
 	}
 	return "", ErrNoSidecar
 }

@@ -16,7 +16,7 @@ export function ListItem({ className, children, ...props }: ListItemProps) {
   return (
     <ListboxItem
       className={slot(
-        "flex h-8 cursor-pointer items-center justify-between gap-2 rounded-sm px-2 text-base text-fg outline-none select-none data-highlighted:bg-surface data-disabled:cursor-not-allowed data-disabled:text-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-select forced-colors:data-highlighted:bg-[Highlight] forced-colors:data-highlighted:text-[HighlightText] forced-colors:data-disabled:text-[GrayText]",
+        "flex h-8 cursor-pointer items-center justify-between gap-2 rounded-sm px-2 text-base text-fg outline-none select-none data-highlighted:bg-surface data-disabled:cursor-not-allowed data-disabled:text-muted focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-select forced-colors:data-highlighted:bg-[Highlight] forced-colors:data-highlighted:text-[HighlightText] forced-colors:data-disabled:text-[GrayText]",
         className,
       )}
       {...props}

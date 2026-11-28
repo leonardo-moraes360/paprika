@@ -1,5 +1,8 @@
 import { useEffect, type ReactNode } from "react";
-import { Notifications } from "@/components/notifications";
+import { RoutedNotifications } from "./-routed-notifications";
+import { registerShellPropertiesScript } from "./-shell-properties";
+import { LiveProvider } from "@/data/live";
+import { PerfProvider } from "@/perf";
 import { useTranslation } from "react-i18next";
 import "@/i18n";
 import { themeInitScript } from "@/lib/theme";
@@ -14,8 +17,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Paprika" },
     ],
-    scripts: [{ children: themeInitScript }],
-    links: [{ rel: "stylesheet", href: appCss }, { rel: "icon", type: "image/svg+xml", href: "/icon.svg" }],
+    scripts: [{ children: themeInitScript }, { children: registerShellPropertiesScript }],
+    links: [{ rel: "stylesheet", href: appCss }, { rel: "stylesheet", href: "/fonts/inter.css" }, { rel: "icon", type: "image/svg+xml", href: "/icon.svg" }],
   }),
   component: RootComponent,
   notFoundComponent: NotFound,
@@ -29,8 +32,12 @@ function RootComponent() {
   return (
     <RootDocument>
       <ClientOnly fallback={null}>
-        <Outlet />
-        <Notifications />
+        <PerfProvider>
+          <LiveProvider>
+            <Outlet />
+            <RoutedNotifications />
+          </LiveProvider>
+        </PerfProvider>
       </ClientOnly>
     </RootDocument>
   );

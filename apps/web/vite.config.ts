@@ -13,6 +13,7 @@ const sameOrigin: ProxyOptions["configure"] = (proxy) => {
 export default defineConfig({
   resolve: { tsconfigPaths: true },
   plugins: [tanstackStart({ spa: { enabled: true } }), viteReact(), tailwindcss()],
+  preview: { host: "127.0.0.1" },
   server: {
     proxy: {
       "/api": { target, changeOrigin: true, configure: sameOrigin },

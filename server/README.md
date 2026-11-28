@@ -9,7 +9,7 @@ The Paprika server: 29 MCP tools (stdio and Streamable HTTP at `/mcp`), atomic o
 Requirements: Go 1.26+ (the `go` command downloads the toolchain if needed). Chromium is only needed for screenshots (SVG export uses core `layout(doc)`): the server uses `$PAPRIKA_CHROMIUM`, then Playwright's browsers (`$PLAYWRIGHT_BROWSERS_PATH` or `~/.cache/ms-playwright`), then `chromium`/`google-chrome` on `PATH`.
 
 ```bash
-pnpm install && pnpm build            # builds the canvas (web-legacy/dist) and the server (pnpm go:build)
+pnpm install && pnpm build            # builds the web app (apps/web/dist/client) and the server (pnpm go:build)
                                       # → server/bin/paprika
 
 B=server/bin/paprika
@@ -53,7 +53,7 @@ paprika completion fish > ~/.config/fish/completions/paprika.fish
 
 An unknown command exits with code 2 and suggests the closest one; a bad flag or any runtime error exits with code 1.
 
-Defaults: `--db` is `./paprika.db` (or `$PAPRIKA_DB`); `--doc` is the most recently updated document, and an empty one is created when the database is empty. `--web` falls back to `$PAPRIKA_WEB_ROOT` and then to `web-legacy/dist` next to the binary or the current directory.
+Defaults: `--db` is `./paprika.db` (or `$PAPRIKA_DB`); `--doc` is the most recently updated document, and an empty one is created when the database is empty. `--web` (a folder whose entry is `_shell.html` or `index.html`) falls back to `$PAPRIKA_WEB_ROOT` and then to the app (`apps/web/dist/client`, or `web` next to the binary).
 
 ## Storage
 

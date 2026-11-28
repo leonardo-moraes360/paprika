@@ -4,8 +4,7 @@ import { join } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import { repoRoot, startServer, waitFor, type ExternalServer } from "../harness.js";
 import { pinLocale } from "./locale.js";
-
-const webRoot = join(repoRoot, "web-legacy/dist");
+import { webDist as webRoot } from "./seededCanvas.js";
 const NODE = '[data-paprika-id="plano"]';
 
 type Pin = { id: string; n: number; nodeId?: string; region: { x: number; y: number; width: number; height: number }; text: string; status: string; reply?: string };
@@ -49,7 +48,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: apontamentos para a IA", () => {
     const box = (await page.locator(NODE).boundingBox())!;
     await page.keyboard.press("i");
     await page.mouse.click(box.x + box.width / 2, box.y + 8);
-    const composer = page.getByTestId("pin-composer");
+    const composer = page.getByTestId("new-pin-form");
     await composer.waitFor();
     await expect(composer.textContent()).resolves.toContain("Alvo");
     await page.keyboard.type("Deixe este plano com cantos de 16px");
@@ -57,7 +56,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: apontamentos para a IA", () => {
     await page.getByTestId("pin-badge").waitFor();
     const [pin] = await pins();
     expect(pin).toMatchObject({ n: 1, nodeId: "plano", text: "Deixe este plano com cantos de 16px", status: "open" });
-    await expect(page.getByTestId("pin-capture").count()).resolves.toBe(0);
+    await expect(page.getByTestId("new-pin-form").count()).resolves.toBe(0);
   }, 20_000);
 
   it("arrastar marca uma área; Esc cancela sem salvar", async () => {
@@ -70,17 +69,17 @@ describe.skipIf(!existsSync(webRoot))("E2E: apontamentos para a IA", () => {
       await page.mouse.move(vp.x + 260, vp.y + 700, { steps: 6 });
       await page.getByTestId("pin-drag").waitFor();
       await page.mouse.up();
-      await page.getByTestId("pin-composer").waitFor();
+      await page.getByTestId("new-pin-form").waitFor();
     };
     await drag();
     await page.keyboard.type("descartado");
     await page.keyboard.press("Escape");
-    await expect(page.getByTestId("pin-composer").count()).resolves.toBe(0);
+    await expect(page.getByTestId("new-pin-form").count()).resolves.toBe(0);
     expect(await pins()).toHaveLength(1);
 
     await drag();
     await page.keyboard.type("Troque esta área por uma ilustração");
-    await page.getByTestId("pin-send").click();
+    await page.getByTestId("new-pin-form").getByRole("button", { name: "Enviar" }).click();
     await waitFor(async () => (await pins()).length === 2);
     const area = (await pins()).find((p) => p.n === 2)!;
     expect(area.nodeId).toBeUndefined();
@@ -103,10 +102,13 @@ describe.skipIf(!existsSync(webRoot))("E2E: apontamentos para a IA", () => {
     await page.keyboard.press("Shift+I");
     const panel = page.getByTestId("pins-panel");
     await panel.waitFor();
-    await panel.getByRole("button", { name: /Resolvidos 1/ }).click();
-    await expect(panel.textContent()).resolves.toContain("Cantos em 16px");
+    await panel.getByRole("radio", { name: /Resolvidos 1/ }).click();
+    await panel.getByRole("button", { name: /Deixe este plano com cantos de 16px/ }).click();
+    const card = page.getByTestId("pin-card");
+    await card.waitFor();
+    await expect(card.textContent()).resolves.toContain("Cantos em 16px");
 
-    await panel.getByRole("button", { name: "Reabrir" }).click();
+    await card.getByRole("button", { name: "Reabrir" }).click();
     await page.locator('[data-pin="1"][data-pin-status="open"]').waitFor({ state: "attached" });
     expect((await pins()).find((p) => p.n === 1)?.status).toBe("open");
   }, 20_000);

@@ -22,15 +22,14 @@ describe.skipIf(!existsSync(webDist))("E2E: a selected path's box matches its in
 
   const select = async (id: string) => {
     await page.locator(`[data-layer-id="${id}"]`).click();
-    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe(id);
-    await expect.poll(() => page.getByTestId("selection").count()).toBe(1);
+    await expect.poll(() => page.locator('[data-layer-id][aria-selected="true"]').getAttribute("data-layer-id")).toBe(id);
+    await expect.poll(() => page.locator(`[data-selection-box="${id}"]`).count()).toBe(1);
   };
 
   const selectionBox = () =>
     page.evaluate(() => {
-      const el = document.querySelector<HTMLElement>('[data-testid="selection"]')!;
-      const vp = document.querySelector('[data-testid="viewport"]')!.getBoundingClientRect();
-      return { x: vp.left + parseFloat(el.style.left), y: vp.top + parseFloat(el.style.top), width: parseFloat(el.style.width), height: parseFloat(el.style.height) };
+      const r = document.querySelector('[data-testid="selection"] [data-selection-box]')!.getBoundingClientRect();
+      return { x: r.left, y: r.top, width: r.width, height: r.height };
     });
 
   const rectOf = (locator: string) =>

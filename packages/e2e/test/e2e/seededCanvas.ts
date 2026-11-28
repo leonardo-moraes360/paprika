@@ -9,7 +9,7 @@ import { pinLocale } from "./locale.js";
 import { startServer, type ExternalServer } from "../harness.js";
 
 export const repoRoot = resolve(import.meta.dirname, "../../../..");
-export const webDist = join(repoRoot, "web-legacy/dist");
+export const webDist = join(repoRoot, "apps/web/dist/client");
 
 export type CanvasSession = {
   dir: string;
@@ -17,6 +17,7 @@ export type CanvasSession = {
   url: string;
   browser: Browser;
   page: Page;
+  pageErrors: string[];
 };
 
 export async function openSeededCanvas(prefix: string): Promise<CanvasSession> {
@@ -27,10 +28,13 @@ export async function openSeededCanvas(prefix: string): Promise<CanvasSession> {
   const browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await pinLocale(page, "pt-BR");
-  await page.goto(external.url);
-  await page.locator(".workspace-card.is-active").click();
-  await page.waitForSelector('[data-paprika-id="login"]');
-  return { dir, external, url: external.url, browser, page };
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  const { active } = (await (await fetch(`${external.url}/api/workspaces`)).json()) as { active: string };
+  await page.goto(`${external.url}/w/${encodeURIComponent(active)}`);
+  await page.waitForSelector('[data-testid="viewport"] [data-paprika-id="login"]');
+  expect(pageErrors).toEqual([]);
+  return { dir, external, url: external.url, browser, page, pageErrors };
 }
 
 export async function closeSeededCanvas(session: CanvasSession | undefined, clients: Client[]) {
@@ -38,6 +42,7 @@ export async function closeSeededCanvas(session: CanvasSession | undefined, clie
   await session?.browser.close();
   await session?.external.stop();
   if (session) await rm(session.dir, { recursive: true, force: true });
+  expect(session?.pageErrors ?? []).toEqual([]);
 }
 
 export async function connectAgent(url: string, name: string, clients: Client[]) {
@@ -77,7 +82,8 @@ export async function revealLayer(page: Page, id: string) {
 export async function dismissToasts(page: Page) {
   const toasts = page.locator('[data-slot="toast"]');
   for (let i = 0; i < 10 && (await toasts.count()) > 0; i++) {
-    await toasts.first().getByRole("button").first().click({ timeout: 2000 }).catch(() => undefined);
+    // o botão de fechar, não o primeiro botão: a ação do toast ("Refazer", "Ver histórico") refaz um passo ou abre o painel
+    await toasts.first().getByRole("button", { name: "Fechar notificação" }).click({ timeout: 2000 }).catch(() => undefined);
   }
   await expect.poll(() => toasts.count()).toBe(0);
 }

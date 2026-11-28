@@ -20,6 +20,7 @@ type AlertDialogBaseProps = Omit<ComponentProps<typeof AlertDialogPrimitive>, "c
   children?: ReactNode;
   trigger?: ReactElement;
   confirmLabel: ReactNode;
+  confirmDisabled?: boolean;
   extra?: ReactNode;
   onConfirm?: (event: Event | undefined, details: { source: string }) => unknown;
   contentProps?: Omit<ComponentProps<typeof AlertDialogContent>, "children" | "className">;
@@ -36,6 +37,7 @@ export function AlertDialog({
   children,
   trigger,
   confirmLabel,
+  confirmDisabled,
   cancelLabel,
   extra,
   onConfirm,
@@ -65,6 +67,7 @@ export function AlertDialog({
           ) : null}
           <AlertDialogClose
             value="confirm"
+            disabled={confirmDisabled}
             action={onConfirm}
             render={<Button variant={status === "danger" ? "destructive" : "primary"} pendingAnnouncement={pendingAnnouncement} />}
           >

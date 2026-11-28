@@ -23,7 +23,7 @@ export function SectionHeader({ className, title, variant = "panel", headingLeve
   if (!children) {
     return (
       <div className={className}>
-        <div className="flex h-9 items-center gap-1.5 pr-2 pl-2.5">
+        <div className="flex h-9 items-center gap-1.5 pe-2 ps-2.5">
           <Heading className={cn("min-w-0 flex-1 truncate", titles[variant])}>{title}</Heading>
           {actions ? <div className="flex h-6 shrink-0 items-center gap-0.5">{actions}</div> : null}
         </div>
@@ -32,7 +32,7 @@ export function SectionHeader({ className, title, variant = "panel", headingLeve
   }
   return (
     <Collapsible className={className} {...props}>
-      <div className="flex h-9 items-center gap-1.5 pr-2 pl-2.5">
+      <div className="flex h-9 items-center gap-1.5 pe-2 ps-2.5">
         <Heading className="flex h-full min-w-0 flex-1">
           <CollapsibleTrigger
             className={cn(

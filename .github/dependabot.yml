@@ -3,7 +3,7 @@
 version: 2
 
 updates:
-  # pnpm workspace (root + packages/* + apps/* + web-legacy): Dependabot reads pnpm-lock.yaml.
+  # pnpm workspace (root + packages/* + apps/*): Dependabot reads pnpm-lock.yaml.
   - package-ecosystem: npm
     directory: /
     schedule:
@@ -43,8 +43,9 @@ updates:
       # Pinned with `=`: it must match wasm-bindgen-cli in crates/render/build.mjs, so bump both by hand.
       - dependency-name: wasm-bindgen
 
-  # Base images of the Dockerfile (tags such as rust:1.100-slim-trixie). The checksum-pinned
-  # downloads in it (wasm-bindgen, Chrome headless shell) are bumped by hand: see docs/en-US/docker.md.
+  # Base images of the Dockerfile, pinned as tag@sha256:digest (rust:1.100-slim-trixie@sha256:...):
+  # Dependabot moves the tag and the digest together. The checksum-pinned downloads in it
+  # (wasm-bindgen, Chrome headless shell) are bumped by hand: see docs/en-US/docker.md.
   - package-ecosystem: docker
     directory: /
     schedule:

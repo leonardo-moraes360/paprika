@@ -95,11 +95,16 @@ type serverRun struct {
 
 func (r *serverRun) startUI() error {
 	var err error
-	r.http, err = server.StartHTTP(r.store, server.HTTPOptions{Host: r.host, Port: r.port, WebRoot: webRoot(r.web), Log: logf, Shot: r.shot, Team: r.teamHTTP})
+	web := webRoot(r.web)
+	r.http, err = server.StartHTTP(r.store, server.HTTPOptions{Host: r.host, Port: r.port, WebRoot: web, Log: logf, Shot: r.shot, Team: r.teamHTTP})
 	if err != nil {
 		return err
 	}
-	logf(fmt.Sprintf("canvas: %s  ·  MCP HTTP: %s/mcp", r.http.URL, r.http.URL))
+	served := web
+	if served == "" {
+		served = "nenhum app construído"
+	}
+	logf(fmt.Sprintf("canvas: %s (%s)  ·  MCP HTTP: %s/mcp", r.http.URL, served, r.http.URL))
 	return nil
 }
 

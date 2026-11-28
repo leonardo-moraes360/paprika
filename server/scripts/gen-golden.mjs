@@ -665,6 +665,11 @@ const opCases = [
   ["free", [{ op: "update", id: "board", props: { href: "https://example.com", minWidth: 320, maxWidth: 960 } }]],
   ["free", [{ op: "update", id: "t1", props: { href: "/docs" } }]],
   ["free", [{ op: "update", id: "board", props: { href: "javascript:alert(1)" } }]],
+  ["free", [{ op: "update", id: "board", props: { href: "https://example.com/card" } }, { op: "update", id: "t1", props: { runs: [{ start: 0, end: 2, href: "https://example.com/inner" }] } }]],
+  ["free", [{ op: "update", id: "board", props: { href: "https://example.com/card" } }, { op: "update", id: "t1", props: { name: "Titulo", href: "/docs", runs: [{ start: 0, end: 2, href: "https://example.com/inner" }] } }]],
+  ["free", [{ op: "update", id: "board", props: { href: "https://example.com/card" } }, { op: "create", parentId: "board", node: { type: "frame", id: "sub", name: "Cartão interno", x: 4, y: 4, width: 60, height: 40, href: "/sub", children: [{ type: "text", id: "subt", text: "Olá mundo", runs: [{ start: 0, end: 3, href: "/deep" }] }] } }]],
+  ["free", [{ op: "update", id: "board", props: { href: "https://example.com/card" } }, { op: "create", parentId: "board", node: { type: "frame", id: "sub2", x: 4, y: 4, width: 60, height: 40, href: "/sub2" } }]],
+  ["free", [{ op: "update", id: "t1", props: { href: "/docs", runs: [{ start: 0, end: 2, fontWeight: 700 }] } }]],
   ["free", [{ op: "update", id: "board", props: { minWidth: 400, maxWidth: 100 } }]],
   ["free", [{ op: "update", id: "r1", props: { minWidth: 10 } }]],
   ["free", [{ op: "create", parentId: "board", node: { type: "frame", id: "inner", width: 40, height: 40, minWidth: 10 } }]],
@@ -883,6 +888,14 @@ const opCases = [
   ["empty", [{ op: "create", node: { type: "text", id: "t", text: "Hi", width: 40, height: 20, runs: [{ start: 2, end: 2, fontWeight: 700 }] } }]],
   ["empty", [{ op: "create", node: { type: "text", id: "t", text: "Hi", width: 40, height: 20, runs: [{ start: 0, end: 1 }, { start: 0, end: 2, fontWeight: 700 }] } }]],
   ["empty", [{ op: "create", node: { type: "text", id: "t", text: "Hi", width: 40, height: 20, runs: [{ start: 0, end: 2, href: "javascript:alert(1)" }] } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "card", x: 0, y: 0, width: 300, height: 200, href: "/card", children: [{ type: "frame", id: "mid", x: 10, y: 10, width: 250, height: 150, opacity: 0.5, children: [{ type: "text", id: "t", text: "Olá mundo", x: 20, y: 20, width: 160, height: 24, runs: [{ start: 0, end: 3, href: "/inner" }] }] }] } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "card", x: 0, y: 0, width: 300, height: 200, href: "/card", children: [{ type: "frame", id: "mid", x: 10, y: 10, width: 250, height: 150, rotation: 1, children: [{ type: "frame", id: "inner", x: 0, y: 0, width: 100, height: 40, href: "/inner" }] }] } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "card", x: 0, y: 0, width: 300, height: 200, href: "/card", children: [{ type: "group", id: "grp", opacity: 0.8, children: [{ type: "frame", id: "mid", x: 10, y: 10, width: 250, height: 150, filter: { blur: 2 }, children: [{ type: "text", id: "t", text: "Olá mundo", x: 20, y: 20, width: 160, height: 24, runs: [{ start: 0, end: 3, href: "/inner" }] }] }] }] } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "card", x: 0, y: 0, width: 300, height: 200, href: "/card", children: [{ type: "frame", id: "sub", x: 10, y: 10, width: 250, height: 150, href: "/sub", opacity: 0.5, children: [{ type: "text", id: "t", text: "Olá mundo", x: 20, y: 20, width: 160, height: 24, runs: [{ start: 0, end: 3, href: "/inner" }] }] }] } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "card", name: "Cartão \"x\" {y} \\ &amp; \n fim", href: "/a?b=1&amp;d", mode: "dark", x: 0, y: 0, width: 300, height: 200, children: [{ type: "text", id: "t", text: "Olá mundo", x: 20, y: 20, width: 160, height: 24, name: "T \"q\" {{z}}", href: "/t&#39;u" }, { type: "image", id: "im", name: "I \"1\"", src: "https://example.com/a%22b.png", alt: "um \"alt\" {x}", width: 20, height: 20 }] } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "card", x: 0, y: 0, width: 300, height: 200, href: "/card", children: [{ type: "text", id: "t", text: "Olá mundo", x: 20, y: 20, width: 160, height: 24, visible: false, runs: [{ start: 0, end: 3, href: "/inner" }] }] } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "card", x: 0, y: 0, width: 300, height: 200, href: "/card", children: [{ type: "frame", id: "hid", x: 0, y: 0, width: 100, height: 40, href: "/hid", visible: false, children: [{ type: "text", id: "t", text: "Olá mundo", x: 20, y: 20, width: 160, height: 24, href: "/deep", runs: [{ start: 0, end: 3, href: "/inner" }] }] }, { type: "text", id: "u", text: "Olá mundo", x: 20, y: 20, width: 160, height: 24 }] } }]],
+  ["empty", [{ op: "create", node: { type: "frame", id: "card", x: 0, y: 0, width: 300, height: 200, href: "/card", children: [{ type: "text", id: "t", text: "Olá mundo", x: 20, y: 20, width: 160, height: 24, runs: [{ start: 0, end: 3, href: "/inner" }] }, { type: "text", id: "h", text: "Olá mundo", x: 20, y: 20, width: 160, height: 24, visible: false, runs: [{ start: 0, end: 3, href: "/hidden" }] }] } }]],
 ];
 
 const structureCases = [

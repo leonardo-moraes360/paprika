@@ -1,22 +1,19 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { copyFile, mkdtemp, readFile, rm } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { chromium, type Browser, type Page } from "playwright";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { type Browser, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { connectorMidpoint, copyId, type Document, type FrameNode } from "@paprika/core";
-import { revealLayer } from "./seededCanvas.js";
+import { closeSeededCanvas, connectAgent, openSeededCanvas, revealLayer, type CanvasSession } from "./seededCanvas.js";
 import { pinLocale } from "./locale.js";
-import { startServer, type ExternalServer } from "../harness.js";
+import { type ExternalServer } from "../harness.js";
 
-const root = resolve(import.meta.dirname, "../../../..");
-const webRoot = join(root, "web-legacy/dist");
 const shots = process.env.PAPRIKA_E2E_SHOTS;
 
-describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
-  let dir: string;
+describe("E2E: canvas + agente via MCP", () => {
+  let session: CanvasSession | undefined;
+  const clients: Client[] = [];
   let external: ExternalServer | undefined;
   let url: string;
   const doc = async (): Promise<Document> => external!.doc();
@@ -25,31 +22,48 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   let agent: Client;
 
   beforeAll(async () => {
-    dir = await mkdtemp(join(tmpdir(), "paprika-e2e-"));
-    const file = join(dir, "demo.paprika.json");
-    await copyFile(join(root, "packages/e2e/fixtures/demo.paprika.json"), file);
-    external = await startServer({ seed: file, webRoot });
-    url = external.url;
-    browser = await chromium.launch(process.env.PAPRIKA_CHROMIUM ? { executablePath: process.env.PAPRIKA_CHROMIUM } : {});
-    page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-    await pinLocale(page, "pt-BR");
-    const errors: string[] = [];
-    page.on("pageerror", (e) => errors.push(e.message));
-    await page.goto(url);
-    await page.locator(".workspace-card.is-active").click();
-    await page.waitForSelector('[data-paprika-id="login"]');
+    session = await openSeededCanvas("paprika-e2e-canvas-");
+    ({ external, url, browser, page } = session);
+    page.setDefaultTimeout(8_000);
     expect(new URL(page.url()).pathname).toBe(`/w/${(await doc()).id}`);
-    expect(errors).toEqual([]);
-    agent = new Client({ name: "e2e-agent", version: "0" });
-    await agent.connect(new StreamableHTTPClientTransport(new URL(`${url}/mcp`)));
+    agent = await connectAgent(url, "e2e-agent", clients);
   }, 60_000);
 
   afterAll(async () => {
-    await agent?.close();
-    await browser?.close();
-    await external?.stop();
-    await rm(dir, { recursive: true, force: true });
+    await closeSeededCanvas(session, clients);
   });
+
+  const viewport = () => page.locator('[data-testid="viewport"]');
+  const world = () => page.locator('[data-testid="canvas-world"]');
+  const layer = (id: string) => page.locator(`[data-layer-id="${id}"]`);
+  const selectedIds = () => page.locator('[data-layer-id][aria-selected="true"]').evaluateAll((els) => els.map((e) => e.getAttribute("data-layer-id")));
+  const clickEmpty = () => viewport().click({ position: { x: 5, y: 5 } });
+  const openSection = async (name: string) => {
+    const trigger = page.getByRole("button", { name, exact: true });
+    if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+  };
+  const openPageById = async (id: string) => pageButton((await doc()).nodes[id]!.name!).click();
+  const layersMenu = async (name: string) => {
+    await page.getByRole("button", { name: "Mais ações de camadas" }).click();
+    await page.getByRole("menuitem", { name }).click();
+  };
+  const pagesList = () => page.getByRole("list", { name: "Páginas", exact: true });
+  const pageButton = (name: string) => pagesList().getByRole("button", { name, exact: true });
+  const activePageName = () => pagesList().locator("[data-active]").innerText();
+  const agentsDialog = () => page.getByRole("dialog").filter({ has: page.getByRole("heading", { name: "Agentes no workspace" }) });
+  const openAgents = async () => {
+    if ((await agentsDialog().count()) === 0) await page.getByRole("button", { name: /ativos?$/ }).click();
+    return agentsDialog();
+  };
+  const closeAgents = async () => {
+    if ((await agentsDialog().count()) > 0) await page.keyboard.press("Escape");
+    await expect.poll(() => agentsDialog().count()).toBe(0);
+  };
+  const agentRow = async (name: string) => (await openAgents()).locator("li[data-agent]").filter({ has: page.getByText(name, { exact: true }) });
+  const menuAction = async (name: string) => {
+    await page.getByRole("button", { name: "Mais ações", exact: true }).click();
+    await page.getByRole("menuitem", { name }).click();
+  };
 
   it("a aba aberta informa o renderizador DOM no outline", async () => {
     const outline = (await agent.callTool({ name: "get_document_outline", arguments: { depth: 0 } })) as { content: { text: string }[] };
@@ -65,7 +79,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
   it("toolbar flutua centralizada no topo do canvas", async () => {
     const vp = (await page.locator('[data-testid="viewport"]').boundingBox())!;
-    const bar = (await page.getByRole("navigation", { name: "Ferramentas" }).boundingBox())!;
+    const bar = (await page.getByRole("toolbar", { name: "Ferramentas" }).boundingBox())!;
     expect(bar.y).toBeGreaterThan(vp.y);
     expect(bar.y + bar.height).toBeLessThan(vp.y + 80);
     expect(Math.abs(bar.x + bar.width / 2 - (vp.x + vp.width / 2))).toBeLessThan(2);
@@ -84,15 +98,15 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     });
     const el = page.locator('[data-paprika-id="rodape"]');
     await el.waitFor();
-    await expect(el.getAttribute("class")).resolves.toContain("agent-flash");
-    await expect(page.locator(".agent-pill").textContent()).resolves.toContain("adicionar nota de rodapé");
+    const box = page.locator('[data-agent-box="rodape"]');
+    await expect.poll(() => box.evaluate((e) => getComputedStyle(e).display)).toBe("block");
+    await expect.poll(() => page.getByTestId("agent-frame-state").first().innerText()).toContain("e2e-agent");
     if (shots) await page.screenshot({ path: join(shots, "02-agente-editou.png") });
   });
 
   it("atividade: escrita MCP mostra o nome do agente e undo move o marcador", async () => {
-    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
-    const section = page.getByTestId("inspector-section-activity");
-    const trigger = section.getByRole("button", { name: "Atividade" });
+    await clickEmpty();
+    const trigger = page.getByRole("button", { name: "Atividade", exact: true });
     if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
     await agent.callTool({
       name: "create_nodes",
@@ -101,22 +115,24 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
         label: "retângulo atividade",
       },
     });
-    const list = page.getByTestId("activity-list");
-    const row = list.getByTestId("activity-row").filter({ hasText: "e2e-agent" }).first();
+    const list = page.getByRole("list", { name: "Atividade", exact: true });
+    const rows = list.locator("li:not([aria-label])");
+    const row = rows.filter({ hasText: "e2e-agent" }).first();
     await expect.poll(() => row.innerText()).toMatch(/retângulo atividade/);
-    const marker = list.getByTestId("activity-marker");
+    const marker = list.locator('li[aria-label="agora"]');
     const indexOf = (el: Element) => [...el.parentElement!.children].indexOf(el);
     const before = await marker.evaluate(indexOf);
     expect(before).toBe(0);
-    await page.locator('[data-layer-id="login"]').click();
-    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
-    await page.locator('[data-layer-id="plano"]').click();
+    await layer("login").click();
+    await clickEmpty();
+    const plano = (await page.locator('[data-paprika-id="plano"]').boundingBox())!;
+    await page.mouse.click(plano.x + 8, plano.y + 8);
     await page.keyboard.press("ArrowRight");
-    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
-    await expect.poll(() => list.getByTestId("activity-row").first().innerText()).toMatch(/mover/);
-    await page.getByRole("button", { name: "Desfazer" }).click();
+    await clickEmpty();
+    await expect.poll(() => rows.first().innerText()).toMatch(/mover/);
+    await menuAction("Desfazer");
     await expect.poll(() => marker.evaluate(indexOf)).toBeGreaterThan(before);
-    await expect.poll(() => list.getByTestId("activity-row").first().innerText()).toMatch(/desfazer:/);
+    await expect.poll(() => rows.first().innerText()).toMatch(/desfazer:/);
     await agent.callTool({ name: "delete_nodes", arguments: { ids: ["act025"] } });
     await agent.callTool({
       name: "create_nodes",
@@ -133,27 +149,58 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const plano = (await page.locator('[data-paprika-id="plano"]').boundingBox())!;
     const inside = (b: { x: number; y: number }, r: { x: number; y: number; width: number; height: number }) =>
       b.x >= r.x && b.x <= r.x + r.width && b.y >= r.y && b.y <= r.y + r.height;
-    const tip = async (i: number) => (await cursor.nth(i).locator(".agent-cursor svg").boundingBox())!;
-    expect(inside(await tip(0), plano)).toBe(true);
+    const tip = async (i: number) => (await cursor.nth(i).locator('svg[viewBox="0 0 18 22"]').boundingBox())!;
+    await expect.poll(async () => inside(await tip(0), plano)).toBe(true);
 
-    const other = new Client({ name: "e2e-agent", version: "0" });
+    const other = new Client({ name: "e2e-leitor", version: "0" });
     await other.connect(new StreamableHTTPClientTransport(new URL(`${url}/mcp`)));
     try {
       await other.callTool({ name: "get_nodes", arguments: { ids: ["login"] } });
       await expect.poll(() => cursor.count()).toBe(2);
-      const roster = page.getByTestId("agent-roster").locator("li");
-      await expect.poll(() => roster.allInnerTexts()).toEqual([expect.stringMatching(/^e2e-agent\s*criando/), expect.stringMatching(/^e2e-agent 2\s*lendo/)]);
-      const colors = await cursor.evaluateAll((els) => els.map((e) => getComputedStyle(e).getPropertyValue("--agent")));
+      await page.getByRole("button", { name: /ativos?$/ }).click();
+      const roster = page.getByRole("dialog").locator("li[data-agent]");
+      await expect.poll(() => roster.allInnerTexts().then((rows) => rows.map((r) => r.replace(/\s+/g, " ")))).toEqual([expect.stringMatching(/^e2e-agent .*create_nodes/), expect.stringMatching(/^e2e-leitor .*get_nodes/)]);
+      await expect.poll(() => roster.evaluateAll((els) => els.map((e) => e.getAttribute("data-activity")))).toEqual(["writing", "reading"]);
+      const colors = await cursor.evaluateAll((els) => els.map((e) => getComputedStyle(e.querySelector('svg[viewBox="0 0 18 22"] path')!).fill));
       expect(new Set(colors).size).toBe(2);
       const login = (await page.locator('[data-paprika-id="login"]').boundingBox())!;
       await expect.poll(async () => inside(await tip(1), login)).toBe(true);
 
       await agent.callTool({ name: "update_nodes", arguments: { updates: [{ id: "login", props: { notes: "revisado" } }] } });
       await expect.poll(async () => inside(await tip(0), login), { timeout: 3000 }).toBe(true);
-      await expect.poll(() => roster.first().innerText()).toContain("editando");
+      await expect.poll(() => roster.first().innerText()).toContain("update_nodes");
       if (shots) await page.screenshot({ path: join(shots, "02b-agentes-presentes.png") });
+      await page.keyboard.press("Escape");
     } finally {
       await other.close();
+    }
+  });
+
+  it("presença: o cursor tem a cor do nome do agente, então dois agentes com o mesmo nome dividem a cor e nomes diferentes têm cores diferentes", async () => {
+    const twin = new Client({ name: "e2e-agent", version: "0" });
+    const stranger = new Client({ name: "e2e-leitor", version: "0" });
+    await twin.connect(new StreamableHTTPClientTransport(new URL(`${url}/mcp`)));
+    await stranger.connect(new StreamableHTTPClientTransport(new URL(`${url}/mcp`)));
+    try {
+      await agent.callTool({ name: "get_nodes", arguments: { ids: ["login"] } });
+      await twin.callTool({ name: "get_nodes", arguments: { ids: ["plano"] } });
+      await stranger.callTool({ name: "get_nodes", arguments: { ids: ["login"] } });
+      await page.getByRole("button", { name: /ativos?$/ }).click();
+      const dialog = page.getByRole("dialog");
+      const sameName = /^e2e-agent( \d+)?\s*get_nodes/;
+      const otherName = /^e2e-leitor\s*get_nodes/;
+      const idsOf = (name: RegExp) => dialog.locator("li[data-agent]").filter({ hasText: name }).evaluateAll((els) => els.map((e) => e.getAttribute("data-agent")!));
+      await expect.poll(async () => (await idsOf(sameName)).length).toBe(2);
+      await expect.poll(async () => (await idsOf(otherName)).length).toBe(1);
+      const fill = (id: string) => page.locator(`[data-testid="agent-cursor"][data-agent="${id}"] svg[viewBox="0 0 18 22"] path`).evaluate((el) => getComputedStyle(el).fill);
+      const [first, second] = await Promise.all((await idsOf(sameName)).map(fill));
+      const [leitor] = await Promise.all((await idsOf(otherName)).map(fill));
+      expect(first).toBe(second);
+      expect(leitor).not.toBe(first);
+    } finally {
+      await page.keyboard.press("Escape");
+      await twin.close();
+      await stranger.close();
     }
   });
 
@@ -187,22 +234,27 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   it("ordem Z: Page Up/Down e botões Ordem; Ctrl+Z desfaz; ignora input", async () => {
     const roots = () => doc().then((d) => d.rootIds);
     await expect.poll(roots).toEqual(["login", "plano"]);
+    const pickOnCanvas = async (id: string) => {
+      const b = (await page.locator(`[data-paprika-id="${id}"]`).boundingBox())!;
+      await page.mouse.click(b.x + 8, b.y + 8);
+      await expect.poll(selectedIds).toEqual([id]);
+    };
+    const order = page.getByRole("button", { name: "Ordem", exact: true });
 
-    await page.locator('[data-layer-id="login"]').click();
-    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
-    await page.locator('[data-layer-id="login"]').click();
+    await pickOnCanvas("login");
     await page.keyboard.press("PageUp");
     await expect.poll(roots).toEqual(["plano", "login"]);
     await page.keyboard.press("Control+z");
     await expect.poll(roots).toEqual(["login", "plano"]);
 
-    await page.locator('[data-layer-id="login"]').click();
-    await page.getByTestId("arrange-front").click();
+    await pickOnCanvas("login");
+    if ((await order.getAttribute("aria-expanded")) !== "true") await order.click();
+    await page.getByRole("button", { name: "Trazer para frente" }).click();
     await expect.poll(roots).toEqual(["plano", "login"]);
     await page.keyboard.press("Control+z");
     await expect.poll(roots).toEqual(["login", "plano"]);
 
-    await page.locator('[data-layer-id="login"]').click();
+    await pickOnCanvas("login");
     await page.keyboard.press("Control+PageDown");
     await expect.poll(roots).toEqual(["login", "plano"]);
 
@@ -213,10 +265,11 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => (await doc()).nodes.login?.name).toBe("Login · mobile");
   });
 
-  it("inspector: Opacidade recusa letras, cola inválida e limita ao intervalo 0–1", async () => {
+  it("inspector: Opacidade (em %) recusa letras, cola inválida e limita ao intervalo 0–100", async () => {
     await page.locator('[data-layer-id="plano"]').click();
     const opacity = page.getByLabel("Opacidade", { exact: true });
-    await expect.poll(() => opacity.inputValue()).toBe("1");
+    const notice = page.getByRole("alert").filter({ hasText: "Use um número entre 0 e 100." });
+    await expect.poll(() => opacity.inputValue()).toBe("100");
 
     await opacity.click({ clickCount: 3 });
     await page.keyboard.press("Backspace");
@@ -229,93 +282,116 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
       el.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
     });
     await expect.poll(() => opacity.inputValue()).toBe("1");
-    await expect.poll(() => page.getByRole("status").filter({ hasText: "Use um número entre 0 e 1." }).count()).toBeGreaterThan(0);
+    await expect.poll(() => notice.count()).toBeGreaterThan(0);
     await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(1);
 
     await opacity.click({ clickCount: 3 });
-    await opacity.pressSequentially("0,5");
+    await opacity.pressSequentially("50");
     await opacity.press("Enter");
     await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(0.5);
-    await expect.poll(() => opacity.inputValue()).toBe("0.5");
+    await expect.poll(() => opacity.inputValue()).toBe("50");
 
     await opacity.click({ clickCount: 3 });
-    await opacity.pressSequentially("2");
+    await opacity.pressSequentially("200");
     await opacity.press("Enter");
     await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(1);
-    await expect.poll(() => opacity.inputValue()).toBe("1");
-    await expect.poll(() => page.getByRole("status").filter({ hasText: "Use um número entre 0 e 1." }).count()).toBeGreaterThan(0);
+    await expect.poll(() => opacity.inputValue()).toBe("100");
+    await expect.poll(() => notice.count()).toBeGreaterThan(0);
   });
 
-  it("inspector: steppers ± em Opacidade (0.05, Shift×10) e ausentes em L/tokens", async () => {
+  it("inspector: steppers ± em Opacidade (1 %, Shift×10) existem nos campos numéricos e não nos de token", async () => {
     await page.locator('[data-layer-id="plano"]').click();
     const opacity = page.getByLabel("Opacidade", { exact: true });
+    const value = async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity;
+    // O painel mostra mudanças do documento no máximo a cada 100 ms: espera o campo assentar entre um passo e o próximo.
+    const settled = async (text: string) => {
+      await expect.poll(() => opacity.inputValue()).toBe(text);
+      await page.waitForTimeout(150);
+    };
     await opacity.click({ clickCount: 3 });
-    await opacity.pressSequentially("0.5");
+    await opacity.pressSequentially("50");
     await opacity.press("Enter");
-    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(0.5);
+    await expect.poll(value).toBe(0.5);
+    await settled("50");
 
-    const stepper = page.getByTestId("stepper-Opacidade");
-    await expect.poll(() => stepper.count()).toBe(1);
-    await stepper.getByLabel("Aumentar Opacidade").click();
-    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(0.55);
-    await expect.poll(() => opacity.inputValue()).toBe("0.55");
+    const up = page.getByLabel("Aumentar Opacidade", { exact: true });
+    await up.click();
+    await expect.poll(value).toBe(0.51);
+    await settled("51");
 
     await opacity.click();
     await page.keyboard.press("ArrowDown");
-    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(0.5);
+    await expect.poll(value).toBe(0.5);
+    await settled("50");
 
     await page.keyboard.press("Shift+ArrowUp");
-    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(1);
-    await expect.poll(() => stepper.getByLabel("Aumentar Opacidade").isDisabled()).toBe(true);
+    await expect.poll(value).toBe(0.6);
+    await settled("60");
+    for (let i = 0; i < 4; i++) {
+      await page.keyboard.press("Shift+ArrowUp");
+      await settled(String(Math.min(100, 70 + i * 10)));
+    }
+    await expect.poll(value).toBe(1);
+    await expect.poll(() => up.isDisabled()).toBe(true);
 
-    await expect.poll(() => page.getByTestId("stepper-L").count()).toBe(0);
-    await expect.poll(() => page.getByTestId("stepper-Preenchimento").count()).toBe(0);
+    await expect.poll(() => page.getByLabel("Aumentar Largura", { exact: true }).count()).toBe(1);
+    await expect.poll(() => page.getByLabel("Aumentar Preenchimento", { exact: false }).count()).toBe(0);
+    await expect.poll(() => page.getByLabel("Aumentar $brand", { exact: false }).count()).toBe(0);
+  });
+
+  it("inspector: três setas seguidas no campo de Opacidade dão três passos e o campo mostra o valor do documento", async () => {
+    await page.locator('[data-layer-id="plano"]').click();
+    const opacity = page.getByLabel("Opacidade", { exact: true });
+    await opacity.click({ clickCount: 3 });
+    await opacity.pressSequentially("50");
+    await opacity.press("Enter");
+    await expect.poll(() => opacity.inputValue()).toBe("50");
+    await page.waitForTimeout(300);
+    for (const key of ["ArrowUp", "ArrowUp", "ArrowUp"]) await page.keyboard.press(key);
+    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.opacity).toBe(0.53);
+    await page.waitForTimeout(1500);
+    expect(await opacity.inputValue()).toBe("53");
   });
 
   it("inspector: color picker grava $token, hex, rgba e devolve o foco no Esc", async () => {
     const POLL = { timeout: 10_000 };
     await page.locator('[data-layer-id="plano"]').click();
-    const appearance = page.getByRole("button", { name: "Preenchimento e traço" });
-    await expect.poll(() => appearance.count(), POLL).toBe(1);
-    if ((await appearance.getAttribute("aria-expanded")) !== "true") await appearance.click();
-
-    const fillTrigger = page.getByTestId("color-picker-trigger").first();
+    const fillTrigger = page.getByRole("button", { name: /^Preenchimento (?!e traço)/ });
     await expect.poll(() => fillTrigger.count(), POLL).toBe(1);
     await fillTrigger.click();
-    const picker = page.getByTestId("color-picker");
+    const picker = page.locator('[role="dialog"][aria-label="Seletor de cor de Preenchimento"]');
     await expect.poll(() => picker.count(), POLL).toBe(1);
+    const fillOf = async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill;
 
-    await page.getByTestId("color-token-brand").click();
-    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill, POLL).toBe("$brand");
-    await expect.poll(() => page.getByLabel("Preenchimento", { exact: true }).inputValue(), POLL).toBe("$brand");
+    const value = picker.getByLabel("Valor", { exact: true });
+    await value.fill("$brand");
+    await value.press("Enter");
+    await expect.poll(fillOf, POLL).toBe("$brand");
+    await expect.poll(() => value.inputValue(), POLL).toBe("$brand");
 
-    const hex = page.getByTestId("color-hex");
+    const hex = picker.getByLabel("Valor hexadecimal");
     await hex.click({ clickCount: 3 });
     await hex.fill("#112233");
     await hex.press("Enter");
-    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill, POLL).toBe("#112233");
+    await expect.poll(fillOf, POLL).toBe("#112233");
 
-    await page.getByTestId("color-alpha").focus();
+    await picker.getByRole("slider", { name: "Alfa" }).focus();
     for (let i = 0; i < 30; i++) await page.keyboard.press("ArrowLeft");
-    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? ""), POLL).toMatch(/^rgba\(/);
+    await expect.poll(async () => String((await fillOf()) ?? ""), POLL).toMatch(/^(rgba\(|#[0-9a-f]{8}$)/i);
 
     await page.keyboard.press("Escape");
     await expect.poll(() => picker.count(), POLL).toBe(0);
-    await expect.poll(() =>
-      page.evaluate(() => {
-        const el = document.activeElement;
-        return el?.getAttribute("data-testid") ?? el?.getAttribute("aria-label") ?? el?.tagName ?? "";
-      }),
-      POLL,
-    ).toMatch(/color-picker-trigger|Preenchimento \(seletor\)/i);
+    await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute("aria-haspopup") ?? ""), POLL).toBe("dialog");
+    await expect.poll(() => fillTrigger.evaluate((el) => el === document.activeElement), POLL).toBe(true);
 
     await fillTrigger.focus();
     await page.keyboard.press("Enter");
     await expect.poll(() => picker.count(), POLL).toBe(1);
-    await page.getByTestId("color-sv").focus();
+    const before = await fillOf();
+    await picker.getByRole("slider", { name: "Saturação e brilho" }).focus();
     await page.keyboard.press("ArrowRight");
     await page.keyboard.press("ArrowUp");
-    await expect.poll(async () => String(((await doc()).nodes.plano as FrameNode | undefined)?.fill ?? "").length, POLL).toBeGreaterThan(0);
+    await expect.poll(fillOf, POLL).not.toBe(before);
     await page.keyboard.press("Escape");
     await expect.poll(() => picker.count(), POLL).toBe(0);
 
@@ -328,47 +404,45 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
       Object.defineProperty(window, "EyeDropper", { value: Stub, configurable: true });
     });
     await fillTrigger.click();
-    await page.getByTestId("color-eyedropper").click();
-    await expect.poll(async () => ((await doc()).nodes.plano as FrameNode | undefined)?.fill, POLL).toBe("#abcdef");
-    await page.evaluate(() => {
-      Object.defineProperty(window, "EyeDropper", { value: undefined, configurable: true });
-    });
-    await page.getByTestId("color-eyedropper").click();
-    await expect.poll(() => page.locator('[data-testid="viewport"][data-eyedropper="1"]').count(), POLL).toBe(1);
+    await picker.getByRole("button", { name: "Capturar uma cor da tela" }).click();
+    await expect.poll(fillOf, POLL).toBe("#abcdef");
     await page.keyboard.press("Escape");
-    await expect.poll(() => page.locator('[data-testid="viewport"][data-eyedropper="1"]').count(), POLL).toBe(0);
+    await expect.poll(() => picker.count(), POLL).toBe(0);
+
+    await page.evaluate(() => {
+      delete (window as unknown as { EyeDropper?: unknown }).EyeDropper;
+    });
+    await fillTrigger.click();
+    await picker.getByRole("button", { name: "Capturar uma cor da tela" }).click();
+    await expect.poll(() => page.locator('[data-testid="viewport"][data-sampling]').count(), POLL).toBe(1);
+    await page.keyboard.press("Escape");
+    await expect.poll(() => page.locator('[data-testid="viewport"][data-sampling]').count(), POLL).toBe(0);
   }, 25_000);
 
   it("inspector: FontPicker troca a família e aceita fonte digitada", async () => {
     const POLL = { timeout: 10_000 };
     await page.locator('[data-layer-id="8succ2i53s"]').click();
-    const textSection = page.getByTestId("inspector-section-text");
-    const textTrigger = textSection.getByRole("button", { name: "Texto" });
-    if ((await textTrigger.getAttribute("aria-expanded")) !== "true") await textTrigger.click();
+    const family = async () => {
+      const n = (await doc()).nodes["8succ2i53s"];
+      return n?.type === "text" ? n.fontFamily : undefined;
+    };
 
-    const trigger = page.getByTestId("font-picker");
-    await expect.poll(() => trigger.count(), POLL).toBe(1);
-    await trigger.click();
-    const list = page.getByTestId("font-picker-list");
+    const input = page.getByRole("combobox", { name: "Fonte", exact: true });
+    await expect.poll(() => input.count(), POLL).toBe(1);
+    await page.getByRole("button", { name: "Mostrar fontes" }).click();
+    const list = page.getByRole("listbox");
     await expect.poll(() => list.count(), POLL).toBe(1);
-    await page.getByTestId("font-option-Georgia").click();
-    await expect.poll(async () => {
-      const n = (await doc()).nodes["8succ2i53s"];
-      return n?.type === "text" ? n.fontFamily : undefined;
-    }, POLL).toBe("Georgia, serif");
-    await expect.poll(() => trigger.innerText(), POLL).toMatch(/Georgia/);
+    await list.getByRole("option", { name: "Georgia" }).click();
+    await expect.poll(family, POLL).toBe("Georgia, serif");
+    await expect.poll(() => input.inputValue(), POLL).toMatch(/Georgia/);
 
-    await trigger.click();
-    const search = page.getByPlaceholder("Buscar fonte…");
-    await search.fill("Comic Sans MS");
-    await page.getByTestId("font-picker-custom").click();
-    await expect.poll(async () => {
-      const n = (await doc()).nodes["8succ2i53s"];
-      return n?.type === "text" ? n.fontFamily : undefined;
-    }, POLL).toBe("Comic Sans MS");
+    await input.click();
+    await input.fill("Comic Sans MS");
+    await input.press("Enter");
+    await expect.poll(family, POLL).toBe("Comic Sans MS");
 
-    await trigger.click();
-    await expect.poll(() => page.getByTestId("font-picker-system").count(), POLL).toBe(1);
+    await page.getByRole("button", { name: "Mostrar fontes" }).click();
+    await expect.poll(() => page.getByRole("button", { name: "Usar fontes do sistema…" }).count(), POLL).toBe(1);
     await page.keyboard.press("Escape");
     await expect.poll(() => list.count(), POLL).toBe(0);
   });
@@ -401,7 +475,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.mouse.move(x0 + 140, y0 + 90, { steps: 8 });
     const ghost = page.getByTestId("draft-ghost");
     await expect.poll(() => ghost.count()).toBe(1);
-    expect(await ghost.getAttribute("aria-hidden")).toBe("true");
+    expect(await ghost.evaluate((el) => el.closest('[aria-hidden="true"]') !== null)).toBe(true);
     expect(await ghost.getAttribute("data-ghost-tool")).toBe("rect");
     await expect.poll(async () => Object.keys((await doc()).nodes).length).toBe(before);
     const pe = await ghost.evaluate((el) => getComputedStyle(el).pointerEvents);
@@ -417,7 +491,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.keyboard.press("Escape");
     const vp = (await page.locator('[data-testid="viewport"]').boundingBox())!;
     const translate = async () => {
-      const t = (await page.locator(".world").getAttribute("style"))!.match(/translate\(\s*(-?[\d.]+)px,\s*(-?[\d.]+)px/)!;
+      const t = (await world().getAttribute("style"))!.match(/translate\(\s*(-?[\d.]+)px,\s*(-?[\d.]+)px/)!;
       return { x: Number(t[1]), y: Number(t[2]) };
     };
     await page.mouse.move(vp.x + vp.width / 2, vp.y + vp.height / 2);
@@ -439,37 +513,50 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => (await translate()).y).toBeCloseTo(a.y, 0);
   });
 
-  for (const key of ["Space", "Enter"]) {
-    it(`segurar ${key} sobre o board vira mão aberta; arrastando, mão fechada que move o board`, async () => {
-      await page.keyboard.press("Escape");
-      await page.keyboard.press("Escape");
-      const vp = page.locator('[data-testid="viewport"]');
-      const world = page.locator(".world");
-      const box = (await vp.boundingBox())!;
-      const cursorAt = (x: number, y: number) =>
-        page.evaluate(([x, y]) => getComputedStyle(document.elementFromPoint(x!, y!)!).cursor, [x, y]);
-      const card = (await page.locator('[data-paprika-id="login"]').boundingBox())!;
-      const px = card.x + 40;
-      const py = card.y + 40;
-      await page.mouse.move(px, py);
-      await expect.poll(() => cursorAt(px, py)).not.toBe("grab");
-      const before = await world.getAttribute("style");
+  const holdOverCard = async () => {
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Escape");
+    await clickEmpty();
+    const card = (await page.locator('[data-paprika-id="login"]').boundingBox())!;
+    const px = card.x + 40;
+    const py = card.y + 40;
+    await page.mouse.move(px, py);
+    return { px, py, cursorAt: (x: number, y: number) => page.evaluate(([x, y]) => getComputedStyle(document.elementFromPoint(x!, y!)!).cursor, [x, y]) };
+  };
 
-      await page.keyboard.down(key);
-      await expect.poll(() => cursorAt(px, py)).toBe("grab");
-      await page.mouse.down();
-      await page.mouse.move(px + 80, py + 50, { steps: 6 });
-      await expect.poll(() => cursorAt(px + 80, py + 50)).toBe("grabbing");
-      await page.mouse.up();
-      await expect.poll(() => cursorAt(px + 80, py + 50)).toBe("grab");
-      await page.keyboard.up(key);
-      await expect.poll(() => cursorAt(px + 80, py + 50)).not.toMatch(/grab/);
+  it("segurar Space sobre o board vira mão aberta; arrastando, mão fechada que move o board", async () => {
+    const { px, py, cursorAt } = await holdOverCard();
+    const board = world();
+    await expect.poll(() => cursorAt(px, py)).not.toBe("grab");
+    const before = await board.getAttribute("style");
 
-      expect(await world.getAttribute("style")).not.toBe(before);
-      expect(box.width).toBeGreaterThan(0);
-      if (shots && key === "Space") await page.screenshot({ path: join(shots, "04-pan.png") });
-    });
-  }
+    await page.keyboard.down("Space");
+    await expect.poll(() => cursorAt(px, py)).toBe("grab");
+    await page.mouse.down();
+    await page.mouse.move(px + 80, py + 50, { steps: 6 });
+    await expect.poll(() => cursorAt(px + 80, py + 50)).toBe("grabbing");
+    await page.mouse.up();
+    await expect.poll(() => cursorAt(px + 80, py + 50)).toBe("grab");
+    await page.keyboard.up("Space");
+    await expect.poll(() => cursorAt(px + 80, py + 50)).not.toMatch(/grab/);
+
+    expect(await board.getAttribute("style")).not.toBe(before);
+    if (shots) await page.screenshot({ path: join(shots, "04-pan.png") });
+  });
+
+  it("segurar Enter sobre o board não arma a mão: o cursor continua como estava", async () => {
+    const { px, py, cursorAt } = await holdOverCard();
+    const before = await cursorAt(px, py);
+    expect(before).not.toMatch(/grab/);
+    await page.keyboard.down("Enter");
+    try {
+      await page.waitForTimeout(300);
+      expect(await cursorAt(px, py)).toBe(before);
+    } finally {
+      await page.keyboard.up("Enter");
+    }
+    expect(await cursorAt(px, py)).toBe(before);
+  });
 
   it("caneta: clicar e arrastar cria bezier; clicar no 1º vértice fecha a forma onde foi desenhada", async () => {
     await page.keyboard.press("Escape");
@@ -503,7 +590,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(drawn.x + drawn.width).toBeGreaterThanOrEqual(b.x - 1);
     expect(drawn.y + drawn.height).toBeGreaterThanOrEqual(c.y - 1);
     expect(await page.locator('[data-testid="pen-overlay"]').count()).toBe(0);
-    expect(await page.getByRole("button", { name: "Selecionar" }).getAttribute("class")).toMatch(/is-active/);
+    await expect.poll(() => page.getByRole("button", { name: "Selecionar" }).getAttribute("aria-pressed")).toBe("true");
     if (shots) await page.screenshot({ path: join(shots, "06-caneta-forma.png") });
   });
 
@@ -520,7 +607,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const created = Object.values((await doc()).nodes).filter((n) => n.type === "path").at(-1)!;
     expect(created.parentId).toBeNull();
     if (created.type === "path") expect(created.d.endsWith("Z")).toBe(false);
-    expect(await page.locator('[data-testid="viewport"]').getAttribute("class")).not.toMatch(/is-pan/);
+    expect(await page.locator('[data-testid="viewport"]').getAttribute("data-pan")).toBeNull();
   });
 
   it("path criado pelo agente aparece no canvas como SVG", async () => {
@@ -561,9 +648,9 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.locator('[data-layer-id="login"]').click();
     await expect.poll(() => page.getByTestId("selection").getAttribute("data-count")).toBe("1");
     const appearance = page.getByRole("button", { name: "Preenchimento e traço" });
-    if ((await appearance.getAttribute("data-state")) !== "open") await appearance.click();
-    await expect.poll(() => page.getByTestId("stroke-style").count()).toBe(1);
-    await expect.poll(() => page.getByTestId("stroke-position").count()).toBe(1);
+    if ((await appearance.getAttribute("aria-expanded")) !== "true") await appearance.click();
+    await expect.poll(() => page.getByRole("combobox", { name: "Estilo da borda" }).innerText()).toMatch(/tracejado/);
+    await expect.poll(() => page.getByRole("combobox", { name: "Posição da borda" }).innerText()).toMatch(/dentro/);
   });
 
   it("screenshot pelo MCP usa o mesmo motor do canvas", async () => {
@@ -580,9 +667,9 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Selecionar" }).click();
     await page.locator('[data-layer-id="login"]').click();
-    await page.locator('[data-layer-id="plano"]').click({ modifiers: ["Shift"] });
+    await page.locator('[data-layer-id="plano"]').click({ modifiers: ["ControlOrMeta"] });
     await expect.poll(() => page.getByTestId("selection").getAttribute("data-count")).toBe("2");
-    await expect(page.getByTestId("multi-selection").textContent()).resolves.toContain("2 nós selecionados");
+    await expect(page.getByTestId("multi-panel").textContent()).resolves.toContain("2 elementos selecionados");
 
     await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
     await expect.poll(() => page.getByTestId("selection").count()).toBe(0);
@@ -594,7 +681,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.mouse.move(Math.max(a.x, b.x) + 30, Math.max(a.y, b.y) + 30, { steps: 6 });
     await expect.poll(() => page.getByTestId("marquee").count()).toBe(1);
     await page.mouse.up();
-    const picked = () => page.locator(".layer.is-selected").evaluateAll((els) => els.map((e) => e.getAttribute("data-layer-id")));
+    const picked = selectedIds;
     await expect.poll(picked).toEqual(expect.arrayContaining(["login", "plano"]));
 
     await page.keyboard.press("Control+g");
@@ -610,9 +697,9 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
     const card = (await page.locator('[data-paprika-id="plano"]').boundingBox())!;
     await page.mouse.click(card.x + 6, card.y + 6);
-    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe(g);
+    await expect.poll(selectedIds).toEqual([g]);
     await page.mouse.dblclick(card.x + 6, card.y + 6);
-    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe("plano");
+    await expect.poll(selectedIds).toEqual(["plano"]);
 
     await page.locator('[data-layer-id="' + g + '"]').click();
     const before = await doc();
@@ -636,24 +723,24 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.getByRole("button", { name: "Selecionar" }).click();
     const marca = (await page.locator('[data-paprika-id="r0980ga944"]').boundingBox())!;
     await page.mouse.click(marca.x + 8, marca.y + 8);
-    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe("r0980ga944");
+    await expect.poll(selectedIds).toEqual(["r0980ga944"]);
     await page.keyboard.press("Escape");
-    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe("login");
+    await expect.poll(selectedIds).toEqual(["login"]);
     await page.keyboard.press("Enter");
-    const picked = () => page.locator(".layer.is-selected").evaluateAll((els) => els.map((e) => e.getAttribute("data-layer-id")));
+    const picked = selectedIds;
     const kids = ((await doc()).nodes.login as { children: string[] }).children;
     await expect.poll(picked).toEqual(kids);
 
     await page.keyboard.press("Escape");
     await page.mouse.click(marca.x + 8, marca.y + 8);
-    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe(kids[0]);
+    await expect.poll(selectedIds).toEqual([kids[0]]);
     await page.keyboard.press("Tab");
-    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe(kids[1]);
+    await expect.poll(selectedIds).toEqual([kids[1]]);
     await page.keyboard.press("Shift+Tab");
-    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe(kids[0]);
+    await expect.poll(selectedIds).toEqual([kids[0]]);
 
     await page.locator('[data-layer-id="login"]').click();
-    await page.locator('[data-layer-id="plano"]').click({ modifiers: ["Shift"] });
+    await page.locator('[data-layer-id="plano"]').click({ modifiers: ["ControlOrMeta"] });
     await page.keyboard.press("Control+g");
     const groupId = async () => Object.values((await doc()).nodes).find((n) => n.type === "group")?.id;
     await expect.poll(groupId).toBeTruthy();
@@ -663,18 +750,18 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.keyboard.down("Control");
     await page.mouse.click(card.x + 16, card.y + 16);
     await page.keyboard.up("Control");
-    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).not.toBe(g);
-    const deepId = (await page.locator(".layer.is-selected").getAttribute("data-layer-id"))!;
+    await expect.poll(async () => (await selectedIds()).length).toBe(1);
+    const [deepId] = await selectedIds();
     expect(deepId).toBeTruthy();
+    expect(deepId).not.toBe(g);
 
     await page.mouse.click(card.x + 16, card.y + 16, { button: "right" });
-    const menu = page.getByTestId("layer-menu");
+    const menu = page.getByRole("menu", { name: "Camadas sob o cursor" });
     await menu.waitFor();
-    await expect(menu.getAttribute("aria-label")).resolves.toBe("Camadas sob o cursor");
     await expect(menu.locator(`[data-layer-id="${deepId}"]`).count()).resolves.toBe(1);
     await expect(menu.locator(`[data-layer-id="${g}"]`).count()).resolves.toBe(1);
     await menu.locator(`[data-layer-id="${g}"]`).click();
-    await expect.poll(() => page.locator(".layer.is-selected").getAttribute("data-layer-id")).toBe(g);
+    await expect.poll(selectedIds).toEqual([g]);
     await expect.poll(() => menu.count()).toBe(0);
 
     await page.keyboard.press("Enter");
@@ -686,14 +773,14 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
   it("páginas: o + leva o conteúdo para a Página 1, cria a 2 e o agente desenha nela", async () => {
     await page.keyboard.press("Escape");
-    await page.getByTestId("add-page").click();
+    await page.getByRole("button", { name: "Nova página" }).click();
     await expect.poll(async () => (await doc()).rootIds.length).toBe(2);
     const d = await doc();
     const [p1, p2] = d.rootIds as [string, string];
     expect(d.nodes[p1]).toMatchObject({ type: "page", name: "Página 1" });
     expect(d.nodes.login?.parentId).toBe(p1);
     await expect.poll(() => page.locator('[data-paprika-id="login"]').count()).toBe(0);
-    await expect(page.locator(".page.is-active").textContent()).resolves.toContain("Página 2");
+    await expect.poll(activePageName).toContain("Página 2");
 
     await agent.callTool({
       name: "create_nodes",
@@ -713,38 +800,41 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(inPage2).toBe(1);
     if (shots) await page.screenshot({ path: join(shots, "08-pagina-2.png") });
 
-    await page.locator(`[data-page-id="${p1}"]`).click();
+    await pageButton("Página 1").click();
     await expect.poll(() => page.locator('[data-paprika-id="login"]').count()).toBe(1);
     await expect.poll(() => page.locator('[data-paprika-id="tela2"]').count()).toBe(0);
 
-    const first = page.getByTestId("agent-roster").locator("li").first();
-    const where = first.getByTestId("agent-page");
-    await expect.poll(() => first.innerText()).toMatch(/^e2e-agent\s*em Página 2$/);
+    const first = await agentRow("e2e-agent");
+    await expect.poll(() => first.innerText()).toMatch(/Página 2/);
     if (shots) await page.screenshot({ path: join(shots, "08b-agente-em-outra-pagina.png") });
-    await first.getByTestId("agent-focus").click();
+    await first.getByRole("button", { name: "Abrir a página de e2e-agent" }).click();
     await expect.poll(() => page.locator('[data-paprika-id="tela2"]').count()).toBe(1);
-    await expect(page.locator(".page.is-active").textContent()).resolves.toContain("Página 2");
-    await expect.poll(() => where.count()).toBe(0);
-    await expect.poll(() => first.innerText()).toMatch(/^e2e-agent\s*criando$/);
+    await expect.poll(activePageName).toContain("Página 2");
     const centerOff = async (id: string) => {
       const vp = (await page.locator('[data-testid="viewport"]').boundingBox())!;
       const b = (await page.locator(`[data-paprika-id="${id}"]`).boundingBox())!;
       return Math.max(Math.abs(b.x + b.width / 2 - (vp.x + vp.width / 2)), Math.abs(b.y + b.height / 2 - (vp.y + vp.height / 2)));
     };
+    await closeAgents();
+    await (await agentRow("e2e-agent")).getByRole("button", { name: "Ir até e2e-agent" }).click();
+    await closeAgents();
     await expect.poll(() => centerOff("tela2")).toBeLessThan(2);
     await page.mouse.move(vp.x + vp.width / 2, vp.y + vp.height / 2);
     await page.mouse.wheel(400, 300);
     await expect.poll(() => centerOff("tela2")).toBeGreaterThan(100);
-    await first.getByTestId("agent-focus").click();
+    await (await agentRow("e2e-agent")).getByRole("button", { name: "Ir até e2e-agent" }).click();
+    await closeAgents();
     await expect.poll(() => centerOff("tela2")).toBeLessThan(2);
     if (shots) await page.screenshot({ path: join(shots, "08c-foco-no-agente.png") });
 
-    await page.locator(`[data-page-id="${p1}"]`).click();
+    await pageButton("Página 1").click();
     await expect.poll(() => page.locator('[data-paprika-id="login"]').count()).toBe(1);
   });
+
   it("componentes: tornar componente, nova instância, mudança propaga, override na cópia, desanexar", async () => {
     await page.keyboard.press("Escape");
     await page.locator('[data-layer-id="plano"]').click();
+    await openSection("Componente");
     await page.getByRole("button", { name: "Tornar componente" }).click();
     await expect.poll(async () => ((await doc()).nodes.plano as { component?: boolean }).component).toBe(true);
     await page.getByRole("button", { name: "Nova instância" }).click();
@@ -753,13 +843,13 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const inst = (await instId())!;
     const pro = copyId(inst, "74oxmaizym");
     await expect.poll(() => page.locator(`[data-paprika-id="${pro}"]`).textContent()).toBe("Pro");
-    await expect(page.getByTestId("instance-panel").textContent()).resolves.toContain("de ");
+    await expect(page.getByTestId("instance-panel").textContent()).resolves.toContain("instância de");
 
     await agent.callTool({ name: "update_nodes", arguments: { updates: [{ id: "74oxmaizym", props: { text: "Plus" } }] } });
     await expect.poll(() => page.locator(`[data-paprika-id="${pro}"]`).textContent()).toBe("Plus");
 
     await page.locator(`[data-layer-id="${pro}"]`).click();
-    await expect(page.getByTestId("copy-panel").textContent()).resolves.toContain("cópia de");
+    await expect(page.getByTestId("copy-panel").textContent()).resolves.toContain("cópia dentro da instância");
     await page.getByLabel("Conteúdo").fill("Equipe");
     await page.getByLabel("Conteúdo").blur();
     await expect.poll(async () => ((await doc()).nodes[inst] as { overrides?: unknown }).overrides).toEqual({ "74oxmaizym": { text: "Equipe" } });
@@ -798,7 +888,10 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => page.locator(`[data-paprika-id="${colado.id}"]`).textContent()).toBe("Colado");
 
     await page.locator(`[data-layer-id="${seta.id}"]`).click();
-    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Exportar SVG" }).click()]);
+    await menuAction("Exportar…");
+    const dialog = page.getByRole("dialog", { name: "Exportar" });
+    await dialog.getByRole("radio", { name: "SVG" }).click();
+    const [download] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "Exportar", exact: true }).click()]);
     expect(download.suggestedFilename()).toBe("Seta.svg");
     const file = await download.path();
     const svg = await readFile(file!, "utf8");
@@ -812,7 +905,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const at = await page.evaluate(() => {
       const vp = document.querySelector('[data-testid="viewport"]')!.getBoundingClientRect();
       const frame = document.querySelector('[data-paprika-id="login"]')!.getBoundingClientRect();
-      const zoom = new DOMMatrix(getComputedStyle(document.querySelector(".world")!).transform).a || 1;
+      const zoom = new DOMMatrix(getComputedStyle(document.querySelector('[data-testid="canvas-world"]')!).transform).a || 1;
       const cx = vp.left + vp.width / 2;
       const cy = vp.top + vp.height / 2;
       return { x: Math.round((cx - frame.left) / zoom), y: Math.round((cy - frame.top) / zoom) };
@@ -870,6 +963,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.mouse.dblclick((a0.x + b1.x) / 2, (a0.y + b1.y) / 2);
     await expect.poll(async () => (await pathD())?.split("L").length).toBe(4);
     await expect(page.locator("[data-path-anchor][data-selected]").getAttribute("data-path-anchor")).resolves.toBe("0:1");
+    await expect.poll(() => page.locator("[data-path-anchor]").count()).toBe(4);
     await page.keyboard.press("Delete");
     await expect.poll(async () => (await pathD())?.split("L").length).toBe(3);
     await expect.poll(async () => !!(await doc()).nodes.pontos).toBe(true);
@@ -906,7 +1000,8 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
     await revealLayer(page, "tema0");
     await page.locator('[data-layer-id="tema0"]').click();
-    await page.getByLabel("Modo de tema").click();
+    await openSection("Modo de tema");
+    await page.getByRole("combobox", { name: "Modo de tema" }).click();
     await page.getByRole("option", { name: "escuro", exact: true }).click();
     await expect.poll(() => bg("tema0")).toBe("rgb(20, 22, 31)");
     await expect.poll(async () => ((await doc()).nodes.tema0 as { mode?: string }).mode).toBe("escuro");
@@ -922,7 +1017,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.keyboard.press("Escape");
     const name = async (id: string) => (await doc()).nodes[id]?.name;
     await revealLayer(page, "tema0t");
-    const layerName = page.locator('[data-layer-id="tema0t"] .layer-name');
+    const layerName = layer("tema0t");
     await layerName.dblclick();
     const layerInput = page.getByLabel("Nome da camada");
     await layerInput.fill("Amostra clara");
@@ -933,7 +1028,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(JSON.parse(hist.content[0]!.text).at(-1)).toMatchObject({ actor: "user", label: "renomear camada" });
 
     await revealLayer(page, "tema0t");
-    await page.locator('[data-layer-id="tema0t"] .layer-name').dblclick();
+    await layer("tema0t").dblclick();
     await page.getByLabel("Nome da camada").fill("Descartado");
     await page.getByLabel("Nome da camada").press("Escape");
     await expect.poll(() => page.getByLabel("Nome da camada").count()).toBe(0);
@@ -947,7 +1042,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await frameInput.press("Enter");
     await expect.poll(() => name("login")).toBe("Login revisado");
     await expect.poll(() => label.textContent()).toBe("Login revisado");
-    await expect.poll(() => page.locator('[data-layer-id="login"] .layer-name').textContent()).toBe("Login revisado");
+    await expect.poll(() => layer("login").textContent()).toContain("Login revisado");
 
     await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
     await page.keyboard.press("Control+z");
@@ -956,10 +1051,10 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
   it("overview: volta aos workspaces, cria um, abre no canvas e não segue o agente quando ele troca", async () => {
     const demo = (await doc()).id;
-    await page.getByRole("link", { name: "Paprika" }).click();
+    await page.getByRole("navigation", { name: "Caminho do documento" }).getByRole("link", { name: "Workspaces" }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe("/");
     const demoCard = page.locator(`[data-workspace-id="${demo}"]`);
-    await expect.poll(() => demoCard.textContent()).toMatch(/Demo.*nós.*ativo/);
+    await expect.poll(() => demoCard.textContent()).toMatch(/ativo.*Demo.*nós/);
     if (shots) await page.screenshot({ path: join(shots, "20-overview.png") });
 
     await page.getByRole("button", { name: "Novo workspace" }).click();
@@ -967,7 +1062,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.getByRole("button", { name: "Criar" }).click();
     await expect.poll(() => new URL(page.url()).pathname).toMatch(/^\/w\//);
     await expect.poll(async () => (await doc()).name).toBe("Rascunho do agente");
-    await expect.poll(() => page.locator(".doc-name").textContent()).toBe("Rascunho do agente");
+    await expect.poll(() => page.locator('[aria-current="page"]').first().textContent()).toBe("Rascunho do agente");
     const draft = (await doc()).id;
     expect(new URL(page.url()).pathname).toBe(`/w/${draft}`);
     expect(await page.locator("[data-layer-id]").count()).toBe(0);
@@ -982,16 +1077,16 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
 
     await page.goBack();
     await expect.poll(() => new URL(page.url()).pathname).toBe("/");
-    await expect.poll(() => page.locator(`[data-workspace-id="${draft}"]`).textContent()).toMatch(/Rascunho do agente1 nó/);
+    await expect.poll(() => page.locator(`[data-workspace-id="${draft}"]`).textContent()).toMatch(/Rascunho do agente.*1 nó/);
     await page.locator(`[data-workspace-id="${draft}"]`).click();
     await page.waitForSelector('[data-paprika-id="rasc"]');
     await page.goto(`${url}/w/nao-existe`);
     await expect.poll(() => new URL(page.url()).pathname).toBe("/");
-    await expect.poll(() => page.getByRole("alert").textContent()).toContain("nao-existe");
+    await expect.poll(() => page.getByRole("alert").allTextContents().then((all) => all.join(" "))).toContain("Este workspace não existe ou foi excluído");
     await agent.callTool({ name: "open_workspace", arguments: { id: demo } });
   });
 
-  it("overview: card sem salto no hover, um clique abre, lápis/F2 renomeia (Enter/Esc) e excluir pede confirmação", async () => {
+  it("overview: card sem salto no hover, um clique abre, menu/F2 renomeia (Enter/Esc) e excluir pede confirmação", async () => {
     const POLL = { timeout: 10_000 };
     const { id: demo, name: demoName } = await doc();
     const api = async () => (await (await fetch(`${url}/api/workspaces`)).json()) as { active: string; workspaces: { id: string; name: string }[] };
@@ -1000,50 +1095,48 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.goto(url);
     const card = page.locator(`[data-workspace-id="${extra}"]`);
     await expect.poll(() => card.textContent(), POLL).toContain("Para apagar");
+    const cardMenu = (id: string, action: string) => async () => {
+      await page.locator(`[data-workspace-id="${id}"]`).getByRole("button", { name: "Mais ações" }).click();
+      await page.getByRole("menuitem", { name: action }).click();
+    };
 
     const top = async () => (await card.boundingBox())!.y;
-    const border = () => card.evaluate((el) => getComputedStyle(el).outlineColor);
-    const rest = { y: await top(), border: await border() };
+    const restY = await top();
     await card.hover();
     await page.waitForTimeout(200);
-    const hovered = await border();
-    expect(hovered).not.toBe(rest.border);
-    expect(await top()).toBe(rest.y);
-    await page.getByRole("button", { name: "Excluir Para apagar" }).hover();
+    expect(await top()).toBe(restY);
+    await card.getByRole("button", { name: "Mais ações" }).hover();
     await page.waitForTimeout(200);
-    expect(await top()).toBe(rest.y);
-    expect(await border()).toBe(hovered);
+    expect(await top()).toBe(restY);
     if (shots) await page.screenshot({ path: join(shots, "21-overview-hover.png") });
 
-    expect(await card.evaluate((el) => [getComputedStyle(el).outlineStyle, getComputedStyle(el).outlineOffset, getComputedStyle(el).borderTopWidth])).toEqual(["solid", "-1px", "0px"]);
-
-    await page.getByRole("button", { name: "Renomear Para apagar" }).click();
+    await cardMenu(extra, "Renomear")();
     const field = page.getByLabel("Novo nome do workspace");
     await field.click();
     await field.fill("Não vale");
     await field.press("Escape");
-    await expect.poll(() => card.locator(".workspace-name").textContent()).toBe("Para apagar");
+    await expect.poll(() => card.textContent(), POLL).toContain("Para apagar");
     expect(new URL(page.url()).pathname).toBe("/");
-    await card.focus();
+    await card.getByRole("button", { name: "Para apagar" }).focus();
     await page.keyboard.press("F2");
     await field.fill("Renomeado");
     if (shots) await page.screenshot({ path: join(shots, "22-overview-renomear.png") });
     await field.press("Enter");
-    await expect.poll(() => card.locator(".workspace-name").textContent(), POLL).toBe("Renomeado");
-    expect((await api()).workspaces.find((w) => w.id === extra)?.name).toBe("Renomeado");
+    await expect.poll(() => card.textContent(), POLL).toContain("Renomeado");
+    await expect.poll(async () => (await api()).workspaces.find((w) => w.id === extra)?.name, POLL).toBe("Renomeado");
 
-    await page.getByRole("button", { name: `Renomear ${demoName}` }).click();
+    await cardMenu(demo, "Renomear")();
     await field.fill("Demo (renomeado)");
     await field.press("Enter");
     await expect.poll(async () => (await doc()).name, POLL).toBe("Demo (renomeado)");
 
-    await page.getByRole("button", { name: "Excluir Renomeado" }).click();
+    await cardMenu(extra, "Excluir")();
     const dialog = page.getByRole("alertdialog");
     await expect.poll(() => dialog.textContent()).toContain("Excluir “Renomeado”?");
     await dialog.getByRole("button", { name: "Cancelar" }).click();
     await expect.poll(() => dialog.isVisible()).toBe(false);
     expect((await api()).workspaces.some((w) => w.id === extra)).toBe(true);
-    await card.focus();
+    await card.getByRole("button", { name: "Renomeado" }).focus();
     await page.keyboard.press("Delete");
     await expect.poll(() => dialog.isVisible()).toBe(true);
     await dialog.getByLabel(/Digite/).fill("Renomeado");
@@ -1056,14 +1149,14 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await agent.callTool({ name: "open_workspace", arguments: { id: tmp } });
     const tmpCard = page.locator(`[data-workspace-id="${tmp}"]`);
     await expect.poll(() => tmpCard.textContent(), POLL).toContain("ativo");
-    await page.getByRole("button", { name: "Excluir Ativo temporário" }).click();
-    await expect.poll(() => dialog.textContent()).toContain("o canvas e os agentes MCP passam para");
+    await cardMenu(tmp, "Excluir")();
+    await expect.poll(() => dialog.textContent()).toContain("Excluir “Ativo temporário”?");
     if (shots) await page.screenshot({ path: join(shots, "23-overview-excluir-ativo.png") });
     await dialog.getByLabel(/Digite/).fill("Ativo temporário");
     await dialog.getByRole("button", { name: "Excluir workspace" }).click();
     await expect.poll(() => tmpCard.count(), POLL).toBe(0);
     await expect.poll(async () => (await api()).active, POLL).not.toBe(tmp);
-    await expect.poll(() => page.locator(".workspace-card.is-active").count(), POLL).toBe(1);
+    await expect.poll(() => page.locator("[data-workspace-id] [data-active]").count(), POLL).toBe(1);
 
     const next = (await api()).active;
     const made = await fetch(`${url}/api/workspaces`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Destino do clique" }) });
@@ -1074,7 +1167,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => (await api()).active, POLL).toBe(otherId);
     await page.goBack();
     await expect.poll(() => new URL(page.url()).pathname).toBe("/");
-    await page.locator(`[data-workspace-id="${next}"]`).focus();
+    await page.locator(`[data-workspace-id="${next}"] [data-card-open]`).focus();
     await page.keyboard.press("Enter");
     await expect.poll(() => new URL(page.url()).pathname, POLL).toBe(`/w/${next}`);
     await expect.poll(async () => (await api()).active, POLL).toBe(next);
@@ -1097,26 +1190,28 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.goto(url);
     const card = page.locator(`[data-workspace-id="${extra}"]`);
     await expect.poll(() => card.count(), POLL).toBe(1);
-    await card.hover();
-    await page.getByRole("button", { name: "Arquivar Para arquivar" }).click();
+    const cardMenu = async (action: string) => {
+      await card.getByRole("button", { name: "Mais ações" }).click();
+      await page.getByRole("menuitem", { name: action }).click();
+    };
+    await cardMenu("Arquivar");
     await expect.poll(() => card.count(), POLL).toBe(0);
     const listed = (await (await fetch(`${url}/api/workspaces`)).json()) as { workspaces: { id: string }[] };
     expect(listed.workspaces.some((w) => w.id === extra)).toBe(false);
     const kept = (await (await fetch(`${url}/api/workspaces?archived=1`)).json()) as { workspaces: { id: string; name: string }[] };
     expect(kept.workspaces.find((w) => w.id === extra)?.name).toBe("Para arquivar");
 
-    await page.getByRole("button", { name: "Arquivados" }).click();
-    await expect.poll(() => page.locator(".workspace-archived").textContent(), POLL).toBe("Arquivados");
+    const sidebar = page.getByRole("complementary", { name: "Menu de workspaces" });
+    await sidebar.getByRole("button", { name: "Arquivados" }).click();
+    await expect.poll(() => page.getByRole("heading", { level: 1 }).textContent(), POLL).toBe("Arquivados");
     await expect.poll(() => card.count(), POLL).toBe(1);
-    await card.hover();
-    await page.getByRole("button", { name: "Restaurar Para arquivar" }).click();
+    await cardMenu("Restaurar");
     await expect.poll(() => card.count(), POLL).toBe(0);
-    await page.getByRole("button", { name: "Todos" }).click();
+    await sidebar.getByRole("button", { name: /^Workspaces/ }).click();
     await expect.poll(() => card.count(), POLL).toBe(1);
 
-    await card.hover();
-    await page.getByRole("button", { name: "Arquivar Para arquivar" }).click();
-    await page.getByRole("button", { name: "Arquivados" }).click();
+    await cardMenu("Arquivar");
+    await sidebar.getByRole("button", { name: "Arquivados" }).click();
     await card.click();
     await expect.poll(() => new URL(page.url()).pathname, POLL).toBe(`/w/${extra}`);
     await expect.poll(async () => {
@@ -1128,7 +1223,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await fetch(`${url}/api/workspaces/${extra}`, { method: "DELETE" });
   });
 
-  it("páginas: renomear a Página 1 implícita cria a página com o nome, leva o conteúdo e desfaz num passo", async () => {
+  it("páginas: a Nova página leva o conteúdo solto para a Página 1, o duplo clique renomeia e desfazer volta num passo", async () => {
     const POLL = { timeout: 10_000 };
     const demo = (await doc()).id;
     const created = await fetch(`${url}/api/workspaces`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "Só uma página" }) });
@@ -1139,24 +1234,28 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.waitForSelector('[data-paprika-id="capa"]');
     const pageNodes = async () => Object.values((await doc()).nodes).filter((n) => n.type === "page");
     expect(await pageNodes()).toHaveLength(0);
+    await expect.poll(() => page.getByText("Nenhuma página ainda.").count(), POLL).toBe(1);
 
-    const row = page.getByRole("list", { name: "Páginas" }).locator("li");
-    await row.dblclick();
+    await page.getByRole("button", { name: "Nova página" }).click();
+    await expect.poll(async () => (await pageNodes()).length, POLL).toBe(2);
+    const d = await doc();
+    const [pageId] = d.rootIds as [string, string];
+    expect(d.rootIds).toHaveLength(2);
+    expect(d.nodes[pageId]).toMatchObject({ type: "page", name: "Página 1" });
+    expect(d.nodes.capa?.parentId).toBe(pageId);
+
+    await pageButton("Página 1").dblclick();
     const input = page.getByLabel("Nome da página");
     expect(await input.inputValue()).toBe("Página 1");
     await input.fill("Abertura");
     await input.press("Enter");
-
-    await expect.poll(async () => (await pageNodes()).length, POLL).toBe(1);
-    const d = await doc();
-    const [pageId] = d.rootIds as [string];
-    expect(d.rootIds).toHaveLength(1);
-    expect(d.nodes[pageId]).toMatchObject({ type: "page", name: "Abertura" });
-    expect(d.nodes.capa?.parentId).toBe(pageId);
-    await expect.poll(() => page.locator(".page.is-active").textContent(), POLL).toContain("Abertura");
+    await expect.poll(async () => (await doc()).nodes[pageId]?.name, POLL).toBe("Abertura");
+    await pageButton("Abertura").click();
     await expect.poll(() => page.locator('[data-paprika-id="capa"]').count(), POLL).toBe(1);
 
-    await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
+    await clickEmpty();
+    await page.keyboard.press("Control+z");
+    await expect.poll(async () => (await doc()).nodes[pageId]?.name, POLL).toBe("Página 1");
     await page.keyboard.press("Control+z");
     await expect.poll(async () => (await pageNodes()).length, POLL).toBe(0);
     expect((await doc()).nodes.capa?.parentId).toBeNull();
@@ -1166,20 +1265,21 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await fetch(`${url}/api/workspaces/${solo}`, { method: "DELETE" });
   });
 
-  it("overview: capa por arquivo (trocar e remover) e por screenshot do agente; sem capa fica a letra", async () => {
+  it("overview: capa por arquivo (trocar e remover) e por screenshot do agente; sem capa fica a miniatura", async () => {
     const POLL = { timeout: 10_000 };
     const { id: demo, name: demoName } = await doc();
     const list = async () => (await (await fetch(`${url}/api/workspaces`)).json()) as { workspaces: { id: string; name: string; cover: string | null }[] };
     await page.goto(url);
     const demoCard = page.locator(`[data-workspace-id="${demo}"]`);
-    await expect.poll(() => demoCard.locator(".workspace-thumb").count(), POLL).toBe(1);
+    await expect.poll(() => demoCard.textContent(), POLL).toContain(demoName);
+    expect(await demoCard.locator("img").count()).toBe(0);
 
     const png = Buffer.from(await (await fetch(`${url}/api/screenshot?root=login`)).arrayBuffer());
-    await demoCard.hover();
+    await demoCard.getByRole("button", { name: "Mais ações" }).click();
     const chooser = page.waitForEvent("filechooser");
-    await page.getByRole("button", { name: `Adicionar capa de ${demoName}` }).click();
+    await page.getByRole("menuitem", { name: "Adicionar capa" }).click();
     await (await chooser).setFiles({ name: "capa.png", mimeType: "image/png", buffer: png });
-    const img = demoCard.locator("img.workspace-cover");
+    const img = demoCard.locator("img");
     await expect.poll(() => img.getAttribute("src"), POLL).toMatch(/\/cover\?v=\d+$/);
     await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0), POLL).toBe(true);
 
@@ -1188,39 +1288,44 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const shot = await agent.callTool({ name: "set_workspace_cover", arguments: { id: draft!.id, rootId: "rasc" } });
     expect(shot.isError).toBeFalsy();
     await page.reload();
-    await expect.poll(() => page.locator(`[data-workspace-id="${draft!.id}"] img.workspace-cover`).count(), POLL).toBe(1);
+    await expect.poll(() => page.locator(`[data-workspace-id="${draft!.id}"] img`).count(), POLL).toBe(1);
     if (shots) {
       await page.waitForTimeout(300);
       await page.screenshot({ path: join(shots, "24-overview-capas.png") });
     }
 
-    await demoCard.hover();
-    await page.getByRole("button", { name: `Remover capa de ${demoName}` }).click();
+    await demoCard.getByRole("button", { name: "Mais ações" }).click();
+    await page.getByRole("menuitem", { name: "Remover capa" }).click();
     await expect.poll(() => img.count(), POLL).toBe(0);
-    await expect.poll(() => demoCard.locator(".workspace-thumb").count(), POLL).toBe(1);
+    await expect.poll(() => demoCard.textContent(), POLL).toContain(demoName);
     await agent.callTool({ name: "set_workspace_cover", arguments: { id: draft!.id, clear: true } });
   }, 30_000);
 
-  it("overview: cria uma pasta, renomeia e move o card para ela", async () => {
+  it("overview: cria um projeto e move o card para ele", async () => {
     const POLL = { timeout: 10_000 };
     const { id: demo } = await doc();
     await page.goto(url);
-    await page.getByRole("button", { name: "Nova pasta" }).click();
-    await page.getByRole("textbox", { name: "Nome da pasta" }).fill("Produto");
-    await page.getByRole("button", { name: "Criar" }).click();
-    const folder = page.locator(".workspace-folder");
-    await expect.poll(() => folder.locator(".folder-name").textContent(), POLL).toBe("Produto");
-    await expect.poll(() => page.getByText("Nenhum workspace nesta pasta.").count(), POLL).toBe(1);
-    await folder.getByRole("button", { name: "Renomear pasta Produto" }).click();
-    const name = page.getByRole("textbox", { name: "Nome da pasta" });
+    const sidebar = page.getByRole("complementary", { name: "Menu de workspaces" });
+    await sidebar.getByRole("button", { name: "Novo projeto" }).click();
+    const name = sidebar.getByRole("textbox", { name: "Nome do novo projeto" });
     await name.fill("Marca");
     await name.press("Enter");
-    await expect.poll(() => folder.locator(".folder-name").textContent(), POLL).toBe("Marca");
+    const project = sidebar.getByRole("navigation", { name: "Projetos" }).getByRole("button", { name: /Marca/ });
+    await expect.poll(() => project.count(), POLL).toBe(1);
+    await project.click();
+    await expect.poll(() => page.getByText("Nenhum workspace neste projeto.").count(), POLL).toBe(1);
+    await sidebar.getByRole("button", { name: /^Workspaces/ }).click();
+
     const card = page.locator(`[data-workspace-id="${demo}"]`);
-    await card.hover();
-    await page.locator("li").filter({ has: card }).locator(".workspace-move").selectOption({ label: "Marca" });
-    await expect.poll(async () => (await card.getAttribute("data-folder-id")) || "", POLL).not.toBe("");
-    await expect.poll(() => page.getByText("Nenhum workspace nesta pasta.").count(), POLL).toBe(0);
+    await expect.poll(() => card.count(), POLL).toBe(1);
+    await card.getByRole("button", { name: "Mais ações" }).click();
+    await page.getByRole("menuitemradio", { name: "Marca" }).click();
+    await expect
+      .poll(async () => ((await (await fetch(`${url}/api/workspaces`)).json()) as { workspaces: { id: string; folderId?: string }[] }).workspaces.find((w) => w.id === demo)?.folderId || "", POLL)
+      .not.toBe("");
+    await project.click();
+    await expect.poll(() => page.getByText("Nenhum workspace neste projeto.").count(), POLL).toBe(0);
+    await expect.poll(() => card.count(), POLL).toBe(1);
   });
 
   it("aviso: quando um agente apaga o workspace ativo ou troca de workspace, o canvas diz quem fez, o que foi perdido e leva à overview", async () => {
@@ -1229,17 +1334,16 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const structured = (r: unknown) => (r as { structuredContent: Record<string, any> }).structuredContent;
     await page.goto(`${url}/w/${demo}`);
     await page.waitForSelector('[data-paprika-id="login"]');
-    const notice = page.locator(".workspace-notice");
+    const notice = page.getByRole("status").filter({ hasText: /(abriu|apagou|renomeou) o workspace/ });
+    const focusInside = () => notice.evaluate((el) => el.contains(document.activeElement)).catch(() => false);
     expect(await notice.count()).toBe(0);
 
     const tmp = structured(await agent.callTool({ name: "create_workspace", arguments: { name: "Aviso temporário" } })).workspace.id as string;
     await agent.callTool({ name: "open_workspace", arguments: { id: tmp } });
     await expect.poll(() => notice.textContent(), POLL).toContain("e2e-agent abriu o workspace “Aviso temporário”");
     expect(new URL(page.url()).pathname).toBe(`/w/${demo}`);
-    expect(await notice.locator(".workspace-notice-summary").count()).toBe(0);
-
-    expect(await page.locator(".workspace-notice[role='status']").count()).toBe(1);
-    expect(await page.evaluate(() => document.activeElement?.closest(".workspace-notice") ?? null)).toBeNull();
+    expect(await notice.textContent()).not.toMatch(/\d+ nós?/);
+    expect(await focusInside()).toBe(false);
 
     await agent.callTool({
       name: "create_nodes",
@@ -1252,21 +1356,21 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(ask.needsConfirmation).toBe(true);
     await agent.callTool({ name: "delete_workspace", arguments: { id: tmp, confirmToken: ask.confirmToken } });
     await expect.poll(() => notice.textContent(), POLL).toContain("e2e-agent apagou o workspace “Aviso temporário”");
-    await expect.poll(() => notice.locator(".workspace-notice-summary").textContent(), POLL).toMatch(/2 nós.*2 frames/);
-    await expect.poll(() => new URL(page.url()).pathname, POLL).not.toBe(`/w/${tmp}`);
-    expect(await page.evaluate(() => document.activeElement?.closest(".workspace-notice") ?? null)).toBeNull();
+    await expect.poll(() => notice.textContent(), POLL).toMatch(/2 nós.*2 frames/);
+    // o app já sai do workspace apagado para a overview (o aviso não precisa mais do botão "Ver workspaces")
+    await expect.poll(() => new URL(page.url()).pathname, POLL).toBe("/");
+    expect(await focusInside()).toBe(false);
     if (shots) await page.screenshot({ path: join(shots, "25-aviso-apagou.png") });
 
-    await notice.getByRole("button", { name: "Ver workspaces" }).click();
-    await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+    await page.getByRole("button", { name: "Dispensar aviso" }).click();
     await expect.poll(() => notice.count()).toBe(0);
-    await expect.poll(() => page.locator(".workspace-card.is-active").count(), POLL).toBe(1);
+    await expect.poll(() => page.locator("[data-workspace-id] [data-active]").count(), POLL).toBe(1);
 
     await page.goto(`${url}/w/${demo}`);
     await page.waitForSelector('[data-paprika-id="login"]');
     await agent.callTool({ name: "rename_workspace", arguments: { id: demo, name: "Demo do agente" } });
     await expect.poll(() => notice.textContent(), POLL).toContain("e2e-agent renomeou o workspace para “Demo do agente”");
-    await notice.getByRole("button", { name: "Dispensar aviso" }).click();
+    await page.getByRole("button", { name: "Dispensar aviso" }).click();
     await expect.poll(() => notice.count()).toBe(0);
     await agent.callTool({ name: "rename_workspace", arguments: { id: demo, name: demoName } });
     await expect.poll(async () => (await doc()).name, POLL).toBe(demoName);
@@ -1297,17 +1401,20 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(gets).toBeLessThan(ids.length / 2);
   });
 
-  it("painéis laterais redimensionam por arraste e teclado, entre min e max, e a largura persiste", async () => {
+  it("painéis laterais redimensionam por arraste e teclado, entre min e max, e o duplo clique recolhe e restaura", async () => {
     const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    p.setDefaultTimeout(8_000);
     await pinLocale(p, "pt-BR");
     try {
       await p.goto(`${url}/w/${(await doc()).id}`);
       await p.waitForSelector('[data-paprika-id="login"]');
       const width = (sel: string) => p.locator(sel).evaluate((el) => Math.round(el.getBoundingClientRect().width));
-      const left = p.getByRole("separator", { name: "Largura do painel de camadas" });
-      const right = p.getByRole("separator", { name: "Largura do painel de propriedades" });
-      expect(await width("aside.left")).toBe(240);
-      expect(await width("aside.right")).toBe(280);
+      const left = p.getByRole("separator", { name: "Redimensionar painel de camadas" });
+      const right = p.getByRole("separator", { name: "Redimensionar painel de propriedades" });
+      const leftPanel = 'aside[aria-label="Painel de camadas"]';
+      const rightPanel = 'aside[aria-label="Painel de propriedades"]';
+      expect(await width(leftPanel)).toBe(248);
+      expect(await width(rightPanel)).toBe(320);
 
       const dragBy = async (handle: typeof left, dx: number) => {
         const b = (await handle.boundingBox())!;
@@ -1318,28 +1425,52 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
         await p.mouse.up();
       };
       await dragBy(left, 100);
-      expect(await width("aside.left")).toBe(340);
+      await expect.poll(() => width(leftPanel)).toBe(348);
       await dragBy(left, 1000);
-      expect(await width("aside.left")).toBe(480);
+      await expect.poll(() => width(leftPanel)).toBe(480);
       await dragBy(left, -290);
-      expect(await width("aside.left")).toBe(200);
+      await expect.poll(() => width(leftPanel)).toBe(200);
 
       await dragBy(right, -60);
-      expect(await width("aside.right")).toBe(340);
+      await expect.poll(() => width(rightPanel)).toBe(380);
       await right.focus();
-      await p.keyboard.press("End");
-      expect(await right.getAttribute("aria-valuenow")).toBe("480");
+      // no separador do painel direito, Home leva ao máximo (480) e a seta para a direita encolhe um passo (1 % do grupo, 14 px em 1440)
+      await p.keyboard.press("Home");
+      await expect.poll(() => width(rightPanel)).toBe(480);
       await p.keyboard.press("ArrowRight");
-      expect(await width("aside.right")).toBe(464);
+      await expect.poll(() => width(rightPanel)).toBe(466);
 
+      // o duplo clique no separador recolhe o painel e outro duplo clique devolve a largura que ele tinha (o antigo voltava ao padrão)
+      await expect.poll(() => width(leftPanel)).toBe(200);
+      for (const expected of [0, 200]) {
+        const b = (await left.boundingBox())!;
+        await p.mouse.dblclick(b.x + b.width / 2, b.y + 200);
+        await expect.poll(() => width(leftPanel)).toBe(expected);
+      }
+    } finally {
+      await p.close();
+    }
+  });
+
+  it("painéis laterais: a largura persiste ao recarregar", async () => {
+    const p = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    p.setDefaultTimeout(8_000);
+    await pinLocale(p, "pt-BR");
+    try {
+      await p.goto(`${url}/w/${(await doc()).id}`);
+      await p.waitForSelector('[data-paprika-id="login"]');
+      const width = (sel: string) => p.locator(sel).evaluate((el) => Math.round(el.getBoundingClientRect().width));
+      const left = p.getByRole("separator", { name: "Redimensionar painel de camadas" });
+      const b = (await left.boundingBox())!;
+      await p.mouse.move(b.x + b.width / 2, b.y + 200);
+      await p.mouse.down();
+      await p.mouse.move(b.x + b.width / 2 + 50, b.y + 200);
+      await p.mouse.move(b.x + b.width / 2 + 100, b.y + 200);
+      await p.mouse.up();
+      await expect.poll(() => width('aside[aria-label="Painel de camadas"]')).toBe(348);
       await p.reload();
       await p.waitForSelector('[data-paprika-id="login"]');
-      expect(await width("aside.left")).toBe(200);
-      expect(await width("aside.right")).toBe(464);
-
-      await left.dblclick();
-      expect(await width("aside.left")).toBe(240);
-      expect(await p.evaluate(() => localStorage.getItem("paprika.panel.left"))).toBe("240");
+      expect(await width('aside[aria-label="Painel de camadas"]')).toBe(348);
     } finally {
       await p.close();
     }
@@ -1351,10 +1482,10 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.waitForSelector('[data-testid="viewport"]');
     const pages = async () => Object.values((await doc()).nodes).filter((n) => n.type === "page").map((n) => n.id);
     const pagesBefore = await pages();
-    await page.getByTestId("add-page").click();
+    await page.getByRole("button", { name: "Nova página" }).click();
     await expect.poll(async () => (await pages()).length, POLL).toBe(pagesBefore.length ? pagesBefore.length + 1 : 2);
     const pageId = (await doc()).rootIds.at(-1)!;
-    await expect.poll(() => page.locator(".page.is-active").getAttribute("data-page-id"), POLL).toBe(pageId);
+    await expect.poll(activePageName, POLL).toContain((await doc()).nodes[pageId]!.name);
     const vp = (await page.locator('[data-testid="viewport"]').boundingBox())!;
     const shapes = async () => Object.values((await doc()).nodes).filter((n) => n.type === "shape" && n.parentId === pageId);
 
@@ -1368,6 +1499,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(async () => (await shapes())[0], POLL).toMatchObject({ shape: "rect", text: "Início", width: 160, height: 80 });
     const first = (await shapes())[0]!.id;
 
+    await page.getByRole("button", { name: "Formas de diagrama" }).click();
     await page.getByRole("button", { name: "Decisão (losango)" }).click();
     await page.mouse.click(vp.x + 520, vp.y + 200);
     await expect.poll(async () => (await shapes()).length, POLL).toBe(2);
@@ -1387,10 +1519,10 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const third = (await shapes()).find((n) => n.id !== first && n.id !== second)!.id;
     await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "triangle", text: "Go", width: 160, height: 140 });
     await page.locator(`[data-paprika-id="${third}"]`).click();
-    await page.getByTestId("shape-kind").click();
+    await page.getByRole("combobox", { name: "Tipo de forma" }).click();
     await page.getByRole("option", { name: "losango (decisão)" }).click();
     await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "diamond" });
-    await page.getByTestId("shape-kind").click();
+    await page.getByRole("combobox", { name: "Tipo de forma" }).click();
     await page.getByRole("option", { name: "triângulo" }).click();
     await expect.poll(async () => (await doc()).nodes[third], POLL).toMatchObject({ shape: "triangle" });
     await page.locator('[data-testid="viewport"]').click({ position: { x: 5, y: 5 } });
@@ -1477,7 +1609,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(res.isError).toBeFalsy();
     await expect.poll(() => page.locator('[data-paprika-id="fx-ok-to-fx-ship"] path').count(), POLL).toBe(2);
     await expect.poll(() => page.locator('[data-paprika-id="fx-ok-to-fx-ship"] [data-connector-label]').textContent(), POLL).toBe("sim");
-    await page.locator('[data-layer-id="fx-ok-to-fx-note"] .layer-name').first().click();
+    await layer("fx-ok-to-fx-note").first().click();
     const labelField = page.getByTestId("connector-panel").getByLabel("Rótulo");
     await labelField.fill("talvez");
     await labelField.press("Enter");
@@ -1490,7 +1622,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   it("seta: duplo clique no meio da rota adiciona, edita e remove o rótulo (reta e cotovelo, dentro de um frame), Esc cancela e Ctrl+Z desfaz", async () => {
     const POLL = { timeout: 10_000 };
     await page.keyboard.press("Escape");
-    const parentId = (await page.locator(".page.is-active").getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
+    const parentId = (await doc()).rootIds.at(-1)!;
     const frame = await agent.callTool({
       name: "create_nodes",
       arguments: { parentId, nodes: [{ type: "frame", id: "lbl-frame", name: "Rótulos", x: 1400, y: 40, width: 640, height: 360, fill: "#ffffff" }] },
@@ -1581,8 +1713,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   it("seleção mostra quatro alças e arrastar o canto NW mantém o SE fixo", async () => {
     const POLL = { timeout: 10_000 };
     await page.keyboard.press("Escape");
-    const pageId = page.locator(".page.is-active");
-    const parentId = (await pageId.getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
+    const parentId = (await doc()).rootIds.at(-1)!;
     const id = "resize-four-corners";
     const created = await agent.callTool({
       name: "create_nodes",
@@ -1597,10 +1728,10 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await page.getByRole("button", { name: "Enquadrar" }).click();
     await page.locator(`[data-paprika-id="${id}"]`).click();
     const sel = page.getByTestId("selection");
-    await expect.poll(() => sel.locator("[data-resize]").count(), POLL).toBe(4);
+    await expect.poll(() => page.locator("[data-handle]").count(), POLL).toBe(4);
     const before = (await doc()).nodes[id] as { x: number; y: number; width: number; height: number };
     const seBefore = { x: before.x + before.width, y: before.y + before.height };
-    const handle = (await sel.locator('[data-resize="nw"]').boundingBox())!;
+    const handle = (await page.locator('[data-handle="nw"]').boundingBox())!;
     await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
     await page.mouse.down();
     await page.mouse.move(handle.x + handle.width / 2 - 30, handle.y + handle.height / 2 - 20, { steps: 6 });
@@ -1621,7 +1752,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   it("auto layout: alças de gap e padding, um desfazer por arraste", async () => {
     const POLL = { timeout: 10_000 };
     await page.keyboard.press("Escape");
-    const parentId = (await page.locator(".page.is-active").getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
+    const parentId = (await doc()).rootIds.at(-1)!;
     const created = await agent.callTool({
       name: "create_nodes",
       arguments: {
@@ -1722,7 +1853,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   it("seleção rotacionada: alças nos cantos da caixa e o marquee ignora o canto vazio", async () => {
     const POLL = { timeout: 10_000 };
     await page.keyboard.press("Escape");
-    const parentId = (await page.locator(".page.is-active").getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
+    const parentId = (await doc()).rootIds.at(-1)!;
     const id = "spin-hit";
     const created = await agent.callTool({
       name: "create_nodes",
@@ -1747,13 +1878,19 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     await expect.poll(() => page.locator(`[data-layer-id="${id}"].is-selected`).count(), POLL).toBe(0);
     await host.click();
     const sel = page.getByTestId("selection");
-    await expect.poll(() => sel.locator("[data-resize]").count(), POLL).toBe(4);
-    await expect.poll(() => sel.getByTestId("rotate-handle").count(), POLL).toBe(1);
-    const nw = (await sel.locator('[data-resize="nw"]').boundingBox())!;
+    await expect.poll(() => page.locator("[data-handle]").count(), POLL).toBe(4);
+    await expect.poll(() => page.locator("[data-rotate-handle]").count(), POLL).toBe(1);
+    const nw = (await page.locator('[data-handle="nw"]').boundingBox())!;
     const nwCenter = { x: nw.x + nw.width / 2, y: nw.y + nw.height / 2 };
-    const vp = (await page.locator(".viewport").boundingBox())!;
-    const first = (await sel.locator("polygon").getAttribute("points"))!.split(" ")[0]!.split(",").map(Number);
-    const quad = { x: vp.x + first[0]!, y: vp.y + first[1]! };
+    // o canto NW do retângulo girado, na tela: centro da caixa (o eixo alinhado dele) mais o canto girado pelo zoom do mundo
+    const zoom = await world().evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a || 1);
+    const node = (await doc()).nodes[id] as { width: number; height: number; rotation: number };
+    const rad = (node.rotation * Math.PI) / 180;
+    const half = { x: (-node.width / 2) * zoom, y: (-node.height / 2) * zoom };
+    const quad = {
+      x: box.x + box.width / 2 + half.x * Math.cos(rad) - half.y * Math.sin(rad),
+      y: box.y + box.height / 2 + half.x * Math.sin(rad) + half.y * Math.cos(rad),
+    };
     expect(Math.hypot(nwCenter.x - quad.x, nwCenter.y - quad.y)).toBeLessThan(6);
     expect(Math.hypot(quad.x - box.x, quad.y - box.y)).toBeGreaterThan(4);
     const before = (await doc()).nodes[id] as { x: number; y: number; width: number; height: number; rotation: number };
@@ -1770,7 +1907,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
       return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
     };
     const nwBefore = corner(before, "nw");
-    const se = (await sel.locator('[data-resize="se"]').boundingBox())!;
+    const se = (await page.locator('[data-handle="se"]').boundingBox())!;
     await page.mouse.move(se.x + se.width / 2, se.y + se.height / 2);
     await page.mouse.down();
     await page.mouse.move(se.x + se.width / 2 + 36, se.y + se.height / 2 + 24, { steps: 6 });
@@ -1791,7 +1928,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   it("seta: inspector troca rota cotovelo/arredondado/curva e a alça da curva grava control", async () => {
     const POLL = { timeout: 10_000 };
     await page.keyboard.press("Escape");
-    const parentId = (await page.locator(".page.is-active").getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
+    const parentId = (await doc()).rootIds.at(-1)!;
     const made = await agent.callTool({
       name: "create_nodes",
       arguments: {
@@ -1805,13 +1942,13 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     });
     expect(made.isError).toBeFalsy();
     await page.getByRole("button", { name: "Enquadrar" }).click();
-    await page.locator('[data-layer-id="rt-c"] .layer-name').first().click();
-    const route = page.getByTestId("connector-route");
+    await layer("rt-c").first().click();
+    const route = page.getByRole("combobox", { name: "Rota" });
     await route.click();
     await page.getByRole("option", { name: "arredondado" }).click();
     await expect.poll(async () => (await doc()).nodes["rt-c"], POLL).toMatchObject({ route: "rounded" });
-    await page.getByTestId("connector-radius").getByLabel("Raio", { exact: true }).fill("16");
-    await page.getByTestId("connector-radius").getByLabel("Raio", { exact: true }).press("Enter");
+    await page.getByLabel("Raio", { exact: true }).fill("16");
+    await page.getByLabel("Raio", { exact: true }).press("Enter");
     await expect.poll(async () => ((await doc()).nodes["rt-c"] as { radius: number }).radius, POLL).toBe(16);
     await expect.poll(async () => ((await doc()).nodes["rt-c"] as { d: string }).d.includes("A"), POLL).toBe(true);
     await route.click();
@@ -1832,32 +1969,31 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   it("inspector liga e desliga o raio de cada canto", async () => {
     const POLL = { timeout: 10_000 };
     const id = "rc070";
-    const parentId = (await page.locator(".page.is-active").getAttribute("data-page-id")) ?? (await doc()).rootIds.at(-1)!;
+    const parentId = (await doc()).rootIds.at(-1)!;
     const created = await agent.callTool({
       name: "create_nodes",
       arguments: { parentId, nodes: [{ type: "rect", id, x: 48, y: 48, width: 140, height: 80, fill: "#c8401f", radius: 8 }] },
     });
     expect(created.isError, JSON.stringify(created.content)).toBeFalsy();
     await page.locator(`[data-paprika-id="${id}"]`).click();
-    const appearance = page.getByRole("button", { name: "Preenchimento e traço" });
-    if ((await appearance.getAttribute("data-state")) !== "open") await appearance.click();
-    await expect.poll(() => page.getByTestId("radius-corners").getAttribute("data-state"), POLL).toBe("linked");
-    await page.getByTestId("radius-link").click();
+    await openSection("Preenchimento e traço");
+    await expect.poll(() => page.getByRole("button", { name: "Desligar cantos" }).getAttribute("aria-pressed"), POLL).toBe("false");
+    await page.getByRole("button", { name: "Desligar cantos" }).click();
     await expect.poll(async () => (await doc()).nodes[id], POLL).toMatchObject({ radius: [8, 8, 8, 8] });
-    await expect.poll(() => page.getByTestId("radius-corners").getAttribute("data-state"), POLL).toBe("unlinked");
-    const tl = page.getByTestId("radius-tl").getByRole("textbox", { name: "TL", exact: true });
+    await expect.poll(() => page.getByRole("button", { name: "Ligar cantos" }).getAttribute("aria-pressed"), POLL).toBe("true");
+    const tl = page.getByLabel("Raio do canto superior esquerdo", { exact: true });
     await tl.fill("24");
     await tl.press("Enter");
     await expect.poll(async () => ((await doc()).nodes[id] as { radius: number[] }).radius[0], POLL).toBe(24);
     await expect.poll(() => page.locator(`[data-paprika-id="${id}"]`).evaluate((el) => getComputedStyle(el).borderTopLeftRadius), POLL).toBe("24px");
     await expect.poll(() => page.locator(`[data-paprika-id="${id}"]`).evaluate((el) => getComputedStyle(el).borderBottomRightRadius), POLL).toBe("8px");
-    await page.getByTestId("radius-link").click();
+    await page.getByRole("button", { name: "Ligar cantos" }).click();
     await expect.poll(async () => (await doc()).nodes[id], POLL).toMatchObject({ radius: 24 });
   });
 
   it("filho absoluto ignora o fluxo e o inspector alterna", async () => {
     const POLL = { timeout: 10_000 };
-    const pageId = await page.locator(".page.is-active").getAttribute("data-page-id");
+    const pageId = (await doc()).rootIds.at(-1)!;
     const made = await agent.callTool({
       name: "create_nodes",
       arguments: {
@@ -1876,13 +2012,13 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     });
     expect(made.isError, JSON.stringify(made.content)).toBeFalsy();
     await page.getByRole("button", { name: "Enquadrar" }).click();
-    await page.locator('[data-layer-id="abs-row"] .layer-name').click();
-    expect(await page.getByTestId("ignore-layout").count()).toBe(0);
-    await page.locator('[data-layer-id="abs-a"] .layer-name').click();
-    const flowSwitch = page.getByTestId("ignore-layout");
+    await layer("abs-row").click();
+    expect(await page.getByRole("switch", { name: "Ignorar layout" }).count()).toBe(0);
+    await layer("abs-a").click();
+    const flowSwitch = page.getByRole("switch", { name: "Ignorar layout" });
     await expect.poll(() => flowSwitch.getAttribute("aria-checked"), POLL).toBe("false");
-    await page.locator('[data-layer-id="abs-pin"] .layer-name').click();
-    const sw = page.getByTestId("ignore-layout");
+    await layer("abs-pin").click();
+    const sw = page.getByRole("switch", { name: "Ignorar layout" });
     await expect.poll(() => sw.getAttribute("aria-checked"), POLL).toBe("true");
     const pin = page.locator('[data-paprika-id="abs-pin"]');
     await expect.poll(() => pin.evaluate((el) => getComputedStyle(el).position), POLL).toBe("absolute");
@@ -1904,7 +2040,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     const POLL = { timeout: 10_000 };
     const madePage = await agent.callTool({ name: "create_page", arguments: { id: "pAlign", name: "Alinhar" } });
     expect(madePage.isError, JSON.stringify(madePage.content)).toBeFalsy();
-    await page.locator('[data-page-id="pAlign"]').click();
+    await openPageById("pAlign");
     const made = await agent.callTool({
       name: "create_nodes",
       arguments: {
@@ -1919,28 +2055,30 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     expect(made.isError, JSON.stringify(made.content)).toBeFalsy();
     const rowA = page.locator('[data-layer-id="alA"]');
     await rowA.click();
-    await page.locator('[data-layer-id="alB"]').click({ modifiers: ["Shift"] });
+    await page.locator('[data-layer-id="alB"]').click({ modifiers: ["ControlOrMeta"] });
     await expect.poll(() => page.getByTestId("selection").getAttribute("data-count"), POLL).toBe("2");
-    await page.getByTestId("align-left").click();
+    await page.getByRole("button", { name: "Alinhar à esquerda" }).click();
     await expect.poll(async () => (await doc()).nodes.alB, POLL).toMatchObject({ x: 40 });
+    // os atalhos que agem na seleção só valem com o foco na página, no palco, na árvore de camadas ou na barra: volta o foco à árvore
+    await rowA.focus();
     await page.keyboard.press("Control+Alt+g");
     await expect.poll(async () => (await doc()).nodes.alA?.parentId, POLL).not.toBe("pAlign");
     const frameId = (await doc()).nodes.alA!.parentId!;
     expect((await doc()).nodes[frameId]).toMatchObject({ type: "frame" });
-    await page.getByRole("button", { name: "Desfazer" }).click();
+    await menuAction("Desfazer");
     await expect.poll(async () => (await doc()).nodes.alA?.parentId, POLL).toBe("pAlign");
     const flag = async (id: string, key: "locked" | "visible") => {
       const n = (await doc()).nodes[id];
       return n && n.type !== "page" ? n[key] : undefined;
     };
     await rowA.hover();
-    await rowA.getByTestId("layer-lock").click();
+    await rowA.getByRole("button", { name: "Travar AlA" }).click();
     await expect.poll(() => flag("alA", "locked"), POLL).toBe(true);
-    await page.getByTestId("unlock-all").click();
+    await layersMenu("Destravar todas as camadas travadas");
     await expect.poll(() => flag("alA", "locked"), POLL).toBe(false);
     await page.locator('[data-layer-id="alB"]').getByRole("button", { name: "Ocultar AlB" }).click();
     await expect.poll(() => flag("alB", "visible"), POLL).toBe(false);
-    await page.getByTestId("show-all").click();
+    await layersMenu("Mostrar todas as camadas ocultas");
     await expect.poll(() => flag("alB", "visible"), POLL).toBe(true);
     await agent.callTool({ name: "delete_nodes", arguments: { ids: ["pAlign"] } });
   }, 30_000);
@@ -1953,7 +2091,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
       arguments: { id: pageId, name: "Constraints" },
     });
     expect(created.isError, JSON.stringify(created.content)).toBeFalsy();
-    await page.locator(`[data-page-id="${pageId}"]`).click();
+    await openPageById(pageId);
     const flowChild = { type: "rect", id: "c084-flow", name: "Flow", width: 30, height: 20, fill: "#111111" };
     const pinChild = {
       type: "rect", id: "c084-pin", name: "Pin", x: 140, y: 20, width: 40, height: 24, fill: "#c8401f",
@@ -1969,14 +2107,15 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
       arguments: { parentId: pageId, place: "none", nodes: [frame] },
     });
     expect(made.isError, JSON.stringify(made.content)).toBeFalsy();
-    await page.locator('[data-layer-id="c084-flow"] .layer-name').click();
-    await expect.poll(() => page.getByTestId("constraints").count(), POLL).toBe(0);
-    await page.locator('[data-layer-id="c084-pin"] .layer-name').click();
-    const right = page.getByTestId("constraint-h-right");
-    await expect.poll(() => right.getAttribute("aria-pressed"), POLL).toBe("true");
-    await page.getByTestId("constraint-h-left").click();
+    await layer("c084-flow").click();
+    await expect.poll(() => page.getByRole("radiogroup", { name: "Restrição horizontal" }).count(), POLL).toBe(0);
+    await layer("c084-pin").click();
+    const horizontal = page.getByRole("radiogroup", { name: "Restrição horizontal" });
+    await openSection("Restrições");
+    await expect.poll(() => horizontal.getByRole("radio", { name: "Direita" }).getAttribute("aria-checked"), POLL).toBe("true");
+    await horizontal.getByRole("radio", { name: "Esquerda" }).click();
     await expect.poll(async () => (await doc()).nodes["c084-pin"], POLL).not.toHaveProperty("constraints");
-    await page.getByTestId("constraint-h-right").click();
+    await horizontal.getByRole("radio", { name: "Direita" }).click();
     await expect.poll(async () => (await doc()).nodes["c084-pin"], POLL).toMatchObject({ constraints: { horizontal: "right", vertical: "top" } });
     await agent.callTool({ name: "update_nodes", arguments: { updates: [{ id: "c084", props: { width: 300 } }] } });
     await expect.poll(async () => (await doc()).nodes["c084-pin"], POLL).toMatchObject({ x: 240, y: 20, width: 40 });
@@ -1987,7 +2126,7 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
   it("inspector da raiz grava o link e o menu converte o rect em caminho", async () => {
     const d = await doc();
     const pageId = d.rootIds.find((id) => d.nodes[id]?.type === "page") ?? null;
-    if (pageId) await page.locator(`[data-page-id="${pageId}"]`).click();
+    if (pageId) await openPageById(pageId);
     const made = await agent.callTool({
       name: "create_nodes",
       arguments: {
@@ -2001,12 +2140,11 @@ describe.skipIf(!existsSync(webRoot))("E2E: canvas + agente via MCP", () => {
     });
     expect(made.isError, JSON.stringify(made.content)).toBeFalsy();
     await revealLayer(page, "b087");
-    await page.locator('[data-layer-id="b087"] .layer-name').click();
-    const web = page.getByTestId("inspector-section-frame-web");
-    await web.getByRole("button", { name: "Web" }).click();
-    const link = web.getByLabel("Link", { exact: true });
+    await layer("b087").click();
+    await openSection("Web");
+    const link = page.locator('[data-slot="collapsible-panel"]').filter({ has: page.getByLabel("Largura mínima", { exact: true }) }).getByLabel("Link", { exact: true });
     await expect.poll(() => link.count()).toBe(1);
-    await expect.poll(() => web.getByLabel("Larg. mín.", { exact: true }).count()).toBe(1);
+    await expect.poll(() => page.getByLabel("Largura mínima", { exact: true }).count()).toBe(1);
     await link.fill("https://example.com");
     await link.press("Enter");
     await expect.poll(async () => (await doc()).nodes.b087).toMatchObject({ href: "https://example.com" });

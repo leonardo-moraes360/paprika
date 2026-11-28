@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/leonardo-moraes360/paprika/server/internal/server"
 )
 
 func logf(m string) { fmt.Fprintf(os.Stderr, "[paprika] %s\n", m) }
@@ -14,15 +16,15 @@ func webRoot(flagValue string) string {
 	candidates := []string{flagValue, os.Getenv("PAPRIKA_WEB_ROOT")}
 	if exe, err := os.Executable(); err == nil {
 		dir := filepath.Dir(exe)
-		candidates = append(candidates, filepath.Join(dir, "web"), filepath.Join(dir, "../web-legacy/dist"), filepath.Join(dir, "../../web-legacy/dist"))
+		candidates = append(candidates, filepath.Join(dir, "web"), filepath.Join(dir, "../apps/web/dist/client"), filepath.Join(dir, "../../apps/web/dist/client"))
 	}
-	candidates = append(candidates, "web-legacy/dist", "../web-legacy/dist")
-	for _, c := range candidates {
-		if c == "" {
-			continue
-		}
-		if st, err := os.Stat(filepath.Join(c, "index.html")); err == nil && !st.IsDir() {
+	candidates = append(candidates, "apps/web/dist/client", "../apps/web/dist/client")
+	for i, c := range candidates {
+		if c != "" && server.WebEntry(c) != "" {
 			return c
+		}
+		if i < 2 && c != "" {
+			logf("aviso: " + c + " não tem _shell.html nem index.html; procurando o app em outro lugar")
 		}
 	}
 	return ""

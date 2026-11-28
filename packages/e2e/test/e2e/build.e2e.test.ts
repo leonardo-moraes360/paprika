@@ -13,7 +13,7 @@ describe.skipIf(!existsSync(webDist))("E2E: construção ao vivo", () => {
     session = await openSeededCanvas("paprika-build-");
     page = session.page;
     await page.evaluate(() => {
-      const world = document.querySelector(".world");
+      const world = document.querySelector('[data-testid="canvas-world"]');
       const log: { id: string | null; phase: string | null; bg: string; opacity: string }[] = [];
       (window as unknown as { __build: typeof log }).__build = log;
       if (!world) return;
@@ -77,13 +77,6 @@ describe.skipIf(!existsSync(webDist))("E2E: construção ao vivo", () => {
     expect(seen.map((row) => row.phase)).not.toContain("wait");
     expect(seen.map((row) => row.phase)).not.toContain("shown");
     expect(seen.filter((row) => row.id === "build-a" || row.id === "build-c").every((row) => row.opacity === "1" && row.bg !== "rgba(0, 0, 0, 0)" && row.bg !== "transparent")).toBe(true);
-
-    const toggle = page.getByTestId("build-code-toggle");
-    await expect.poll(() => toggle.getAttribute("aria-pressed")).toBe("false");
-    await expect.poll(() => page.getByTestId("build-code").count()).toBe(0);
-    await toggle.click();
-    await expect.poll(() => page.getByTestId("build-code").innerText()).toContain("BuildLiveRow");
-    await expect.poll(() => page.locator('[data-paprika-id="build-screen"]').count()).toBe(1);
   });
 
   it("com movimento reduzido não há contorno nem passeio, só o estado final", async () => {

@@ -1,0 +1,341 @@
+import { nodeStyle, type Node, type TextRun } from "@paprika/core";
+import { Bold, Italic, Link2, Unlink } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { TextField } from "@/components/ui/text-field";
+import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/ui/toolbar-group";
+import { ToolbarButton } from "@/components/ui/toolbar-button";
+import { editRange, linkAt, linkOk, marks, paintEditable, readEditable, sameText, selectOffsets, selectionOffsets } from "../rich-text";
+import { useCanvasState } from "../region";
+import { useCanvasRuntime } from "../runtime";
+import { confirmKey, editorOutlineStyle } from "./editor-chrome";
+import { useDocVersion } from "./use-doc-version";
+import { useNode } from "./use-node";
+
+type TextNode = Extract<Node, { type: "text" }>;
+
+/**
+ * The editor of a text node, drawn over it while `editingId` is its id: a content-editable with the node's own typography and a
+ * floating bar (bold, italic, size, colour, link) over the selection. Enter breaks the line; Escape, Ctrl or Cmd with Enter,
+ * or leaving it, confirms; one `apply` goes out, and only when the text or its runs changed.
+ */
+export function TextEditor() {
+  const id = useCanvasState((s) => s.editingId);
+  return id ? <TextEditorFor key={id} id={id} /> : null;
+}
+
+function TextEditorFor({ id }: { id: string }) {
+  const node = useNode(id);
+  return node?.type === "text" ? <TextSurface node={node} /> : null;
+}
+
+const BAR_GAP = 8;
+const BAR_MARGIN = 8;
+
+const hexOf = (value: unknown) => (typeof value === "string" && value.startsWith("#") ? value : "");
+
+function TextSurface({ node }: { node: TextNode }) {
+  const rt = useCanvasRuntime();
+  const [initial] = useState(node);
+  const shell = useRef<HTMLDivElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  const surface = useRef<HTMLDivElement>(null);
+  const done = useRef(false);
+  /** The text and runs the document had last: what the editable started from, or what another client wrote since. A change is measured against it. */
+  const base = useRef<{ text: string; runs: TextRun[] | null }>({ text: initial.text, runs: initial.runs ?? null });
+  const saved = useRef<{ start: number; end: number } | null>(null);
+  const [size, setSize] = useState(typeof node.fontSize === "number" ? String(node.fontSize) : "16");
+  const [color, setColor] = useState(hexOf(node.color));
+  const [href, setHref] = useState("");
+  const [linked, setLinked] = useState<string | null>(null);
+  const wasLinked = useRef(false);
+  const follow = useRef<() => void>(() => {});
+  // Whether Apply link has something to act on: a selection, or a caret on a link. Kept from the last time the selection was in the text.
+  const [hasTarget, setHasTarget] = useState(false);
+  const [tried, setTried] = useState(false);
+
+  const version = useDocVersion();
+  // The shell and the bar follow the text: another client may move it, or change its size, while it is open.
+  useLayoutEffect(() => {
+    const box = rt.measure(initial.id);
+    const wrap = shell.current;
+    if (wrap && box) {
+      wrap.style.left = `${box.x}px`;
+      wrap.style.top = `${box.y}px`;
+      wrap.style.width = `${box.width}px`;
+      wrap.style.minHeight = `${box.height}px`;
+      wrap.style.transform = box.rotation ? `rotate(${box.rotation}deg)` : "";
+    }
+    // The bar keeps inside the canvas: pushed in from a side it would run past, and under the text when there is no room above it.
+    const strip = bar.current;
+    const viewport = rt.viewport();
+    if (strip && wrap && viewport) {
+      const room = viewport.getBoundingClientRect();
+      const r = strip.getBoundingClientRect();
+      const zoom = rt.view.get().zoom;
+      let dx = 0;
+      if (r.right > room.right - BAR_MARGIN) dx = room.right - BAR_MARGIN - r.right;
+      if (r.left + dx < room.left + BAR_MARGIN) dx = room.left + BAR_MARGIN - r.left;
+      const flip = r.top < room.top + BAR_MARGIN;
+      strip.style.transform = `translateX(${dx / zoom}px) scale(calc(1 / var(--view-zoom))) translateY(${flip ? `${wrap.getBoundingClientRect().height + BAR_GAP}px` : `calc(-100% - ${BAR_GAP}px)`})`;
+    }
+  }, [rt, initial, version]);
+
+  useLayoutEffect(() => {
+    const el = surface.current;
+    if (!el) return;
+    paintEditable(el, initial.text, initial.runs);
+    el.focus();
+    // The caret goes to the end, where a person who opened the editor to add something expects it.
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+  }, [rt, initial]);
+
+  // Another client wrote the text while this one is open: an editable nobody has touched shows it (the caret stays where it was); one with typing in it keeps what was typed, and only the base moves on.
+  useEffect(() => {
+    const el = surface.current;
+    const last = base.current;
+    if (!el || done.current || sameText(node.text, node.runs, last.text, last.runs)) return;
+    const mine = readEditable(el);
+    base.current = { text: node.text, runs: node.runs ?? null };
+    if (!sameText(mine.text, mine.runs, last.text, last.runs)) return;
+    const caret = selectionOffsets(el);
+    paintEditable(el, node.text, node.runs);
+    if (caret) {
+      const end = node.text.length;
+      selectOffsets(el, Math.min(caret.start, end), Math.min(caret.end, end));
+    }
+  }, [node.text, node.runs]);
+
+  // A caret or selection inside a link puts its address in the field and offers to remove it.
+  useEffect(() => {
+    follow.current = () => {
+      const el = surface.current;
+      if (!el || done.current) return;
+      const at = selectionOffsets(el);
+      if (!at) return;
+      const current = readEditable(el);
+      // The last selection inside the text, whether the mouse or the keys made it: with the focus in the link field it is what Apply link acts on.
+      saved.current = at;
+      const run = linkAt(current.runs, at.start, at.end);
+      setLinked(run?.href ?? null);
+      setHasTarget(at.start !== at.end || Boolean(run));
+      if (run?.href) {
+        setHref(run.href);
+        setTried(false);
+      } else if (wasLinked.current) {
+        // Leaving a link leaves its address behind: the next Apply would put it on another text.
+        setHref("");
+        setTried(false);
+      }
+      wasLinked.current = Boolean(run?.href);
+    };
+    const onChange = () => follow.current();
+    document.addEventListener("selectionchange", onChange);
+    return () => document.removeEventListener("selectionchange", onChange);
+  }, []);
+
+  const finish = (refocus: boolean) => {
+    if (done.current) return;
+    done.current = true;
+    const el = surface.current;
+    const next = el ? readEditable(el) : { text: base.current.text, runs: base.current.runs };
+    if (!sameText(next.text, next.runs, base.current.text, base.current.runs)) {
+      void rt.apply([{ op: "update", id: initial.id, props: { text: next.text, runs: next.runs } }], rt.text("history.editText"));
+    }
+    rt.store.actions.setEditing(null);
+    if (refocus) rt.viewport()?.focus({ preventScroll: true });
+  };
+
+  const change = (run: (run: TextRun | undefined) => TextRun | null, whole?: boolean) => {
+    const el = surface.current;
+    if (!el) return;
+    const live = selectionOffsets(el);
+    let sel = live && live.start !== live.end ? live : saved.current;
+    const current = readEditable(el);
+    if ((!sel || sel.start === sel.end) && whole) {
+      const at = live ?? saved.current;
+      const hit = at ? linkAt(current.runs, at.start, at.end) : null;
+      if (hit) sel = { start: hit.start, end: hit.end };
+    }
+    if (!sel || sel.start === sel.end) return;
+    paintEditable(el, current.text, editRange(current.text, current.runs ?? undefined, sel.start, sel.end, run));
+    selectOffsets(el, sel.start, sel.end);
+  };
+
+  const apply = () => {
+    if (!linkOk(href.trim())) {
+      setTried(true);
+      return;
+    }
+    setTried(false);
+    change(marks.link(href.trim()), true);
+  };
+
+  const unlink = () => {
+    change(marks.unlink, true);
+    wasLinked.current = false;
+    setLinked(null);
+    setHref("");
+    setTried(false);
+  };
+
+  const showError = tried && !linkOk(href.trim());
+  const number = Number(size);
+  const sizeOk = Number.isFinite(number) && number >= 1 && number <= 1000;
+  const colorOk = color.trim() !== "" && typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("color", color.trim());
+  const css = { ...nodeStyle(rt.doc(), initial) } as CSSProperties;
+  const style: CSSProperties = { ...css, position: "relative", left: 0, top: 0, width: "100%", height: "auto", minHeight: "1em", transform: "none", visibility: "visible", margin: 0, pointerEvents: "auto" };
+  const text = (key: string) => rt.text(`text.${key}`);
+
+  return (
+    <div
+      ref={shell}
+      data-testid="text-editor"
+      className="pointer-events-none absolute"
+      onPointerDown={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+      onPaste={(e) => e.stopPropagation()}
+      onBlur={(e) => {
+        // The text is losing the focus (to the bar by the Tab key, say): the selection is still in it, and the browser reports its last change a task later, when it has already left.
+        if (e.target === surface.current) follow.current();
+        // Focus moving between the text and the bar keeps the editor open; leaving both confirms.
+        const next = e.relatedTarget;
+        if (next instanceof globalThis.Node && shell.current?.contains(next)) return;
+        finish(false);
+      }}
+    >
+      <div
+        ref={bar}
+        className="pointer-events-auto absolute top-0 left-0 w-max origin-top-left"
+        style={{ transform: `scale(calc(1 / var(--view-zoom))) translateY(calc(-100% - ${BAR_GAP}px))` }}
+        onMouseDown={(e) => {
+          const el = surface.current;
+          if (el) saved.current = selectionOffsets(el) ?? saved.current;
+          // A button must not take the selection away from the text; a field does take the focus.
+          if (!(e.target instanceof HTMLElement) || !e.target.closest("input")) e.preventDefault();
+        }}
+      >
+        <Toolbar aria-label={text("toolbar")}>
+          <ToolbarGroup>
+            <ToolbarButton aria-label={text("bold")} onClick={() => change(marks.bold)}>
+              <Bold aria-hidden="true" />
+            </ToolbarButton>
+            <ToolbarButton aria-label={text("italic")} onClick={() => change(marks.italic)}>
+              <Italic aria-hidden="true" />
+            </ToolbarButton>
+          </ToolbarGroup>
+          <ToolbarSeparator />
+          <TextField
+            aria-label={text("size")}
+            inputMode="numeric"
+            className="h-7 w-11 px-1.5 text-sm"
+            value={size}
+            onChange={(e) => setSize(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              if (sizeOk) change(marks.size(number));
+            }}
+          />
+          <TextField
+            aria-label={text("color")}
+            className="h-7 w-20 px-1.5 text-sm"
+            value={color}
+            placeholder={text("color")}
+            onChange={(e) => setColor(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              if (colorOk) change(marks.color(color.trim()));
+            }}
+          />
+          <TextField
+            aria-label={text("linkField")}
+            aria-invalid={showError || undefined}
+            aria-describedby={showError ? "text-link-error" : hasTarget ? undefined : "text-link-hint"}
+            className={`h-7 w-32 px-1.5 text-sm ${showError ? "border-red-ink" : ""} focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-select`}
+            value={href}
+            placeholder={text("linkPlaceholder")}
+            onChange={(e) => setHref(e.target.value)}
+            onKeyDown={(e) => {
+              if (confirmKey(e)) {
+                e.preventDefault();
+                finish(true);
+                return;
+              }
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              if (href.trim() !== "") apply();
+            }}
+          />
+          <ToolbarButton
+            aria-label={text("applyLink")}
+            aria-describedby={hasTarget ? undefined : "text-link-hint"}
+            title={hasTarget ? undefined : text("linkNeedsText")}
+            disabled={href.trim() === "" || !hasTarget}
+            onClick={apply}
+          >
+            <Link2 aria-hidden="true" />
+          </ToolbarButton>
+          {linked !== null ? (
+            <ToolbarButton aria-label={text("removeLink")} onClick={unlink}>
+              <Unlink aria-hidden="true" />
+            </ToolbarButton>
+          ) : null}
+        </Toolbar>
+        {hasTarget ? null : (
+          <span id="text-link-hint" className="sr-only">
+            {text("linkNeedsText")}
+          </span>
+        )}
+        {showError ? (
+          <p id="text-link-error" role="alert" className="mt-1 rounded-sm bg-surface px-1.5 py-1 text-xs font-medium text-red-ink">
+            {text("linkInvalid")}
+          </p>
+        ) : null}
+      </div>
+      <div
+        ref={surface}
+        role="textbox"
+        aria-multiline="true"
+        aria-label={text("field")}
+        contentEditable
+        suppressContentEditableWarning
+        className="whitespace-pre-wrap scheme-light"
+        style={{ ...style, ...editorOutlineStyle }}
+        onKeyDown={(e) => {
+          if (confirmKey(e)) {
+            e.preventDefault();
+            finish(true);
+            return;
+          }
+          if (e.key !== "Enter") return;
+          e.preventDefault();
+          const sel = window.getSelection();
+          if (!sel || sel.rangeCount === 0) return;
+          const range = sel.getRangeAt(0);
+          range.deleteContents();
+          const br = document.createTextNode("\n");
+          range.insertNode(br);
+          range.setStartAfter(br);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }}
+        onPaste={(e) => {
+          // Text only: a paste from a page would bring its own styles into the runs.
+          e.preventDefault();
+          document.execCommand("insertText", false, e.clipboardData.getData("text/plain"));
+        }}
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest("a")) e.preventDefault();
+        }}
+      />
+    </div>
+  );
+}

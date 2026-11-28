@@ -45,7 +45,25 @@ pnpm build
 pnpm test:perf
 ```
 
-It needs the web build (`web-legacy/dist`) and Playwright Chromium for the browser scenarios (see [development](development.md); `PAPRIKA_CHROMIUM` points at another Chrome). Without the web build only the server scenarios run. It prints a `scenario | budget | measured | limit | status` table and writes the same data as JSON to `$PAPRIKA_PERF_REPORT` (default `report.json` in a fresh `paprika-perf-report-*` directory under the OS temp directory; the path is printed). It is not part of `pnpm check`.
+It needs the web build (`apps/web/dist/client`) and Playwright Chromium for the browser scenarios (see [development](development.md); `PAPRIKA_CHROMIUM` points at another Chrome). Without the web build only the server scenarios run. It prints a `scenario | budget | measured | limit | status` table and writes the same data as JSON to `$PAPRIKA_PERF_REPORT` (default `report.json` in a fresh `paprika-perf-report-*` directory under the OS temp directory; the path is printed). It is not part of `pnpm check`.
+
+## The app (`apps/web`)
+
+The `browser` block of `packages/e2e/test/perf/perf.test.ts` opens the app (`/w/<doc>` from `apps/web/dist/client`) on the worst case and on a small document in the same run, and applies the budgets above to the difference. It is skipped when there is no web build. Its scenarios:
+
+- `pan-zoom`: wheel pan and ctrl+wheel zoom on the heavy page, p95 frame (budget `frameP95Ms`, enforced).
+- `panel-resize`: five steps of dragging the first `separator` of the workspace, measured to the second animation frame (`panelResizeStepMs`, enforced).
+- `tab-incoming-write`: script time in the tab, from the CDP metrics, when another client writes one property (`tabWriteScriptMs`, report-only), together with the longest task and the number of long tasks. The same test checks that opening the page receives one snapshot (`wsSnapshotsOnOpen`).
+- `agent-build`: time from an MCP `create_nodes` of a 200-node frame until all 200 elements are in the DOM and painted, on the small document and on the heavy page (`agentNodeVisibleSmallMs` enforced, `agentNodeVisibleMs` report-only).
+
+The other scenarios in the file (`ws-bytes`, `ws-open`, `server-write`, `slow-tab`) exercise the server and the wire, not the app.
+
+Also in the app:
+
+- Commit counts in Vitest: `apps/web/src/perf/*.perf.test.tsx` render the editor and the overview in jsdom on a generated N-node document and assert how many times each region commits for an action (they run with `pnpm --filter @paprika/web test`). They check that an action does not re-render regions it should not touch. They are not time budgets and the timings they print are jsdom's, which say nothing about a browser.
+- A manual measure: `?perf=1` on a development build (`vite dev`) turns on `RegionProfiler` (`apps/web/src/perf`), which records each region's commits and `actualDuration` and exposes them as `window.__paprikaPerf` (read it from the console or a script). It is off in a production build. Numbers taken this way are from a development build.
+
+What is still missing, with no scenario and no budget in `packages/e2e/test/perf` (rule 7(b) of [AGENTS.md](../../AGENTS.md)): selecting a node and scrolling the layers panel on a page with thousands of nodes (jsdom only measures it today), dragging, resizing or rotating a selection on the heavy page, editing text, undo and redo, the time to open the heavy page (first paint), the WASM layer paint and the overview with many projects. A change to one of those hot paths adds its scenario and budget in the same PR. The Vitest commit tests are not that budget.
 
 ## How to profile
 

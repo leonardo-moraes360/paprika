@@ -2,15 +2,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { chromium, type Browser, type ConsoleMessage, type Page } from "playwright";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { pinLocale } from "./locale.js";
 import { startServer, type ExternalServer } from "../harness.js";
-
-const root = resolve(import.meta.dirname, "../../../..");
-const webRoot = join(root, "web-legacy/dist");
+import { webDist as webRoot } from "./seededCanvas.js";
 const sessions = 6;
 const writesEach = 8;
 
@@ -32,9 +30,9 @@ describe.skipIf(!existsSync(webRoot))("E2E: muitos agentes escrevendo ao mesmo t
       if (msg.type() === "error") consoleErrors.push(msg.text());
     });
     await pinLocale(page, "pt-BR");
-    await page.goto(external.url);
-    await page.locator(".workspace-card").first().click();
-    await page.getByRole("navigation", { name: "Ferramentas" }).waitFor();
+    const { active } = (await (await fetch(`${external.url}/api/workspaces`)).json()) as { active: string };
+    await page.goto(`${external.url}/w/${encodeURIComponent(active)}`);
+    await page.getByRole("toolbar", { name: "Ferramentas" }).waitFor();
   }, 60_000);
 
   afterAll(async () => {
@@ -67,11 +65,11 @@ describe.skipIf(!existsSync(webRoot))("E2E: muitos agentes escrevendo ao mesmo t
         }),
       );
       await expect.poll(() => page.locator('[data-paprika-id="p0n0"]').count()).toBe(1);
-      expect(await page.getByRole("navigation", { name: "Ferramentas" }).isVisible()).toBe(true);
-      expect(await page.getByRole("complementary", { name: "Páginas e camadas" }).isVisible()).toBe(true);
-      expect(await page.getByRole("complementary", { name: "Propriedades" }).isVisible()).toBe(true);
+      expect(await page.getByRole("toolbar", { name: "Ferramentas" }).isVisible()).toBe(true);
+      expect(await page.getByRole("complementary", { name: "Painel de camadas" }).isVisible()).toBe(true);
+      expect(await page.getByRole("complementary", { name: "Painel de propriedades" }).isVisible()).toBe(true);
       expect(await page.getByTestId("canvas-error").count()).toBe(0);
-      expect(await page.locator("#root").evaluate((el) => el.childElementCount)).toBeGreaterThan(0);
+      expect(await page.getByTestId("viewport").count()).toBe(1);
       expect(pageErrors, pageErrors.join("\n")).toEqual([]);
       expect(consoleErrors, consoleErrors.join("\n")).toEqual([]);
     } finally {

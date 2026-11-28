@@ -48,7 +48,7 @@ export function Tooltip({ content, children, side = "top", arrow = true, delay =
       >
         {arrow ? <TooltipArrow className={liveArrowClasses} /> : null}
         {content}
-        {shortcut ? <TooltipShortcut className="ml-2 text-bg/70" /> : null}
+        {shortcut ? <TooltipShortcut className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-sm bg-bg px-1.5 text-xs leading-none font-semibold text-fg" /> : null}
       </TooltipContent>
     </TooltipPrimitive>
   );

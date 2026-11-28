@@ -37,7 +37,10 @@ function assertEverythingOn(p, why) {
   }
   assert.deepEqual(
     JSON.parse(p.unit_matrix),
-    [{ pkg: "@paprika/core", mode: "all" }],
+    [
+      { pkg: "@paprika/core", mode: "all" },
+      { pkg: "@paprika/web", mode: "all" },
+    ],
     `${why}: unit_matrix`,
   );
   assert.deepEqual(
@@ -71,7 +74,7 @@ describe("infra files run everything", () => {
   });
 
   it("only the workspace-root files are infra", () => {
-    for (const file of ["web-legacy/package.json", "packages/core/package.json", "my-pnpm-lock.yaml", ".github/dependabot.yml", ".github/CODEOWNERS"]) {
+    for (const file of ["apps/web/package.json", "packages/core/package.json", "my-pnpm-lock.yaml", ".github/dependabot.yml", ".github/CODEOWNERS"]) {
       assert.equal(isFullRun([file]), false, file);
     }
   });
@@ -107,13 +110,16 @@ describe("docs-only changes run only Plan and CI OK", () => {
 });
 
 describe("each area selects its jobs", () => {
-  it("packages/core runs its unit tests and both suites", () => {
+  it("packages/core runs its unit tests, the unit tests of the app that depends on it, and both suites", () => {
     const p = plan(["packages/core/src/ops.ts", "packages/core/src/schema.ts"]);
     assert.equal(p.full, false);
     assert.equal(p.ts, true);
     assert.equal(p.build, true);
     assert.equal(p.golden, true, "the Go fixtures come from the TS core");
-    assert.deepEqual(JSON.parse(p.unit_matrix), [{ pkg: "@paprika/core", mode: "changed" }]);
+    assert.deepEqual(JSON.parse(p.unit_matrix), [
+      { pkg: "@paprika/core", mode: "changed" },
+      { pkg: "@paprika/web", mode: "all" },
+    ]);
     assert.equal(p.suites, true);
     assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }, { suite: "api" }]);
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
@@ -136,24 +142,16 @@ describe("each area selects its jobs", () => {
     assert.deepEqual(plan(["packages/server/src/mcp.ts"]), NOTHING);
   });
 
-  it("web-legacy runs the e2e suite but no unit test and no API suite", () => {
-    const p = plan(["web-legacy/src/Canvas.tsx"]);
-    assert.equal(p.unit, false);
-    assert.equal(p.unit_matrix, "[]");
-    assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }]);
-    assert.equal(p.golden, false);
-    assert.equal(p.ts, true);
-    assert.equal(p.build, true);
-    assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
-  });
-
-  it("apps/web only triggers the TS build and analysis, with no e2e and no docker", () => {
+  it("apps/web triggers the TS build, its own unit tests, the e2e suite, analysis and the image, with no API suite", () => {
     const p = plan(["apps/web/src/routes/index.tsx"]);
     assert.equal(p.ts, true);
     assert.equal(p.build, true);
-    assert.equal(p.docker, false);
-    assert.equal(p.suites, false);
-    assert.deepEqual(JSON.parse(p.suites_matrix), []);
+    assert.equal(p.unit, true);
+    assert.deepEqual(JSON.parse(p.unit_matrix), [{ pkg: "@paprika/web", mode: "all" }]);
+    assert.equal(p.docker, true, "the image ships the app");
+    assert.equal(p.golden, false);
+    assert.equal(p.suites, true, "the browser suites drive the app");
+    assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }]);
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript"]);
   });
 
@@ -164,12 +162,12 @@ describe("each area selects its jobs", () => {
     assert.equal(p.golden, false);
   });
 
-  it("crates/render counts as web because the canvas loads its WASM build", () => {
+  it("crates/render counts as the app because the canvas loads its WASM build", () => {
     const p = plan(["crates/render/src/lib.rs"]);
     assert.equal(p.rust, true);
     assert.equal(p.ts, true, "the web build embeds the renderer");
     assert.deepEqual(JSON.parse(p.suites_matrix), [{ suite: "e2e" }]);
-    assert.equal(p.unit, false);
+    assert.deepEqual(JSON.parse(p.unit_matrix), [{ pkg: "@paprika/web", mode: "all" }], "apps/web loads the same WASM build");
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript", "rust"]);
   });
 
@@ -178,7 +176,7 @@ describe("each area selects its jobs", () => {
       "crates/render/src/scene.rs",
       "packages/core/src/displayList.ts",
       "packages/core/src/style.ts",
-      "web-legacy/src/wasmLayer.ts",
+      "apps/web/src/editor/wasm-module.ts",
       "packages/e2e/test/e2e/wasm.e2e.test.ts",
       "packages/e2e/fixtures/wasm-path-stroke.paprika.json",
     ]) {
@@ -234,7 +232,7 @@ describe("each area selects its jobs", () => {
   });
 
   it("everything the image packages also builds the image", () => {
-    for (const file of ["packages/core/src/ops.ts", "web-legacy/src/Canvas.tsx", "crates/render/src/lib.rs", "server/internal/core/ops.go"]) {
+    for (const file of ["packages/core/src/ops.ts", "apps/web/src/routes/index.tsx", "crates/render/src/lib.rs", "server/internal/core/ops.go"]) {
       assert.equal(plan([file]).docker, true, file);
     }
   });
@@ -252,7 +250,7 @@ describe("each area selects its jobs", () => {
   });
 
   it("what the site does not read skips the site build", () => {
-    for (const file of ["web-legacy/src/Canvas.tsx", "server/internal/server/mcp.go", "crates/render/src/lib.rs", "packages/e2e/test/api.test.ts", "docs/en-US/mcp.md"]) {
+    for (const file of ["apps/web/src/routes/index.tsx", "server/internal/server/mcp.go", "crates/render/src/lib.rs", "packages/e2e/test/api.test.ts", "docs/en-US/mcp.md"]) {
       assert.equal(plan([file]).site, false, file);
     }
   });
@@ -266,7 +264,10 @@ describe("a mixed change unions every touched area", () => {
   it("core + server + docs keeps the full flags of both areas", () => {
     const p = plan(["packages/core/src/style.ts", "docs/en-US/adr/0002.md", "server/internal/server/routes.go"]);
     assert.equal(p.full, false);
-    assert.deepEqual(JSON.parse(p.unit_matrix), [{ pkg: "@paprika/core", mode: "changed" }]);
+    assert.deepEqual(JSON.parse(p.unit_matrix), [
+      { pkg: "@paprika/core", mode: "changed" },
+      { pkg: "@paprika/web", mode: "all" },
+    ]);
     assert.equal(JSON.parse(p.suites_matrix).length, 2);
     assert.equal(p.golden, true);
     assert.equal(p.go, true);
@@ -275,17 +276,17 @@ describe("a mixed change unions every touched area", () => {
   });
 
   it("web + server selects both stacks without being a full run", () => {
-    const p = plan(["web-legacy/src/useDocument.ts", "server/go.mod"]);
+    const p = plan(["apps/web/src/editor/editor.tsx", "server/go.mod"]);
     assert.equal(p.full, false);
     assert.equal(p.ts, true);
     assert.equal(p.go, true);
-    assert.equal(p.unit, false);
+    assert.equal(p.unit, true);
     assert.equal(JSON.parse(p.suites_matrix).length, 2);
     assert.deepEqual(JSON.parse(p.codeql_matrix), ["javascript-typescript", "go"]);
   });
 
   it("deleted and renamed files still select their area", () => {
-    const p = plan(["packages/core/src/old-query.ts", "web-legacy/src/Canvas.tsx"]);
+    const p = plan(["packages/core/src/old-query.ts", "apps/web/src/routes/index.tsx"]);
     assert.equal(p.unit, true);
     assert.equal(p.ts, true);
     assert.equal(p.go, false);

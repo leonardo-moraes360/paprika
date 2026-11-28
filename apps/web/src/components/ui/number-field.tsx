@@ -47,7 +47,7 @@ export function NumberField({
       <NumberInput disabled={disabled} {...props}>
         <NumberInputGroup className={cn("flex h-9 w-full items-center gap-2 pr-2 pl-3", fieldBoxWrapper, className)} {...boxProps}>
           {prefix ? <span aria-hidden="true" className="text-sm font-semibold text-muted">{prefix}</span> : null}
-          <NumberInputControl aria-label={ariaLabel} placeholder={placeholder} className={cn(bareInput, "tabular-nums", inputClassName)} />
+          <NumberInputControl aria-label={ariaLabel} placeholder={placeholder} className={cn(bareInput, inputClassName)} />
           {suffix ? <span aria-hidden="true" className="text-sm text-muted">{suffix}</span> : null}
           {steppers ? (
             <div className="flex shrink-0 flex-col items-center justify-center gap-0.5">

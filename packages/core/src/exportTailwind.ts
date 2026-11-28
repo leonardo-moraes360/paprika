@@ -4,6 +4,7 @@ import {
   componentName,
   escapeHtml,
   exportParts,
+  jsxAttrValue,
   jsxNode,
   jsxStyleAttr,
   pascalName,
@@ -245,7 +246,7 @@ const tailwindClassAttr: StyleEmitter = (css) => {
 
 const tailwindClassNameAttr: StyleEmitter = (css, owner) => {
   const { classes, fallback } = tailwindClasses(css);
-  const cls = classes.length ? ` className=${JSON.stringify(classes.join(" "))}` : "";
+  const cls = classes.length ? ` className=${jsxAttrValue(classes.join(" "))}` : "";
   const inline = Object.keys(fallback).length ? jsxStyleAttr(fallback, owner) : "";
   return `${cls}${inline}`;
 };

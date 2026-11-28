@@ -347,3 +347,46 @@ func TestBoolFlagHelpAndExplicitValue(t *testing.T) {
 		t.Fatalf("--team=false: on=%v err=%v", *on, err)
 	}
 }
+
+func TestWebRootAcceptsShellAndPrefersIt(t *testing.T) {
+	mk := func(entry string) string {
+		d := t.TempDir()
+		if err := os.WriteFile(filepath.Join(d, entry), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	shell, index := mk("_shell.html"), mk("index.html")
+	t.Setenv("PAPRIKA_WEB_ROOT", "")
+	if got := webRoot(shell); got != shell {
+		t.Errorf("shell flag: %q", got)
+	}
+	if got := webRoot(index); got != index {
+		t.Errorf("index flag: %q", got)
+	}
+	t.Setenv("PAPRIKA_WEB_ROOT", index)
+	if got := webRoot(""); got != index {
+		t.Errorf("env: %q", got)
+	}
+	if got := webRoot(shell); got != shell {
+		t.Errorf("flag beats env: %q", got)
+	}
+	empty := t.TempDir()
+	t.Setenv("PAPRIKA_WEB_ROOT", empty)
+	rd, wr, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved := os.Stderr
+	os.Stderr = wr
+	got := webRoot(empty)
+	os.Stderr = saved
+	wr.Close()
+	warn, _ := io.ReadAll(rd)
+	if got == empty {
+		t.Errorf("a folder without an entry must not be chosen")
+	}
+	if !strings.Contains(string(warn), empty) {
+		t.Errorf("a folder given without an entry must be reported, got %q", warn)
+	}
+}

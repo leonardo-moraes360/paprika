@@ -448,6 +448,10 @@ func NodeStyleVars(doc *Document, node *Node, asRoot, vars bool) *CSS {
 	}
 	if t := node.Str("type"); (t == "frame" || t == "text") && node.Str("href") != "" {
 		css.Set("cursor", "pointer")
+		css.Set("textDecoration", "none")
+		if t == "frame" {
+			css.Set("color", "inherit")
+		}
 	}
 	visible := vis
 	if !visible {
@@ -758,6 +762,11 @@ func textCSS(css *CSS, doc *Document, node *Node, mode string, vars bool, paint 
 	css.Set("overflowWrap", "anywhere")
 }
 
+const (
+	LinkUnderlineThickness = "max(1px, 0.06em)"
+	LinkUnderlineOffset    = "0.15em"
+)
+
 func TextRunCSS(doc *Document, node *Node, run *jsonv.Object, vars bool) *CSS {
 	css := jsonv.NewObject()
 	mode := ModeOf(doc, node)
@@ -774,7 +783,13 @@ func TextRunCSS(doc *Document, node *Node, run *jsonv.Object, vars bool) *CSS {
 		css.Set("fontStyle", "italic")
 	}
 	if _, ok := run.Get("href"); ok {
+		if _, has := run.Get("color"); !has {
+			css.Set("color", "inherit")
+		}
 		css.Set("textDecoration", "underline")
+		css.Set("textDecorationThickness", LinkUnderlineThickness)
+		css.Set("textUnderlineOffset", LinkUnderlineOffset)
+		css.Set("textDecorationSkipInk", "auto")
 	}
 	return css
 }

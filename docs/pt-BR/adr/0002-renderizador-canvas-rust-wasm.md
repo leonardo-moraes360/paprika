@@ -2,6 +2,8 @@
 
 # ADR 0002: Renderizador do canvas em Rust/WASM (WebGPU com fallback para CPU)
 
+> **Nota (2026-11):** o app descrito aqui, o `web-legacy`, foi substituído pelo `apps/web` e removido da árvore; os caminhos para ele abaixo são históricos e não existem mais.
+
 - **Status:** Aceito como **renderizador híbrido opcional** (atualização abaixo). O DOM continua sendo o padrão.
 - **Data:** 2026-11-21
 - **Código:** [`crates/render`](../../../crates/render), [`packages/core/src/displayList.ts`](../../../packages/core/src/displayList.ts), [`web-legacy/src/wasmLayer.ts`](../../../web-legacy/src/wasmLayer.ts). Harness de benchmark: [`experiments/canvas-wasm/`](https://github.com/leonardo-moraes360/paprika/tree/040b843/experiments/canvas-wasm/README.pt-BR.md)
